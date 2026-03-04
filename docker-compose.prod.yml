@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:17-alpine
-    container_name: almaeng-postgres-dev
+    container_name: almaeng-postgres-prod
     restart: always
     environment:
       POSTGRES_USER: ${DB_USERNAME}
@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: ${DB_NAME}
       TZ: Asia/Seoul
     volumes:
-      - ./dev-db-data:/var/lib/postgresql/data
+      - ./prod-db-data:/var/lib/postgresql/data
     networks:
       - almaeng-network
     healthcheck:
@@ -21,17 +21,17 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: almaeng-redis-dev
+    container_name: almaeng-redis-prod
     restart: always
     command: redis-server --save 60 1 --loglevel warning
     volumes:
-      - ./dev-redis-data:/data
+      - ./prod-redis-data:/data
     networks:
       - almaeng-network
 
   backend:
     build: ./backend
-    container_name: almaeng-backend-dev
+    container_name: almaeng-backend-prod
     restart: always
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
@@ -57,7 +57,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: almaeng-frontend-dev
+    container_name: almaeng-frontend-prod
     restart: always
     ports:
       - "80:80"
