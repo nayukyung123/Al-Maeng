@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# 커밋 메시지가 저장된 파일 경로
+COMMIT_MSG_FILE=$1
+
+# 현재 브랜치 이름 가져오기 (예: feat/S14P21B207-51_fe_login)
+BRANCH_NAME=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# 정규식으로 대문자알파벳+숫자-숫자 형태의 지라 키만 쏙 추출
+JIRA_KEY=$(echo "$BRANCH_NAME" | grep -Eo '[A-Z0-9]+-[0-9]+' | head -1)
+
+# 지라 키가 존재할 때만 실행
+if [ -n "$JIRA_KEY" ]; then
+    # 커밋 메시지에 이미 지라 키가 있는지 확인 (중복 방지)
+    if ! grep -q "\[$JIRA_KEY\]" "$COMMIT_MSG_FILE"; then
+        # 기존 메시지 맨 앞에 [지라키] 를 붙여서 덮어쓰기
+        echo "[$JIRA_KEY] $(cat "$COMMIT_MSG_FILE")" > "$COMMIT_MSG_FILE"
+    fi
+fi
