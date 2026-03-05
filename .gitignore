@@ -567,4 +567,9 @@ gradle-app.setting
 # Java heap dump
 *.hprof
 
+local-db-data/
+local-redis-data/
+prod-db-data/
+prod-redis-data/
+
 # End of https://www.toptal.com/developers/gitignore/api/java,python,macos,windows,linux,intellij+all,visualstudiocode,node,react,gradle,jupyternotebooks
