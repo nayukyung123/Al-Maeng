@@ -1,4 +1,4 @@
-package com.almaeng.backend;
+package com.almaeng;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
