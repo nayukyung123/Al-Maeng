@@ -1,4 +1,4 @@
-package com.almaeng.backend;
+package com.almaeng;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
