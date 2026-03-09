@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   db:
-    image: postgres:17-alpine
+    image: pgvector/pgvector:pg16 
     container_name: almaeng-postgres-prod
     restart: always
     environment:
@@ -10,6 +10,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
       TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - ./prod-db-data:/var/lib/postgresql/data
     networks:
