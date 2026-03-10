@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  jenkins:
+    build: .
+    container_name: jenkins-server
+    restart: unless-stopped
+
+    user: root
+
+    ports:
+      - "9090:8080"
+      - "50000:50000"
+
+    environment:
+      - TZ=Asia/Seoul
+
+    volumes:
+      # 1. 젠킨스 데이터
+      - jenkins_data:/var/jenkins_home
+
+      # 2. 호스트 도커와 연결
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # 3. 시간 동기화
+      - /etc/localtime:/etc/localtime:ro
+
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+volumes:
+  jenkins_data:
