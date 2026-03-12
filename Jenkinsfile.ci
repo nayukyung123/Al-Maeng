@@ -5,6 +5,8 @@ pipeline {
         // 백엔드, 프론트엔드 폴더 경로
         BACKEND_DIR = './backend'
         FRONTEND_DIR = './frontend'
+
+        TESTCONTAINERS_RYUK_DISABLED = 'true'
     }
 
     stages {
