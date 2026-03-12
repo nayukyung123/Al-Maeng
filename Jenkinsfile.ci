@@ -1,0 +1,60 @@
+pipeline {
+    agent any
+
+    environment {
+        // 백엔드, 프론트엔드 폴더 경로
+        BACKEND_DIR = './backend'
+        FRONTEND_DIR = './frontend'
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "🔍 CI Check for: ${env.GIT_BRANCH}"
+            }
+        }
+
+        // 1. 프론트엔드 빌드 검증
+        stage('Frontend CI') {
+            agent {
+                docker { image 'node:20-alpine' } // Node.js 환경 자동 구성
+            }
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    sh 'npm ci'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        // 2. 백엔드 빌드 및 단위 테스트
+        stage('Backend CI & Test') {
+            agent {
+                docker { image 'gradle:8-jdk17-alpine' } // Java 17 환경 자동 구성
+            }
+            steps {
+                dir("${BACKEND_DIR}") {
+                    sh 'chmod +x ./gradlew'
+                    sh './gradlew clean build'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                def mmMessage = "🧪 **[CI 결과] ${env.JOB_NAME}**\n" +
+                                "**브랜치**: ${env.GIT_BRANCH}\n" +
+                                "**결과**: ${currentBuild.result ?: 'SUCCESS'}\n" +
+                                "🔗 [상세 로그](${env.BUILD_URL})"
+                mattermostSend(color: (currentBuild.result == 'SUCCESS' ? 'good' : 'danger'), message: mmMessage)
+            }
+        }
+    }
+}
