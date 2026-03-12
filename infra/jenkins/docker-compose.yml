@@ -17,9 +17,9 @@ services:
 
     volumes:
       # 1. 젠킨스 데이터
-      - jenkins_data:/var/jenkins_home
+      - /var/jenkins_home:/var/jenkins_home
 
-      # 2. 호스트 도커와 연결
+      # 2. 호스트 도커와 연결 (DooD 설정)
       - /var/run/docker.sock:/var/run/docker.sock
 
       # 3. 시간 동기화
