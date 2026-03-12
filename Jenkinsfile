@@ -6,6 +6,12 @@ pipeline {
     }
 
     stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
         // 1. 깃랩에서 최신 코드 가져오기
         stage('Checkout') {
             steps {
