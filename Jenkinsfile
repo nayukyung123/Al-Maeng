@@ -21,6 +21,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'almaeng-env', variable: 'ENV_FILE')]) {
                     sh 'cp $ENV_FILE .env'
                     sh "docker compose -f ${COMPOSE_FILE} up -d --build"
+                }
             }
         }
 
