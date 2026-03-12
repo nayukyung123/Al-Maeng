@@ -39,10 +39,13 @@ pipeline {
         agent {
             docker {
                 image 'gradle:8-jdk17-alpine'
-                args '-v /var/run/docker.sock:/var/run/docker.sock --network host'
+                args '-v /var/run/docker.sock:/var/run/docker.sock'
             }
         }
-            steps {
+        environment {
+            DOCKER_HOST = 'unix:///var/run/docker.sock'
+        }
+        steps {
                 dir("${BACKEND_DIR}") {
                     sh 'chmod +x ./gradlew'
                     sh './gradlew clean build'
