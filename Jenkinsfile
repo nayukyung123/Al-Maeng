@@ -17,12 +17,10 @@ pipeline {
         // 2. 기존 컨테이너 중지 및 새 이미지로 배포
         stage('Deploy') {
             steps {
-                echo "Copying .env file..."
-                // 서버의 홈 디렉토리에 있는 .env를 현재 젠킨스 작업 폴더로 복사
-                sh "cp ~/al-maeng/S14P21B207/.env ./.env"
-
                 echo "Starting Deployment..."
-                sh "docker compose -f ${COMPOSE_FILE} up -d --build"
+                withCredentials([file(credentialsId: 'almaeng-env', variable: 'ENV_FILE')]) {
+                    sh 'cp $ENV_FILE .env'
+                    sh "docker compose -f ${COMPOSE_FILE} up -d --build"
             }
         }
 
