@@ -42,12 +42,35 @@ pipeline {
 
     post {
         success {
-            // 성공 시 MM 알림
-            mattermostSend (color: 'good', message: "✅ **빌드 성공!**\n- 프로젝트: ${env.JOB_NAME}\n- 번호: #${env.BUILD_NUMBER}\n- 확인: ${env.BUILD_URL}")
+            script {
+                def commitAuthor = sh(script: "git show -s --pretty=%an", returnStdout: true).trim()
+                def commitMsg = sh(script: "git show -s --pretty=%s", returnStdout: true).trim()
+                def branchName = env.GIT_BRANCH ?: 'Unknown'
+
+                def mmMessage = """✅ **[배포 성공] ${env.JOB_NAME}**
+    - **작업자**: ${commitAuthor}
+    - **브랜치**: ${branchName}
+    - **코멘트**: ${commitMsg}
+    - 🔗 [빌드 로그 확인하기](${env.BUILD_URL})"""
+
+                mattermostSend(color: 'good', message: mmMessage)
+            }
         }
         failure {
-            // 실패 시 MM 알림
-            mattermostSend (color: 'danger', message: "🚨 **빌드 실패!**\n- 프로젝트: ${env.JOB_NAME}\n- 번호: #${env.BUILD_NUMBER}\n- 확인: ${env.BUILD_URL}")
+            script {
+                def commitAuthor = sh(script: "git show -s --pretty=%an", returnStdout: true).trim()
+                def commitMsg = sh(script: "git show -s --pretty=%s", returnStdout: true).trim()
+                def branchName = env.GIT_BRANCH ?: 'Unknown'
+
+                def mmMessage = """🚨 **[배포 실패] ${env.JOB_NAME}**
+    - **작업자**: ${commitAuthor}
+    - **브랜치**: ${branchName}
+    - **코멘트**: ${commitMsg}
+    - ⚠️ **빨리 확인해 주세요!**
+    - 🔗 [에러 로그 확인하기](${env.BUILD_URL})"""
+
+                mattermostSend(color: 'danger', message: mmMessage)
+            }
         }
     }
 }
