@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: ${DB_NAME}
       TZ: Asia/Seoul
     ports:
-      - "${DB_PORT}:5432"
+      - "${DB_PORT}:5433"
     volumes:
       - ./local-db-data:/var/lib/postgresql/data
     networks:
