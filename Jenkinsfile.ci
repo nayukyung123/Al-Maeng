@@ -36,6 +36,7 @@ pipeline {
         stage('Backend CI & Test') {
             agent {
                 docker { image 'gradle:8-jdk17-alpine' } // Java 17 환경 자동 구성
+                args '-v /var/run/docker.sock:/var/run/docker.sock'
             }
             steps {
                 dir("${BACKEND_DIR}") {
