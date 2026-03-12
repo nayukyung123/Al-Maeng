@@ -64,14 +64,14 @@ services:
       - backend
     networks:
       - almaeng-network
-  
+
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./infra/nginx
+      dockerfile: Dockerfile
     container_name: almaeng-nginx-proxy
     ports:
       - "80:80"
-    volumes:
-      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro # 설정 파일 주입
     depends_on:
       - frontend
       - backend
