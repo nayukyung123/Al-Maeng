@@ -34,10 +34,12 @@ pipeline {
 
         // 2. 백엔드 빌드 및 단위 테스트
         stage('Backend CI & Test') {
-            agent {
-                docker { image 'gradle:8-jdk17-alpine' } // Java 17 환경 자동 구성
+        agent {
+            docker {
+                image 'gradle:8-jdk17-alpine'
                 args '-v /var/run/docker.sock:/var/run/docker.sock'
             }
+        }
             steps {
                 dir("${BACKEND_DIR}") {
                     sh 'chmod +x ./gradlew'
