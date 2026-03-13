@@ -1,11 +1,11 @@
 package com.almaeng;
 
 import org.junit.jupiter.api.Test;
+import com.almaeng.IntegrationTestSupport;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class BackendApplicationTests {
 
+class BackendApplicationTests extends IntegrationTestSupport{
 	@Test
 	void contextLoads() {
 	}

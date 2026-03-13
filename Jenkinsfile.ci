@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    environment {
+        BACKEND_DIR = './backend'
+        FRONTEND_DIR = './frontend'
+        TESTCONTAINERS_RYUK_DISABLED = 'true'
+    }
+
+    stages {
+        stage('Clean Workspace') {
+            steps { cleanWs() }
+        }
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "🔍 CI Check for: ${env.GIT_BRANCH}"
+            }
+        }
+
+        stage('Frontend CI') {
+            agent {
+                docker { image 'node:20-alpine' }
+            }
+            steps {
+                dir("${FRONTEND_DIR}") {
+                    sh 'npm ci'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Backend CI & Test') {
+            agent {
+                docker {
+                    image 'gradle:8-jdk17'
+                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway'
+                }
+            }
+            environment {
+                DOCKER_HOST = 'unix:///var/run/docker.sock'
+                TESTCONTAINERS_HOST_OVERRIDE = 'host.docker.internal'
+            }
+            steps {
+                dir("${BACKEND_DIR}") {
+                    sh 'chmod +x ./gradlew'
+                    sh './gradlew clean build'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                def mmMessage = "🧪 **[CI 결과] ${env.JOB_NAME}**\n" +
+                                "**브랜치**: ${env.GIT_BRANCH}\n" +
+                                "**결과**: ${currentBuild.result ?: 'SUCCESS'}\n" +
+                                "🔗 [상세 로그](${env.BUILD_URL})"
+                mattermostSend(color: (currentBuild.result == 'SUCCESS' ? 'good' : 'danger'), message: mmMessage)
+            }
+        }
+    }
+}
