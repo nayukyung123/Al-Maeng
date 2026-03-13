@@ -34,7 +34,7 @@ pipeline {
         stage('Backend CI & Test') {
             agent {
                 docker {
-                    image 'gradle:8-jdk17-alpine'
+                    image 'gradle:8-jdk17'
                     args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway'
                 }
             }
