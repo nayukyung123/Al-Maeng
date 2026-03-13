@@ -39,11 +39,12 @@ pipeline {
         agent {
             docker {
                 image 'gradle:8-jdk17-alpine'
-                args '-v /var/run/docker.sock:/var/run/docker.sock'
+                args '-v /var/run/docker.sock:/var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway'
             }
         }
         environment {
             DOCKER_HOST = 'unix:///var/run/docker.sock'
+            TESTCONTAINERS_HOST_OVERRIDE = 'host.docker.internal'
         }
         steps {
                 dir("${BACKEND_DIR}") {
