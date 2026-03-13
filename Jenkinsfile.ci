@@ -2,10 +2,8 @@ pipeline {
     agent any
 
     environment {
-        // 백엔드, 프론트엔드 폴더 경로
         BACKEND_DIR = './backend'
         FRONTEND_DIR = './frontend'
-
         TESTCONTAINERS_RYUK_DISABLED = 'true'
     }
 
@@ -21,10 +19,9 @@ pipeline {
             }
         }
 
-        // 1. 프론트엔드 빌드 검증
         stage('Frontend CI') {
             agent {
-                docker { image 'node:20-alpine' } // Node.js 환경 자동 구성
+                docker { image 'node:20-alpine' }
             }
             steps {
                 dir("${FRONTEND_DIR}") {
@@ -34,19 +31,18 @@ pipeline {
             }
         }
 
-        // 2. 백엔드 빌드 및 단위 테스트
         stage('Backend CI & Test') {
-        agent {
-            docker {
-                image 'gradle:8-jdk17-alpine'
-                args '-v /var/run/docker.sock:/var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway'
+            agent {
+                docker {
+                    image 'gradle:8-jdk17-alpine'
+                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway'
+                }
             }
-        }
-        environment {
-            DOCKER_HOST = 'unix:///var/run/docker.sock'
-            TESTCONTAINERS_HOST_OVERRIDE = 'host.docker.internal'
-        }
-        steps {
+            environment {
+                DOCKER_HOST = 'unix:///var/run/docker.sock'
+                TESTCONTAINERS_HOST_OVERRIDE = 'host.docker.internal'
+            }
+            steps {
                 dir("${BACKEND_DIR}") {
                     sh 'chmod +x ./gradlew'
                     sh './gradlew clean build'
