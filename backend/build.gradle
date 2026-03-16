@@ -46,6 +46,8 @@ dependencies {
 	testImplementation "org.testcontainers:junit-jupiter:1.19.0"
 	testImplementation "org.testcontainers:postgresql:1.19.0"
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {
