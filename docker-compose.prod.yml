@@ -5,6 +5,8 @@ services:
     image: pgvector/pgvector:pg16 
     container_name: almaeng-postgres-prod
     restart: always
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -33,8 +35,6 @@ services:
     build: ./backend
     container_name: almaeng-backend-prod
     restart: always
-    ports:
-      - "5432:5432"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
