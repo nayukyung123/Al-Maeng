@@ -8,10 +8,6 @@ pipeline {
     }
 
     stages {
-        stage('Clean Workspace') {
-            steps { cleanWs() }
-        }
-
         stage('Checkout') {
             steps {
                 checkout scm
@@ -31,7 +27,7 @@ pipeline {
             }
         }
 
-        stage('Backend CI & Test') {
+        stage('Backend CI & Test & SonarQube') {
             agent {
                 docker {
                     image 'gradle:8-jdk17'
@@ -45,7 +41,9 @@ pipeline {
             steps {
                 dir("${BACKEND_DIR}") {
                     sh 'chmod +x ./gradlew'
-                    sh './gradlew clean build'
+                    withSonarQubeEnv('sonar-server') {
+                        sh './gradlew clean build jacocoTestReport sonar --info' 
+                    }
                 }
             }
         }
@@ -60,6 +58,10 @@ pipeline {
                                 "🔗 [상세 로그](${env.BUILD_URL})"
                 mattermostSend(color: (currentBuild.result == 'SUCCESS' ? 'good' : 'danger'), message: mmMessage)
             }
+        }
+
+        cleanup {
+            cleanWs()
         }
     }
 }
