@@ -60,7 +60,7 @@ pipeline {
                                 "**작업자**: ${commitAuthor}\n" +
                                 "**브랜치**: ${branchName}\n" +
                                 "**코멘트**: ${commitMsg}\n" +
-                                "⚠️ **빨리 확인해 주세요!**\n" +
+                                "⚠️ **빨리 확인해 주세요!!**\n" +
                                 "🔗 [에러 로그 확인하기](${env.BUILD_URL})\n"
 
                 mattermostSend(color: 'danger', message: mmMessage)
