@@ -5,6 +5,7 @@ pipeline {
         BACKEND_DIR = './backend'
         FRONTEND_DIR = './frontend'
         TESTCONTAINERS_RYUK_DISABLED = 'true'
+        SONAR_URL = "http://j14b207.p.ssafy.io:9000"
     }
 
     stages {
@@ -52,9 +53,12 @@ pipeline {
     post {
         always {
             script {
+                def sonarUrl = "${env.SONAR_URL}/dashboard?id=al-maeng-backend"
+
                 def mmMessage = "🧪 **[CI 결과] ${env.JOB_NAME}**\n" +
                                 "**브랜치**: ${env.GIT_BRANCH}\n" +
                                 "**결과**: ${currentBuild.result ?: 'SUCCESS'}\n" +
+                                "📊 [SonarQube 리포트 확인](${sonarUrl})\n" +
                                 "🔗 [상세 로그](${env.BUILD_URL})"
                 mattermostSend(color: (currentBuild.result == 'SUCCESS' ? 'good' : 'danger'), message: mmMessage)
             }
