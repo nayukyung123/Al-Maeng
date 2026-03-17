@@ -48,7 +48,7 @@ public class Book {
     @Column(name = "cover_image_url", columnDefinition = "TEXT")
     private String coverImageUrl;
 
-    @Column(name = "average_rating")
+    @Column(name = "average_rating", columnDefinition = "numeric(2,1)")
     private Double averageRating;
 
     @Column(name = "slug")
