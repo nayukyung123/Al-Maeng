@@ -1,6 +1,6 @@
-package com.almaeng.domain.completetd_book.dto;
+package com.almaeng.domain.completedbook.dto;
 
-import com.almaeng.domain.completetd_book.entity.CompletedBook;
+import com.almaeng.domain.completedbook.entity.CompletedBook;
 
 import java.time.LocalDateTime;
 

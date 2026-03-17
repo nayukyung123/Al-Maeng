@@ -1,4 +1,4 @@
-package com.almaeng.domain.completetd_book.dto;
+package com.almaeng.domain.completedbook.dto;
 
 import jakarta.validation.constraints.NotNull;
 

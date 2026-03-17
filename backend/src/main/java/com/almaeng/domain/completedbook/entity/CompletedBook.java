@@ -1,4 +1,4 @@
-package com.almaeng.domain.completetd_book.entity;
+package com.almaeng.domain.completedbook.entity;
 
 import com.almaeng.domain.book.entity.Book;
 import com.almaeng.domain.user.entity.User;

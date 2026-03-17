@@ -1,8 +1,8 @@
-package com.almaeng.domain.completetd_book.controller;
+package com.almaeng.domain.completedbook.controller;
 
-import com.almaeng.domain.completetd_book.dto.CompletedBookAddRequest;
-import com.almaeng.domain.completetd_book.dto.CompletedBookResponse;
-import com.almaeng.domain.completetd_book.service.CompletedBookService;
+import com.almaeng.domain.completedbook.dto.CompletedBookAddRequest;
+import com.almaeng.domain.completedbook.dto.CompletedBookResponse;
+import com.almaeng.domain.completedbook.service.CompletedBookService;
 import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
