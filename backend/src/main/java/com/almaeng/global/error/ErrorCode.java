@@ -16,6 +16,8 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "존재하지 않는 사용자입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "U002", "이미 사용 중인 닉네임입니다."),
     UNAUTHORIZED_ACCESS(HttpStatus.UNAUTHORIZED, "A001", "인증되지 않은 접근입니다."),
+    INVALID_PROVIDER_OR_TOKEN(HttpStatus.BAD_REQUEST, "A002", "지원하지 않는 소셜 로그인 제공자이거나 토큰이 누락되었습니다."),
+    INVALID_SOCIAL_TOKEN(HttpStatus.UNAUTHORIZED, "A003", "유효하지 않거나 만료된 소셜 토큰입니다."),
 
     // [도서 / 큐레이션 에러]
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "도서 정보를 찾을 수 없습니다."),
