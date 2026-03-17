@@ -16,15 +16,17 @@ public class MattermostMessageDto {
     @Getter
     public static class Attachments {
         private Props props;
-        private List<Attachment> attachments;
+
+        @JsonProperty("attachments")
+        private List<Attachment> attachmentList;
 
         public Attachments() {
-            attachments = new ArrayList<>();
+            attachmentList = new ArrayList<>();
         }
 
         public Attachments(Attachment attachment) {
             this();
-            this.attachments.add(attachment);
+            this.attachmentList.add(attachment);
         }
 
         public void addProps(Exception e) {
