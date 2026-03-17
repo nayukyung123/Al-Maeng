@@ -1,15 +1,15 @@
 package com.almaeng.domain.completetd_book.entity;
 
+import com.almaeng.domain.book.entity.Book;
+import com.almaeng.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.apache.catalina.User;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.awt.print.Book;
 import java.time.LocalDateTime;
 
 @Entity
