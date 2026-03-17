@@ -21,7 +21,9 @@ public enum ErrorCode {
 
     // [도서 / 큐레이션 에러]
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "도서 정보를 찾을 수 없습니다."),
-    CURATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B002", "추천 도서를 가져오는 데 실패했습니다.");
+    CURATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B002", "추천 도서를 가져오는 데 실패했습니다."),
+    ALREADY_COMPLETED_BOOK(HttpStatus.BAD_REQUEST, "B003", "이미 완독 리스트에 추가된 도서입니다."),
+    COMPLETED_BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "B004", "완독 리스트에 존재하지 않는 도서입니다.");
 
     private final HttpStatus status;
     private final String code;

@@ -1,6 +1,8 @@
 spring:
   application:
     name: backend
+  profiles:
+    active: local
 
   # Database Configuration
   datasource:
