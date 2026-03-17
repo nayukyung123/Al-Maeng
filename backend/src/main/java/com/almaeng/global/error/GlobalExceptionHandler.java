@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE));
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, errorMessage));
     }
 
     // 3. 서버 런타임 에러 처리
