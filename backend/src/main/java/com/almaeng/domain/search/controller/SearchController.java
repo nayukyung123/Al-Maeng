@@ -1,7 +1,7 @@
-package com.almaeng.domain.search.entity.controller;
+package com.almaeng.domain.search.controller;
 
 import com.almaeng.domain.book.dto.BookSuggestionResponse;
-import com.almaeng.domain.search.entity.service.SearchService;
+import com.almaeng.domain.search.service.SearchService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

@@ -1,4 +1,4 @@
-package com.almaeng.domain.search.entity.service;
+package com.almaeng.domain.search.service;
 
 import com.almaeng.domain.book.dto.BookSuggestionResponse;
 import com.almaeng.domain.book.entity.Book;
