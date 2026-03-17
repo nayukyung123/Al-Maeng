@@ -29,4 +29,9 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> fail(ErrorCode errorCode) {
         return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null);
     }
+
+    // 4. 실패 시 응답 (ErrorCode 메시지를 dto에 적은 걸로 교체)
+    public static <T> ApiResponse<T> fail(ErrorCode errorCode, String message) {
+        return new ApiResponse<>(false, errorCode.getCode(), message,null);
+    }
 }

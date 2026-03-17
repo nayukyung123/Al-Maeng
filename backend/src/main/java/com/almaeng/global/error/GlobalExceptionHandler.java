@@ -5,11 +5,14 @@ import com.almaeng.global.error.mattermost.NotificationManager;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.Arrays;
 import java.util.Enumeration;
 
 @Slf4j
@@ -18,6 +21,7 @@ import java.util.Enumeration;
 public class GlobalExceptionHandler {
 
     private final NotificationManager notificationManager;
+    private final Environment env;
 
     // 1. 비즈니스 로직 예외 처리
     @ExceptionHandler(ApiException.class)
@@ -37,7 +41,7 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE));
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, errorMessage));
     }
 
     // 3. 서버 런타임 에러 처리
@@ -45,8 +49,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e, HttpServletRequest req) {
         log.error("Unhandled Exception : ", e);
 
-        // Mattermost 알림 비동기 발송
-        notificationManager.sendNotification(e, req.getRequestURI(), getParams(req));
+        // 현재 실행 환경이 'local'이 아닐 때만 Mattermost 알림 비동기 발송
+        if (!Arrays.asList(env.getActiveProfiles()).contains("local")) {
+            notificationManager.sendNotification(e, req.getRequestURI(), getParams(req));
+        }
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
