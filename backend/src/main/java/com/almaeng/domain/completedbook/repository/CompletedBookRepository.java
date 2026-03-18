@@ -1,6 +1,6 @@
-package com.almaeng.domain.completetd_book.repository;
+package com.almaeng.domain.completedbook.repository;
 
-import com.almaeng.domain.completetd_book.entity.CompletedBook;
+import com.almaeng.domain.completedbook.entity.CompletedBook;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 

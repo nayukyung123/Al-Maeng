@@ -1,4 +1,4 @@
-package com.almaeng.domain.completetd_book.entity;
+package com.almaeng.domain.completedbook.entity;
 
 import com.almaeng.domain.book.entity.Book;
 import com.almaeng.domain.user.entity.User;
@@ -43,6 +43,11 @@ public class CompletedBook {
         this.user = user;
         this.book = book;
         this.completedAt = completedAt;
+    }
+
+    public void updateCompletedAt(LocalDateTime completedAt) {
+        if(completedAt != null)
+            this.completedAt = completedAt;
     }
 
 
