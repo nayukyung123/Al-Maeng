@@ -5,8 +5,10 @@ import com.almaeng.domain.book.dto.BookSuggestionResponse;
 import com.almaeng.domain.search.service.SearchService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,7 +39,7 @@ public class SearchController {
     @GetMapping
     public ResponseEntity<ApiResponse<Slice<BookResponse>>> searchBooks(
             @RequestParam("keyword") String keyword,
-            @PageableDefault(size=10) Pageable pageable){
+            @ParameterObject @PageableDefault(size=10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable){
         return ResponseEntity.ok(ApiResponse.success(searchService.searchBooks(keyword, pageable)));
     }
 
