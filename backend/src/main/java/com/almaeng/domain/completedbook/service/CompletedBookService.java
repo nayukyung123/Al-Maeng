@@ -6,6 +6,7 @@ import com.almaeng.domain.completedbook.dto.CompletedBookAddRequest;
 import com.almaeng.domain.completedbook.dto.CompletedBookResponse;
 import com.almaeng.domain.completedbook.entity.CompletedBook;
 import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
+import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.domain.user.entity.User;
 import com.almaeng.domain.user.repository.UserRepository;
 import com.almaeng.global.error.ApiException;
@@ -25,6 +26,7 @@ public class CompletedBookService {
     private final CompletedBookRepository completedBookRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
+    private final TicketRepository ticketRepository;
 
     // 완독 도서 추가
     @Transactional
@@ -63,7 +65,9 @@ public class CompletedBookService {
         CompletedBook completedBook = completedBookRepository.findByUserIdAndBookId(userId, bookId)
                 .orElseThrow(() -> new ApiException(ErrorCode.COMPLETED_BOOK_NOT_FOUND));
 
-        // 티켓 레포지토리 생성 시 티켓 만들어져 있으면 삭제 못하도록 하는 기능 추가
+        if(ticketRepository.existsByCompletedBookId(completedBook.getId())) {
+            throw new ApiException(ErrorCode.COMPLETED_BOOK_HAS_TICKET);
+        }
 
         completedBookRepository.delete(completedBook);
     }
