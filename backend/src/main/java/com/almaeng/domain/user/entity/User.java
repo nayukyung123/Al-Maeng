@@ -1,7 +1,8 @@
 package com.almaeng.domain.user.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,6 +10,9 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
@@ -58,6 +62,10 @@ public class User {
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false; // 회원 탈퇴 시 true 로 변경
 
+    // 소셜 계정과의 1:N 양방향 매핑
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SocialAccount> socialAccounts = new ArrayList<>();
+
     @Builder
     public User(Integer tierId, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
         this.tierId = tierId;
@@ -68,5 +76,14 @@ public class User {
         this.completedCount = 0;
         this.preferenceCount = 0;
         this.isDeleted = false;
+    }
+
+    // 처음 소셜 로그인 시 NOT NULL을 피하기 위한 임시 유저 생성기
+    public static User createOAuthTempUser(String provider) {
+        String tempNickname = provider.toUpperCase() + "_" + UUID.randomUUID().toString().substring(0, 8);
+        return User.builder()
+                .tierId(1) // 임시 유저도 기본 티어는 있어야 함
+                .nickname(tempNickname)
+                .build();
     }
 }

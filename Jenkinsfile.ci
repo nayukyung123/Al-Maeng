@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    options {
+            disableConcurrentBuilds()
+            timeout(time: 30, unit: 'MINUTES')
+    }
+
     environment {
         BACKEND_DIR = './backend'
         FRONTEND_DIR = './frontend'
