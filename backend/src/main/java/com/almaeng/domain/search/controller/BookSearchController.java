@@ -21,7 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/books")
 @RequiredArgsConstructor
-public class SearchController {
+public class BookSearchController {
 
     private final SearchService searchService;
 
