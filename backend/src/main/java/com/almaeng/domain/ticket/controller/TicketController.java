@@ -2,6 +2,7 @@ package com.almaeng.domain.ticket.controller;
 
 import com.almaeng.domain.ticket.dto.TicketCreateRequest;
 import com.almaeng.domain.ticket.dto.TicketCreateResponse;
+import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.service.TicketService;
 import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -33,5 +34,14 @@ public class TicketController {
         ticketService.deleteTicket(userId, ticketId);
 
         return ApiResponse.success();
+    }
+
+    // 완독 티켓 상세 조회
+    @GetMapping("/{ticketId}")
+    public ApiResponse<TicketResponse> getTicketDetail(@RequestParam Long userId,
+                                                       @PathVariable Long ticketId) {
+        TicketResponse response = ticketService.getTicketDetail(userId, ticketId);
+
+        return ApiResponse.success(response);
     }
 }

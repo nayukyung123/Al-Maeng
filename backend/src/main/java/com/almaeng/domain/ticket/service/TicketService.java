@@ -3,6 +3,7 @@ package com.almaeng.domain.ticket.service;
 import com.almaeng.domain.completedbook.entity.CompletedBook;
 import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
 import com.almaeng.domain.ticket.dto.TicketCreateRequest;
+import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.entity.Ticket;
 import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.global.error.ApiException;
@@ -52,5 +53,18 @@ public class TicketService {
         // S3 저장 로직 추가 이후 - db에서 티켓 삭제 이전에 실제 이미지 파일도 S3에서 삭제하는 로직 추가
 
         ticketRepository.delete(ticket);
+    }
+
+    // 완독 티켓 상세 조회
+    @Transactional(readOnly = true)
+    public TicketResponse getTicketDetail(Long userId, Long ticketId) {
+        Ticket ticket = ticketRepository.findByIdWithDetails(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+
+        if (!ticket.getCompletedBook().getUser().getId().equals(userId)) {
+            throw new ApiException(ErrorCode.TICKET_ACCESS_DENIED);
+        }
+
+        return TicketResponse.from(ticket);
     }
 }
