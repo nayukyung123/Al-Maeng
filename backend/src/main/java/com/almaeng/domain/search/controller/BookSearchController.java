@@ -2,7 +2,7 @@ package com.almaeng.domain.search.controller;
 
 import com.almaeng.domain.book.dto.BookResponse;
 import com.almaeng.domain.book.dto.BookSuggestionResponse;
-import com.almaeng.domain.search.service.SearchService;
+import com.almaeng.domain.search.service.BookSearchService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -23,14 +23,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BookSearchController {
 
-    private final SearchService searchService;
+    private final BookSearchService booksearchService;
 
     // 도서 검색 자동완성
     @GetMapping("/suggestions")
     public ResponseEntity<ApiResponse<List<BookSuggestionResponse>>> getSuggestions(
             @RequestParam("keyword") String keyword){
 
-        List<BookSuggestionResponse> response = searchService.getSuggestions(keyword);
+        List<BookSuggestionResponse> response = booksearchService.getSuggestions(keyword);
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
@@ -40,7 +40,7 @@ public class BookSearchController {
     public ResponseEntity<ApiResponse<Slice<BookResponse>>> searchBooks(
             @RequestParam("keyword") String keyword,
             @ParameterObject @PageableDefault(size=10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable){
-        return ResponseEntity.ok(ApiResponse.success(searchService.searchBooks(keyword, pageable)));
+        return ResponseEntity.ok(ApiResponse.success(booksearchService.searchBooks(keyword, pageable)));
     }
 
 }

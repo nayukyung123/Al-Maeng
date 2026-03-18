@@ -16,7 +16,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class SearchService {
+public class BookSearchService {
 
     private final BookRepository bookRepository;
 
@@ -33,6 +33,8 @@ public class SearchService {
                 .toList();
     }
 
+
+
     // 도서 검색 결과
     public Slice<BookResponse> searchBooks(String keyword, Pageable pageable){
         String trimmedKeyword = (keyword != null) ? keyword.trim() : "";
@@ -44,5 +46,7 @@ public class SearchService {
         return bookRepository.findByTitleContainingOrAuthorContaining(trimmedKeyword, trimmedKeyword, pageable)
                 .map(BookResponse::from);
     }
+
+
 
 }
