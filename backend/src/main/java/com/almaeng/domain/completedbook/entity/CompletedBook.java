@@ -45,5 +45,10 @@ public class CompletedBook {
         this.completedAt = completedAt;
     }
 
+    public void updateCompletedAt(LocalDateTime completedAt) {
+        if(completedAt != null)
+            this.completedAt = completedAt;
+    }
+
 
 }
