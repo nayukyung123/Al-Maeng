@@ -12,7 +12,6 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +30,7 @@ public class SearchService {
 
         return books.stream()
                 .map(BookSuggestionResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 도서 검색 결과
