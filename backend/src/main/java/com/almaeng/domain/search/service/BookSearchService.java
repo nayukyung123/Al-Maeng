@@ -12,12 +12,11 @@ import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class SearchService {
+public class BookSearchService {
 
     private final BookRepository bookRepository;
 
@@ -31,8 +30,10 @@ public class SearchService {
 
         return books.stream()
                 .map(BookSuggestionResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
+
+
 
     // 도서 검색 결과
     public Slice<BookResponse> searchBooks(String keyword, Pageable pageable){
@@ -45,5 +46,7 @@ public class SearchService {
         return bookRepository.findByTitleContainingOrAuthorContaining(trimmedKeyword, trimmedKeyword, pageable)
                 .map(BookResponse::from);
     }
+
+
 
 }
