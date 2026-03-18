@@ -1,32 +1,77 @@
 package com.almaeng.domain.book.entity;
 
-import jakarta.persistence.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "books")
+@DynamicUpdate
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Book {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(nullable = false)
+    @Column(name = "author", nullable = false)
     private String author;
 
-    @Column(name = "cover_image_url")
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
+
+    @Column(name = "page_count")
+    private Integer pageCount;
+
+    @Column(name = "isbn", length = 20)
+    private String isbn;
+
+    @Column(name = "published_date")
+    private LocalDate publishedDate;
+
+    @Column(name = "cover_image_url", columnDefinition = "TEXT")
     private String coverImageUrl;
 
-    public Book(String title, String author, String coverImageUrl) {
+    @Column(name = "average_rating", columnDefinition = "numeric(2,1)")
+    private Double averageRating;
+
+    @Column(name = "slug")
+    private String slug;
+
+    // 에러 방지를 위한 String (고도화 시 hibernate-vector 적용)
+    @Column(name = "embedding_vector", columnDefinition = "vector")
+    private String embeddingVector;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
+
+    @Builder
+    public Book(String title, String author, String description, Integer pageCount, String isbn, LocalDate publishedDate, String coverImageUrl, String slug) {
         this.title = title;
         this.author = author;
+        this.description = description;
+        this.pageCount = pageCount;
+        this.isbn = isbn;
+        this.publishedDate = publishedDate;
         this.coverImageUrl = coverImageUrl;
+        this.averageRating = 0.0;
+        this.slug = slug;
     }
 }
