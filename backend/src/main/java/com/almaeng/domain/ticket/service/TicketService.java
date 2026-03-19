@@ -9,8 +9,11 @@ import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -66,5 +69,17 @@ public class TicketService {
         }
 
         return TicketResponse.from(ticket);
+    }
+
+    // 완독 티켓 갤러리 조회
+    @Transactional(readOnly = true)
+    public List<TicketResponse> getGalleryTickets(Long userId) {
+        PageRequest pageRequest = PageRequest.of(0, 7);
+
+        List<Ticket> tickets = ticketRepository.findGalleryTickets(userId, pageRequest);
+
+        return tickets.stream()
+                .map(TicketResponse::from)
+                .toList();
     }
 }

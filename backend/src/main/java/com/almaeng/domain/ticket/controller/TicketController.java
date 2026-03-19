@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/tickets")
 @RequiredArgsConstructor
@@ -41,6 +43,14 @@ public class TicketController {
     public ApiResponse<TicketResponse> getTicketDetail(@RequestParam Long userId,
                                                        @PathVariable Long ticketId) {
         TicketResponse response = ticketService.getTicketDetail(userId, ticketId);
+
+        return ApiResponse.success(response);
+    }
+
+    // 완독 티켓 갤러리 조회
+    @GetMapping("/gallery")
+    public ApiResponse<List<TicketResponse>> getGalleryTickets(@RequestParam Long userId) {
+        List<TicketResponse> response = ticketService.getGalleryTickets(userId);
 
         return ApiResponse.success(response);
     }
