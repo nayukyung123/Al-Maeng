@@ -8,6 +8,8 @@ spring:
 
 jwt:
   secret: "this-is-dummy-secret-key-for-local-and-ci-tests-only-al-maeng-project"
+  access-expiration: 3600000
+  refresh-expiration: 1209600000
 
 oauth:
   kakao:
