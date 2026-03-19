@@ -33,7 +33,10 @@ public enum ErrorCode {
 
     // [리뷰 에러]
     ALREADY_REVIEWED_BOOK(HttpStatus.BAD_REQUEST, "R001", "이미 리뷰를 작성한 도서입니다."),
-    NOT_COMPLETED_BOOK(HttpStatus.FORBIDDEN, "R002", "도서를 완독한 사용자만 리뷰를 작성할 수 있습니다.");
+    NOT_COMPLETED_BOOK(HttpStatus.FORBIDDEN, "R002", "도서를 완독한 사용자만 리뷰를 작성할 수 있습니다."),
+
+    // [티어]
+    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 티어 정보를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
