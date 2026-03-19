@@ -55,7 +55,7 @@ public class Review {
         this.book = book;
         this.rating = rating;
         this.content = content;
-        this.spoiler = spoiler != null ? spoiler : false;
+        this.spoiler = Boolean.TRUE.equals(spoiler);
     }
 
     // 리뷰 수정 (JPA 더티 체킹용)

@@ -14,5 +14,5 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Slice<Review> findSliceByBookId(Long bookId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"user", "user.tier"})
-    Slice<Review> findSliceByBookIdAndSpoilerFalse(Long BookId, Pageable pageable);
+    Slice<Review> findSliceByBookIdAndSpoilerFalse(Long bookId, Pageable pageable);
 }

@@ -23,10 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
+
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
     private final CompletedBookRepository completedBookRepository;
+
+    private static final String CREATED_AT = "createdAt"; // 정렬
     @Transactional
     public Long createReview(Long userId, String slug, ReviewCreateRequest request) {
         // slug로 도서 조회
@@ -49,8 +52,8 @@ public class ReviewService {
         }
 
         // 데이터 보정 (내용이 없으면 스포일러 = false 강제 처리)
-        boolean actualSpoiler = (request.getContent() == null || request.getContent().isBlank())
-                ? false : request.getSpoiler();
+        boolean actualSpoiler = !(request.getContent() == null || request.getContent().isBlank())
+                && Boolean.TRUE.equals(request.getSpoiler());
 
         // 리뷰 생성 및 저장
         Review review = Review.builder()
@@ -76,19 +79,19 @@ public class ReviewService {
 
         // 정렬 조건 매핑
         Sort sort = switch (sortType) {
-            case HIGH_RATING -> Sort.by(Sort.Direction.DESC, "rating").and(Sort.by(Sort.Direction.DESC, "createdAt"));
-            case LOW_RATING -> Sort.by(Sort.Direction.ASC, "rating").and(Sort.by(Sort.Direction.DESC, "createdAt"));
-            default -> Sort.by(Sort.Direction.DESC, "createdAt");
+            case HIGH_RATING -> Sort.by(Sort.Direction.DESC, "rating").and(Sort.by(Sort.Direction.DESC, CREATED_AT));
+            case LOW_RATING -> Sort.by(Sort.Direction.ASC, "rating").and(Sort.by(Sort.Direction.DESC, CREATED_AT));
+            default -> Sort.by(Sort.Direction.DESC, CREATED_AT);
         };
 
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
-        // 3. 필터 적용 및 조회
+        // 필터 적용 및 조회
         Slice<Review> reviewSlice = excludeSpoiler
                 ? reviewRepository.findSliceByBookIdAndSpoilerFalse(book.getId(), sortedPageable)
                 : reviewRepository.findSliceByBookId(book.getId(), sortedPageable);
 
-        // 4. DTO 변환 (작성자 티어 정보 포함)
+        // DTO 변환 (작성자 티어 정보 포함)
         return reviewSlice.map(r -> new ReviewResponse(
                 r.getId(),
                 r.getUser().getNickname(),
