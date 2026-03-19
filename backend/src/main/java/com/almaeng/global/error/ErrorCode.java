@@ -29,7 +29,11 @@ public enum ErrorCode {
     TICKET_ALREADY_EXIST(HttpStatus.BAD_REQUEST, "T003", "이미 티켓이 발급된 도서입니다."),
     TICKET_NOT_FOUND(HttpStatus.NOT_FOUND, "T004", "존재하지 않는 티켓입니다."),
     TICKET_ACCESS_DENIED(HttpStatus.FORBIDDEN, "T005", "해당 티켓에 대한 접근 권한이 없습니다."),
-    COMPLETED_BOOK_HAS_TICKET(HttpStatus.CONFLICT, "T006", "발급된 티켓이 존재하여 삭제할 수 없습니다.");
+    COMPLETED_BOOK_HAS_TICKET(HttpStatus.CONFLICT, "T006", "발급된 티켓이 존재하여 삭제할 수 없습니다."),
+
+    // [리뷰 에러]
+    ALREADY_REVIEWED_BOOK(HttpStatus.BAD_REQUEST, "R001", "이미 리뷰를 작성한 도서입니다."),
+    NOT_COMPLETED_BOOK(HttpStatus.FORBIDDEN, "R002", "도서를 완독한 사용자만 리뷰를 작성할 수 있습니다.");
 
     private final HttpStatus status;
     private final String code;
