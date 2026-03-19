@@ -69,5 +69,5 @@ oauth:
 # Jwt
 jwt:
   secret: ${JWT_SECRET}
-  access-expiration: 3600000 # 1시간
-  refresh-expiration: 1209600000 # 14일
+  access-expiration: 3600000 # 1h
+  refresh-expiration: 1209600000 # 14day
