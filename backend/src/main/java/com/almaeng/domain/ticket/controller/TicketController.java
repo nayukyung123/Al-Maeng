@@ -7,6 +7,7 @@ import com.almaeng.domain.ticket.service.TicketService;
 import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -51,6 +52,15 @@ public class TicketController {
     @GetMapping("/gallery")
     public ApiResponse<List<TicketResponse>> getGalleryTickets(@RequestParam Long userId) {
         List<TicketResponse> response = ticketService.getGalleryTickets(userId);
+
+        return ApiResponse.success(response);
+    }
+
+    @GetMapping
+    public ApiResponse<Page<TicketResponse>> getBinderTickets(@RequestParam Long userId,
+                                                              @RequestParam(required = false) String genre,
+                                                              @RequestParam(defaultValue = "0") int page) {
+        Page<TicketResponse> response = ticketService.getBinderTickets(userId, genre, page);
 
         return ApiResponse.success(response);
     }

@@ -2,6 +2,8 @@ package com.almaeng.domain.ticket.service;
 
 import com.almaeng.domain.completedbook.entity.CompletedBook;
 import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
+import com.almaeng.domain.genre.entity.Genre;
+import com.almaeng.domain.genre.repository.GenreRepository;
 import com.almaeng.domain.ticket.dto.TicketCreateRequest;
 import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.entity.Ticket;
@@ -9,10 +11,14 @@ import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -20,6 +26,7 @@ import java.util.List;
 public class TicketService {
     private final TicketRepository ticketRepository;
     private final CompletedBookRepository completedBookRepository;
+    private final GenreRepository genreRepository;
 
     // 완독 티켓 생성
     @Transactional
@@ -81,5 +88,27 @@ public class TicketService {
         return tickets.stream()
                 .map(TicketResponse::from)
                 .toList();
+    }
+
+    // 완독 티켓 바인더 조회 - 장르 필터, 4개씩 페이징
+    @Transactional(readOnly = true)
+    public Page<TicketResponse> getBinderTickets(Long userId, String genreName, int page) {
+        Pageable pageable = PageRequest.of(page, 4, Sort.by(Sort.Direction.DESC, "completedBook.completedAt"));
+
+        if (genreName == null || genreName.trim().isEmpty()) {
+            return ticketRepository.findBinderTicketsAll(userId, pageable)
+                    .map(TicketResponse::from);
+        }
+
+        Genre targetGenre = genreRepository.findByNameWithChildren(genreName)
+                .orElseThrow(() -> new ApiException(ErrorCode.GENRE_NOT_FOUND));
+
+        List<Long> targetGenreIds = new ArrayList<>();
+        targetGenreIds.add(targetGenre.getId());
+        targetGenre.getChildren().forEach(child -> targetGenreIds.add(child.getId()));
+
+        Page<Ticket> ticketPage = ticketRepository.findBinderTicketsByGenreIds(userId, targetGenreIds, pageable);
+
+        return ticketPage.map(TicketResponse::from);
     }
 }
