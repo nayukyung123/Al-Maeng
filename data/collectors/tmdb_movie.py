@@ -26,7 +26,7 @@ if (data_dir / ".env").exists():
 # [2] 환경 변수 매핑 (드라마 코드와 변수명 및 기본값 동기화)
 API_KEY = os.getenv("TMDB_API_KEY")
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5433")
+DB_PORT = os.getenv("DB_PORT", "5432") # 주연님 로그상 5432 접속이므로 기본값 수정
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USERNAME")    # DB_USER -> DB_USERNAME으로 매핑
 DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -59,7 +59,7 @@ def is_strictly_clean_title(title):
 
 def get_movie_detail_optimized(movie_id, list_overview):
     """
-    주연님 요청 1번 로직 (드라마 코드와 로직 동기화):
+    주연님 요청 로직 (드라마 코드와 로직 동기화):
     1. 목록 줄거리 <= 5자: 상세 API 호출 (append_to_response=keywords,translations)
     2. 목록 줄거리 > 5자: 키워드 API만 별도 호출
     """
@@ -75,7 +75,7 @@ def get_movie_detail_optimized(movie_id, list_overview):
                     'api_key': API_KEY, 
                     'language': 'ko-KR', 
                     'append_to_response': 'keywords,translations'
-                }, timeout=10
+                }, timeout=5 # 병렬 처리를 위해 타임아웃 최적화
             ).json()
             
             # 영화 상세 응답에서 키워드 추출 (구조: keywords.keywords)
@@ -93,7 +93,7 @@ def get_movie_detail_optimized(movie_id, list_overview):
         else:
             kw_res = requests.get(
                 f"https://api.themoviedb.org/3/movie/{movie_id}/keywords", 
-                params={'api_key': API_KEY}, timeout=10
+                params={'api_key': API_KEY}, timeout=5
             ).json()
             keywords_list = [k['name'] for k in kw_res.get('keywords', [])]
 
@@ -102,11 +102,15 @@ def get_movie_detail_optimized(movie_id, list_overview):
     return description if description else None, keywords_list
 
 def process_movie(m, year):
-    """개별 가공 및 튜플 반환 (드라마 코드와 컬럼 순서 일치)"""
+    """개별 가공 및 튜플 반환 (release_date 필드 추가 반영)"""
     title = m.get('title', '')
     if not is_strictly_clean_title(title): return None
     
-    # 주연님 필터: 2025년 이전 평점 1개 이상 필수, 2026년 무조건 허용
+    # [1] 개봉 연월일 데이터 처리
+    release_date = m.get('release_date')
+    if not release_date: release_date = None
+
+    # [2] 주연님 필터: 2025년 이전 평점 1개 이상 필수, 2026년 무조건 허용
     vote_count = m.get('vote_count', 0)
     if year <= 2025 and vote_count < 1:
         return None
@@ -114,17 +118,18 @@ def process_movie(m, year):
     description, keywords = get_movie_detail_optimized(m['id'], m.get('overview', ''))
     genre_names = [GENRE_MAP.get(gid) for gid in m.get('genre_ids', []) if GENRE_MAP.get(gid)]
     
-    # 반환 튜플: tmdb_id, title, type, description, poster_url, banner_poster_url, vote_count, genres, keywords
+    # ERD 필드 매핑 순서: tmdb_id, title, type, description, poster_url, banner_poster_url, keywords, vote_count, genres, release_date
     return (
-        m['id'], 
-        title, 
-        'MOVIE', 
-        description,
-        f"https://image.tmdb.org/t/p/w500{m.get('poster_path')}" if m.get('poster_path') else None,
+        m['id'],                                      # tmdb_id
+        title,                                        # title
+        'MOVIE',                                      # type
+        description,                                  # description
+        f"https://image.tmdb.org/t/p/w500{m.get('poster_path')}" if m.get('poster_path') else None, 
         f"https://image.tmdb.org/t/p/original{m.get('backdrop_path')}" if m.get('backdrop_path') else None,
-        vote_count,                                  # 컬럼명: vote_count
-        json.dumps(genre_names, ensure_ascii=False),  # 컬럼명: genres
-        json.dumps(keywords, ensure_ascii=False)      # 컬럼명: keywords
+        json.dumps(keywords, ensure_ascii=False),     # keywords (JSONB)
+        vote_count,                                   # vote_count (BIGINT)
+        json.dumps(genre_names, ensure_ascii=False),  # genres (JSONB)
+        release_date                                  # release_date (DATE)
     )
 
 def main():
@@ -136,22 +141,30 @@ def main():
         conn = get_db_connection()
         print(f"📡 DB 접속 성공 ({DB_HOST}:{DB_PORT})")
         
-        # 수집 계획
-        fetch_plans = [(1950, 1989, 12), (1990, 2009, 6), (2010, 2018, 3), (2019, 2019, 3), (2020, 2026, 1)]
+        # [수집 계획 역순 재배치] 최신 연도 구간부터 과거로 진행
+        fetch_plans = [
+            (2020, 2026, 1), 
+            (2019, 2019, 3), 
+            (2010, 2018, 3), 
+            (1990, 2009, 6), 
+            (1950, 1989, 12)
+        ]
         today_limit = datetime(2026, 3, 20)
         total_saved = 0
 
-        print(f"🚀 영화 데이터 적재 시작 (Workers: 12) | 대상: ~2026-03-20")
+        # [병렬 가속화] 주연님 요청대로 Workers 수를 20으로 상향
+        print(f"🚀 영화 데이터 적재 시작 (Latest First | Workers: 20)")
         print("-" * 85)
 
-        with ThreadPoolExecutor(max_workers=12) as executor:
+        with ThreadPoolExecutor(max_workers=20) as executor:
             for start_y, end_y, interval in fetch_plans:
-                for year in range(start_y, end_y + 1):
-                    for month in range(1, 13, interval):
-                        # 실제 인터벌 보정 (2019년 10월 이후 1개월 단위)
+                # 연도 역순 반복
+                for year in reversed(range(start_y, end_y + 1)):
+                    # 월 역순 반복
+                    for month in reversed(range(1, 13, interval)):
                         actual_interval = 1 if (year == 2019 and month >= 10) else interval
                         s_dt = datetime(year, month, 1)
-                        if s_dt > today_limit: break
+                        if s_dt > today_limit: continue
                         
                         e_dt = (datetime(year + (month + actual_interval - 1) // 12, (month + actual_interval - 1) % 12 + 1, 1) - timedelta(days=1))
                         if e_dt > today_limit: e_dt = today_limit
@@ -166,7 +179,7 @@ def main():
                                 'page': page,
                                 'primary_release_date.gte': s_str, 
                                 'primary_release_date.lte': e_str,
-                                'sort_by': 'primary_release_date.asc'
+                                'sort_by': 'primary_release_date.desc' # API 내부 정렬도 최신순으로
                             }
                             try:
                                 resp = requests.get("https://api.themoviedb.org/3/discover/movie", params=params, timeout=10).json()
@@ -175,24 +188,22 @@ def main():
                                 if not movies: break
                             except: break
 
-                            # 병렬 처리로 상세 정보 보강
                             futures = [executor.submit(process_movie, m, year) for m in movies]
                             batch = [f.result() for f in as_completed(futures) if f.result() is not None]
 
                             if batch:
-                                # [핵심] 드라마 코드와 SQL 쿼리 및 컬럼명 일치 (genres, vote_count)
+                                # [ERD 기준 필드명 동기화 및 release_date 추가]
                                 query = """
                                     INSERT INTO contents (
                                         tmdb_id, title, type, description, poster_url, 
-                                        banner_poster_url, vote_count, genres, keywords
+                                        banner_poster_url, keywords, vote_count, genres, release_date
                                     ) VALUES %s
                                     ON CONFLICT (tmdb_id) DO UPDATE SET
-                                    title = EXCLUDED.title,
+                                    release_date = EXCLUDED.release_date,
                                     description = COALESCE(NULLIF(EXCLUDED.description, ''), contents.description),
                                     vote_count = EXCLUDED.vote_count,
                                     genres = EXCLUDED.genres,
-                                    keywords = EXCLUDED.keywords,
-                                    updated_at = NOW();
+                                    keywords = EXCLUDED.keywords;
                                 """
                                 with conn.cursor() as cur:
                                     execute_values(cur, query, batch)
@@ -205,7 +216,7 @@ def main():
                     print(f"\n   ✅ {year}년 수집 완료")
 
         conn.close()
-        print(f"\n🎉 모든 수집 종료! 총 {total_saved:,}개의 영화 데이터가 저장되었습니다.")
+        print(f"\n🎉 모든 수집 종료! 총 {total_saved:,}개의 영화 데이터가 최신순으로 적재되었습니다.")
         
     except Exception as e:
         print(f"\n❌ 오류 발생: {e}")
