@@ -76,14 +76,18 @@ services:
       context: ./infra/nginx
       dockerfile: Dockerfile
     container_name: almaeng-nginx-proxy
+    restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /var/www/certbot:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - frontend
       - backend
     networks:
       - almaeng-network
-
 
 networks:
   almaeng-network:
