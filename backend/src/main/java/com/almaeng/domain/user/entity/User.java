@@ -1,5 +1,6 @@
 package com.almaeng.domain.user.entity;
 
+import org.hibernate.annotations.ColumnTransformer;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
 import jakarta.persistence.*;
@@ -49,6 +50,7 @@ public class User {
     private Integer preferenceCount = 0; // 찜 권수 기본값 세팅
 
     @Column(name = "embedding_vector", columnDefinition = "vector")
+    @ColumnTransformer(write = "?::vector")
     private String embeddingVector;
 
     @CreationTimestamp
