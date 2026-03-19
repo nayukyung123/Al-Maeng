@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: backend-test
+  profiles:
+    active: test
+  datasource:
+    password: "test-dummy-password"
+
+jwt:
+  secret: "this-is-dummy-secret-key-for-local-and-ci-tests-only-al-maeng-project"
+
+oauth:
+  kakao:
+    client-id: "test-kakao-id"
+    client-secret: "test-kakao-secret"
+    redirect-uri: "http://localhost:8080/auth/callback/kakao"
+  google:
+    client-id: "test-google-id"
+    client-secret: "test-google-secret"
+    redirect-uri: "http://localhost:8080/auth/callback/google"
+  naver:
+    client-id: "test-naver-id"
+    client-secret: "test-naver-secret"
+    redirect-uri: "http://localhost:8080/auth/callback/naver"
+
+notification:
+  mattermost:
+    enabled: false
