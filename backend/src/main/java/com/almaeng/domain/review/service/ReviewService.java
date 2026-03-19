@@ -5,6 +5,7 @@ import com.almaeng.domain.book.repository.BookRepository;
 import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
 import com.almaeng.domain.review.dto.ReviewCreateRequest;
 import com.almaeng.domain.review.dto.ReviewResponse;
+import com.almaeng.domain.review.dto.ReviewUpdateRequest;
 import com.almaeng.domain.review.entity.Review;
 import com.almaeng.domain.review.repository.ReviewRepository;
 import com.almaeng.domain.review.type.ReviewSortType;
@@ -102,5 +103,35 @@ public class ReviewService {
                 r.getSpoiler(),
                 r.getCreatedAt()
         ));
+    }
+
+    @Transactional
+    public void updateReview(Long userId, Long reviewId, ReviewUpdateRequest request) {
+        // 리뷰 존재 확인
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
+
+        // 작성자 본인 확인
+        validateReviewOwner(userId, review);
+
+        // 수정
+        review.updateReview(request.getRating(), request.getContent(), request.getSpoiler());
+    }
+
+    @Transactional
+    public void deleteReview(Long userId, Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ApiException(ErrorCode.REVIEW_NOT_FOUND));
+
+        validateReviewOwner(userId, review);
+
+        reviewRepository.delete(review);
+    }
+
+    // 권한 검증
+    private void validateReviewOwner(Long userId, Review review){
+        if(!review.getUser().getId().equals(userId)){
+            throw new ApiException(ErrorCode.NOT_REVIEW_OWNER);
+        }
     }
 }

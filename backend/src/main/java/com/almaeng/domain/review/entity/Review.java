@@ -62,6 +62,6 @@ public class Review {
     public void updateReview(Integer rating, String content, Boolean spoiler) {
         if (rating != null) this.rating = rating;
         if (content != null) this.content = content;
-        if (spoiler != null) this.spoiler = spoiler;
+        if (spoiler != null) this.spoiler = Boolean.TRUE.equals(spoiler);
     }
 }
