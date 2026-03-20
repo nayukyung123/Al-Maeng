@@ -21,12 +21,12 @@ public interface TicketRepository extends JpaRepository<Ticket,Long> {
             "WHERE t.id = :ticketId")
     Optional<Ticket> findByIdWithDetails(@Param("ticketId") Long ticketId);
 
-    // 갤러리 조회: 완독일자 최신순으로 조회
+    // 갤러리 조회: 생성일자 최신순으로 조회
     @Query("SELECT t FROM Ticket t " +
             "JOIN FETCH t.completedBook cb " +
             "JOIN FETCH cb.book " +
             "WHERE cb.user.id = :userId " +
-            "ORDER BY cb.completedAt DESC")
+            "ORDER BY cb.createdAt DESC")
     List<Ticket> findGalleryTickets(@Param("userId") Long userId, Pageable pageable);
 
     // 바인더 전체 조회
