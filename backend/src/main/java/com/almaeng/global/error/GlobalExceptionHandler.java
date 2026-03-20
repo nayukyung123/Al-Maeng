@@ -69,4 +69,15 @@ public class GlobalExceptionHandler {
         }
         return params.length() == 0 ? "No Parameters" : params.toString();
     }
+
+    // @RequestParam 단일 파라미터 검증 예외 처리 (닉네임 중복확인 등)
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(jakarta.validation.ConstraintViolationException e) {
+        String errorMessage = e.getConstraintViolations().iterator().next().getMessage();
+        log.warn("Constraint Violation : {}", errorMessage);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, errorMessage));
+    }
 }
