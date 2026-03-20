@@ -28,8 +28,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tier_id", nullable = false)
-    private Integer tierId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tier_id", nullable = false)
+    private Tier tier;
 
     @Column(length = 100, nullable = false)
     private String nickname;
@@ -69,8 +70,8 @@ public class User {
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
     @Builder
-    public User(Integer tierId, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
-        this.tierId = tierId;
+    public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
+        this.tier = tier;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.birthYear = birthYear;
@@ -81,10 +82,10 @@ public class User {
     }
 
     // 처음 소셜 로그인 시 NOT NULL을 피하기 위한 임시 유저 생성기
-    public static User createOAuthTempUser(String provider) {
+    public static User createOAuthTempUser(String provider, Tier defaultTier) {
         String tempNickname = provider.toUpperCase() + "_" + UUID.randomUUID().toString().substring(0, 8);
         return User.builder()
-                .tierId(1) // 임시 유저도 기본 티어는 있어야 함
+                .tier(defaultTier) // 임시 유저도 기본 티어는 있어야 함
                 .nickname(tempNickname)
                 .build();
     }

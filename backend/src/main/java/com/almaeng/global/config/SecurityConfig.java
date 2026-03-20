@@ -27,7 +27,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/auth/check-nickname").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/check-nickname", "/api/books/*/review").permitAll()
                         .requestMatchers("/api/auth/login/**","/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )

@@ -2,7 +2,9 @@ package com.almaeng.domain.auth.service;
 
 import com.almaeng.domain.auth.dto.LoginResponse;
 import com.almaeng.domain.user.entity.SocialAccount;
+import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
+import com.almaeng.domain.user.repository.TierRepository;
 import com.almaeng.domain.user.repository.UserRepository;
 import com.almaeng.global.auth.JwtTokenProvider;
 import com.almaeng.global.error.ApiException;
@@ -27,6 +29,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
+    private final TierRepository tierRepository;
 
     // 예약어 리스트 (소문자로 통일해서 비교)
     private static final List<String> RESERVED_WORDS = List.of("admin", "manage", "manager", "almaeng", "root");
@@ -59,9 +62,14 @@ public class AuthService {
     // 회원가입, 초기 세팅
     // Registered : FALSE
     private LoginResponse handleNewUser(String provider, String providerId) {
+
+        // 기본 티어 조회
+        Tier defaultTier = tierRepository.findById(1)
+                .orElseThrow(() -> new ApiException(ErrorCode.TIER_NOT_FOUND));
+
         // 유저 가입
         User newUser = User.builder()
-                .tierId(1)
+                .tier(defaultTier)
                 .nickname("USER_" + providerId.substring(0, 5))
                 .build();
 
