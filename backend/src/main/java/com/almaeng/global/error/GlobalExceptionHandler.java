@@ -59,7 +59,7 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
-    // Request 파라미터 추출용 헬퍼 메서드
+    // 4. Request 파라미터 추출용 헬퍼 메서드
     private String getParams(HttpServletRequest req) {
         StringBuilder params = new StringBuilder();
         Enumeration<String> keys = req.getParameterNames();
@@ -70,7 +70,7 @@ public class GlobalExceptionHandler {
         return params.length() == 0 ? "No Parameters" : params.toString();
     }
 
-    // @RequestParam 단일 파라미터 검증 예외 처리 (닉네임 중복확인 등)
+    // 5. @RequestParam 검증 예외 처리
     @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(jakarta.validation.ConstraintViolationException e) {
         String errorMessage = e.getConstraintViolations().iterator().next().getMessage();
@@ -80,4 +80,14 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, errorMessage));
     }
+
+    // 6. @RequestParam 검증 예외 처리 (Spring Boot 3 최신 반영)
+    @ExceptionHandler(org.springframework.web.method.annotation.HandlerMethodValidationException.class)    public ResponseEntity<ApiResponse<Void>> handleHandlerMethodValidationException(org.springframework.web.method.annotation.HandlerMethodValidationException e) {
+        String errorMessage = e.getAllErrors().get(0).getDefaultMessage();
+        log.warn("Parameter Validation Exception : {}", errorMessage);
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, errorMessage));
+    }
+
 }
