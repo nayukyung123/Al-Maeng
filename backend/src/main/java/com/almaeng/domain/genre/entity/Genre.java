@@ -18,13 +18,16 @@ public class Genre {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "genre_name", nullable = false, length = 50)
+    @Column(name = "genre_name", nullable = false, length = 100, unique = true)
     private String name;
+
+    @Column(name = "is_selectable", nullable = false)
+    private Boolean isSelectable = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Genre parent;
 
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "parent")
     private List<Genre> children = new ArrayList<>();
 }
