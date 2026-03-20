@@ -15,6 +15,8 @@ public enum ErrorCode {
     // [유저 / 인증 에러]
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "존재하지 않는 사용자입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "U002", "이미 사용 중인 닉네임입니다."),
+    INVALID_GENDER_VALUE(HttpStatus.BAD_REQUEST, "U003", "유효하지 않은 성별 값입니다."),
+    TASTE_DATA_REQUIRED(HttpStatus.BAD_REQUEST, "U004", "최소 하나 이상의 취향 데이터를 선택해야 합니다."),
     UNAUTHORIZED_ACCESS(HttpStatus.UNAUTHORIZED, "A001", "인증되지 않은 접근입니다."),
     INVALID_PROVIDER_OR_TOKEN(HttpStatus.BAD_REQUEST, "A002", "지원하지 않는 소셜 로그인 제공자이거나 토큰이 누락되었습니다."),
     INVALID_SOCIAL_TOKEN(HttpStatus.UNAUTHORIZED, "A003", "유효하지 않거나 만료된 소셜 토큰입니다."),
