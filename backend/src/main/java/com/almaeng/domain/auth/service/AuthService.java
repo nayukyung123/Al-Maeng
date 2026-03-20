@@ -23,12 +23,17 @@ import java.util.List;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AuthService {
     private final List<OAuthClient> oAuthClients;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final TierRepository tierRepository;
+
+    // 예약어 리스트 (소문자로 통일해서 비교)
+    private static final List<String> RESERVED_WORDS = List.of("admin", "manage", "manager", "almaeng", "root");
+    private static final String TEMP_NICKNAME_PREFIX = "user_";
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -96,5 +101,21 @@ public class AuthService {
         );
 
         return new LoginResponse(accessToken, refreshToken, isRegistered);
+    }
+
+    // 닉네임이 시스템 정책(금칙어, 임시 패턴)에 위배되지 않는지 검사
+    public boolean checkNicknameAvailability(String nickname) {
+        String lowerNickname = nickname.toLowerCase();
+        // 예약어 보호
+        if (RESERVED_WORDS.contains(lowerNickname)) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        // 임시 닉네임 패턴 차단
+        if (lowerNickname.startsWith(TEMP_NICKNAME_PREFIX)) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        // DB 중복 검사
+        boolean exists = userRepository.existsByNickname(nickname);
+        return !exists;
     }
 }
