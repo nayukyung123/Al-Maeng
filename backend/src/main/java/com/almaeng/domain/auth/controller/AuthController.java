@@ -2,10 +2,15 @@ package com.almaeng.domain.auth.controller;
 
 import com.almaeng.domain.auth.dto.LoginRequest;
 import com.almaeng.domain.auth.dto.LoginResponse;
+import com.almaeng.domain.auth.dto.NicknameCheckResponse;
 import com.almaeng.domain.auth.service.AuthService;
 import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,5 +26,19 @@ public class AuthController {
 
         LoginResponse response = authService.login(provider, request.accessToken());
         return ApiResponse.success(response);
+    }
+
+    @GetMapping("/check-nickname")
+    public ResponseEntity<ApiResponse<NicknameCheckResponse>> checkNickname(
+            @RequestParam
+            @NotBlank(message = "닉네임을 입력해주세요.")
+            @Size(min = 2, max = 10, message = "닉네임은 2자 이상, 10자 이하여야 합니다.")
+            @Pattern(regexp = "^[가-힣a-zA-Z0-9]+$", message = "닉네임은 특수문자나 띄어쓰기를 포함할 수 없습니다.")
+            String nickname
+    ) {
+        boolean isAvailable = authService.checkNicknameAvailability(nickname);
+
+        NicknameCheckResponse responseDto = new NicknameCheckResponse(isAvailable);
+        return ResponseEntity.ok(ApiResponse.success(responseDto));
     }
 }
