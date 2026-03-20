@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
@@ -15,4 +16,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findTop5ByTitleContainingOrAuthorContaining(String title, String author);
 
     Slice<Book> findByTitleContainingOrAuthorContaining(String title, String author, Pageable pageable);
+
+    Optional<Book> findBySlug(String slug); // URL 식별자인 slug로 조회
 }

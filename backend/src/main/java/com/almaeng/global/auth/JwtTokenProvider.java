@@ -63,4 +63,10 @@ public class JwtTokenProvider {
         }
     }
 
+    public Long getUserIdFromToken(String token) {
+        String subject = Jwts.parser().verifyWith(key).build()
+                .parseSignedClaims(token).getPayload().getSubject();
+        return Long.parseLong(subject);
+    }
+
 }
