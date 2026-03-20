@@ -4,6 +4,7 @@ import com.almaeng.domain.completedbook.entity.CompletedBook;
 import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
 import com.almaeng.domain.genre.entity.Genre;
 import com.almaeng.domain.genre.repository.GenreRepository;
+import com.almaeng.domain.ticket.dto.PresignedUrlResponse;
 import com.almaeng.domain.ticket.dto.TicketCreateRequest;
 import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.entity.Ticket;
@@ -11,15 +12,22 @@ import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +35,12 @@ public class TicketService {
     private final TicketRepository ticketRepository;
     private final CompletedBookRepository completedBookRepository;
     private final GenreRepository genreRepository;
+    private final S3Presigner s3Presigner;
+
+    @Value("${cloud.aws.s3.bucket}")
+    private String bucketName;
+    @Value("${cloud.aws.region.static}")
+    private String region;
 
     // 완독 티켓 생성
     @Transactional
@@ -110,5 +124,28 @@ public class TicketService {
         Page<Ticket> ticketPage = ticketRepository.findBinderTicketsByGenreIds(userId, targetGenreIds, pageable);
 
         return ticketPage.map(TicketResponse::from);
+    }
+
+    // S3 이미지 저장용 url 발급
+    public PresignedUrlResponse getPresignedUrl(Long userId, String fileExtension) {
+        String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + fileExtension;
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .contentType("image/" + fileExtension)
+                .build();
+
+        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(10))
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
+        String presignedUrl = presignedRequest.url().toString();
+
+        String imageUrl = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
+
+        return new PresignedUrlResponse(presignedUrl, imageUrl);
     }
 }
