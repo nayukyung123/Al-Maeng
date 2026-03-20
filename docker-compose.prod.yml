@@ -39,13 +39,16 @@ services:
       - .env
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_FLYWAY_URL=jdbc:postgresql://db:5432/${DB_NAME}
+      - SPRING_FLYWAY_USER=${DB_USERNAME}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD}
+      - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+      - SPRING_FLYWAY_ENABLED=true
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
-      - SPRING_FLYWAY_ENABLED=true
-      - SPRING_FLYWAY_URL=jdbc:postgresql://db:5432/${DB_NAME}
-      - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
       - TZ=Asia/Seoul
-
     depends_on:
       db:
         condition: service_healthy
