@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.List;
 
 @Slf4j
 @RestControllerAdvice
@@ -36,12 +37,16 @@ public class GlobalExceptionHandler {
     // 2. 입력값 검증 예외 처리 (@Valid 어노테이션 실패 시)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
-        String errorMessage = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
-        log.warn("Validation Exception : {}", errorMessage);
+        List<String> errorMessages = e.getBindingResult().getFieldErrors().stream()
+                .map(error -> String.format("[%s] %s", error.getField(), error.getDefaultMessage()))
+                .toList();
+
+        String combinedMessage = String.join(", ", errorMessages);
+        log.warn("Validation Exception : {}", combinedMessage);
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, errorMessage));
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, combinedMessage));
     }
 
     // 3. 서버 런타임 에러 처리
@@ -82,7 +87,8 @@ public class GlobalExceptionHandler {
     }
 
     // 6. @RequestParam 검증 예외 처리 (Spring Boot 3 최신 반영)
-    @ExceptionHandler(org.springframework.web.method.annotation.HandlerMethodValidationException.class)    public ResponseEntity<ApiResponse<Void>> handleHandlerMethodValidationException(org.springframework.web.method.annotation.HandlerMethodValidationException e) {
+    @ExceptionHandler(org.springframework.web.method.annotation.HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHandlerMethodValidationException(org.springframework.web.method.annotation.HandlerMethodValidationException e) {
         String errorMessage = e.getAllErrors().get(0).getDefaultMessage();
         log.warn("Parameter Validation Exception : {}", errorMessage);
         return ResponseEntity
