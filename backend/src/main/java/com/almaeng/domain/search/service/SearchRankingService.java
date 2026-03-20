@@ -1,6 +1,7 @@
 package com.almaeng.domain.search.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -8,10 +9,10 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SearchRankingService {
@@ -31,14 +32,18 @@ public class SearchRankingService {
             return;
         }
 
-        String key = getTodayRankingKey();
-        String cleanKeyword = keyword.trim();
+        try {
+            String key = getTodayRankingKey();
+            String cleanKeyword = keyword.trim();
 
-        // 해당 키워드 점수 증가
-        redisTemplate.opsForZSet().incrementScore(key, cleanKeyword, 1);
+            // 해당 키워드 점수 증가
+            redisTemplate.opsForZSet().incrementScore(key, cleanKeyword, 1);
 
-        // 2일 뒤 삭제되도록 관리 (Redis 메모리 관리)
-        redisTemplate.expire(key, Duration.ofDays(2));
+            // 2일 뒤 삭제되도록 관리 (Redis 메모리 관리)
+            redisTemplate.expire(key, Duration.ofDays(2));
+        } catch (Exception e) {
+            log.error("[Redis 장애] 검색어 랭킹 업데이트 실패. 검색 로직은 정상 진행됩니다. 키워드: {}", keyword, e);
+        }
     }
 
     // 실시간 검색어 랭킹 조회 (10개)
@@ -47,6 +52,6 @@ public class SearchRankingService {
 
         Set<String> range = redisTemplate.opsForZSet().reverseRange(key, 0, 9);
 
-        return range != null ? new ArrayList<>(range) : Collections.emptyList();
+        return new ArrayList<>(range);
     }
 }
