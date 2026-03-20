@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,6 +70,10 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "taste_data", columnDefinition = "jsonb")
+    private List<String> tasteData = new ArrayList<>();
+
     @Builder
     public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
         this.tier = tier;
@@ -88,5 +93,14 @@ public class User {
                 .tier(defaultTier) // 임시 유저도 기본 티어는 있어야 함
                 .nickname(tempNickname)
                 .build();
+    }
+
+    // 온보딩 완료를 위한 비즈니스 메서드
+    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Integer gender, List<String> tasteData) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
+        this.birthYear = birthYear;
+        this.gender = gender;
+        this.tasteData = tasteData;
     }
 }
