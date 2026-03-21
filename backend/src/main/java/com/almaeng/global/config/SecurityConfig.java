@@ -31,7 +31,7 @@ public class SecurityConfig {
                 // 요청 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/auth/check-nickname", "/api/books/*/review").permitAll()
-                        .requestMatchers("/api/auth/login/**","/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/auth/login/**","/api/auth/signup", "/api/auth/reissue","/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
