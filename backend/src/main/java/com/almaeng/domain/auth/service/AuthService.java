@@ -95,7 +95,7 @@ public class AuthService {
         redisTemplate.opsForValue().set(
                 "RT:" + user.getId(),
                 refreshToken,
-                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())        );
+                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration()));
 
         return new LoginResponse(accessToken, refreshToken, isRegistered);
     }
@@ -165,5 +165,24 @@ public class AuthService {
                 Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())
         );
         return new TokenResponse(newAccessToken, newRefreshToken);
+    }
+
+    // 로그아웃
+    @Transactional
+    public void logout(String accessToken, Long userId) {
+        // 1. Redis에서 해당 유저의 Refresh Token 삭제
+        if (Boolean.TRUE.equals(redisTemplate.hasKey("RT:" + userId))) {
+            redisTemplate.delete("RT:" + userId);
+        }
+
+        // 2. Access Token의 남은 유효시간 계산
+        Long expiration = jwtTokenProvider.getExpiration(accessToken);
+
+        // 3. Access Token을 블랙리스트에 저장
+        redisTemplate.opsForValue().set(
+                "BL:" + accessToken,
+                "logout",
+                Duration.ofMillis(expiration)
+        );
     }
 }
