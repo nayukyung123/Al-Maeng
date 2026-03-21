@@ -39,7 +39,7 @@ public enum ErrorCode {
     NOT_REVIEW_OWNER(HttpStatus.FORBIDDEN, "R004", "해당 리뷰에 대한 권한이 없습니다."),
 
     // [티어]
-    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 티어 정보를 찾을 수 없습니다.");
+    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "TR001", "해당 티어 정보를 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;
