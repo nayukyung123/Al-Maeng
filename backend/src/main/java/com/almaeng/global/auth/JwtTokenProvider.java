@@ -4,6 +4,7 @@ package com.almaeng.global.auth;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jwt.JwtException;
@@ -19,6 +20,7 @@ public class JwtTokenProvider {
 
     private final String secretKeyPlain;
     private final long accessExpiration;
+    @Getter
     private final long refreshExpiration;
     private SecretKey key;
 
