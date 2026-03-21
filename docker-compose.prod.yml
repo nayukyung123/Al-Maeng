@@ -56,6 +56,11 @@ services:
         condition: service_started
     networks:
       - almaeng-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   frontend:
     build: ./frontend
@@ -65,7 +70,8 @@ services:
       - NEXT_PUBLIC_API_URL=/api            
       - INTERNAL_API_URL=http://backend:8080
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - almaeng-network
 

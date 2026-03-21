@@ -1,5 +1,6 @@
 package com.almaeng.domain.auth.dto;
 
+import com.almaeng.domain.user.entity.Gender;
 import jakarta.validation.constraints.*;
 import java.util.List;
 
@@ -18,8 +19,7 @@ public record SignupRequest(
         Integer birthYear,
 
         @NotNull(message = "성별은 필수입니다.")
-        // sqlll.txt 기준 gender가 INT이므로 Integer로 받습니다. (프론트와 0:여성, 1:남성 등 규약 필요)
-        Integer gender,
+        Gender gender,
 
         @NotEmpty(message = "최소 하나 이상의 취향 정보를 선택해야 합니다.")
         @Size(min = 1, message = "취향 정보 배열이 비어있을 수 없습니다.")

@@ -1,6 +1,5 @@
 package com.almaeng.global.config;
 
-import com.almaeng.global.auth.CustomAuthenticationEntryPoint;
 import com.almaeng.global.auth.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +30,8 @@ public class SecurityConfig {
                 // 요청 권한 설정
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/auth/check-nickname", "/api/books/*/review").permitAll()
+                        .requestMatchers("/api/auth/login/**","/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/health", "/api/auth/login/**", "/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/auth/login/**","/api/auth/signup", "/api/auth/reissue","/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .anyRequest().authenticated()
                 )

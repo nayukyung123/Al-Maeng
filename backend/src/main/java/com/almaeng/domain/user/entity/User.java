@@ -42,8 +42,9 @@ public class User {
     @Column(name = "birth_year")
     private Integer birthYear;
 
+    @Enumerated(EnumType.ORDINAL)
     @Column(name = "gender")
-    private Integer gender;
+    private Gender gender;
 
     @Column(name = "completed_count")
     private Integer completedCount = 0; // 완독 권수 기본값 세팅
@@ -75,7 +76,7 @@ public class User {
     private List<String> tasteData = new ArrayList<>();
 
     @Builder
-    public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
+    public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.tier = tier;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
@@ -96,7 +97,7 @@ public class User {
     }
 
     // 온보딩 완료를 위한 비즈니스 메서드
-    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Integer gender, List<String> tasteData) {
+    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender, List<String> tasteData) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.birthYear = birthYear;
