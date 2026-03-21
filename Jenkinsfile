@@ -26,9 +26,10 @@ pipeline {
                     
                     echo "✅ All containers are up and healthy!"
                 }
-                }
+                
             }
         }
+
 
         // 3. 미사용 이미지 정리
         stage('Cleanup') {
