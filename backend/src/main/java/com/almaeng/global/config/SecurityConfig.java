@@ -30,7 +30,6 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         // 인증 및 API 문서화 관련
-                        .requestMatchers("/api/auth/login/**","/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health", "/api/auth/login/**", "/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
                         // 누구나 접근 가능한 GET API
