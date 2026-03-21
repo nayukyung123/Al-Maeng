@@ -28,6 +28,16 @@ oauth:
     redirect-uri: "http://localhost:8080/auth/callback/naver"
     user-info-uri: "http://localhost:8080/dummy"
 
+cloud:
+  aws:
+    credentials:
+      access-key: dummy-access-key-for-test
+      secret-key: dummy-secret-key-for-test
+    region:
+      static: ap-northeast-2
+    s3:
+      bucket: dummy-bucket-name
+
 notification:
   mattermost:
     enabled: false

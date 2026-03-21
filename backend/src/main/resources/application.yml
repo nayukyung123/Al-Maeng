@@ -71,3 +71,14 @@ jwt:
   secret: ${JWT_SECRET}
   access-expiration: 3600000 # 1h
   refresh-expiration: 1209600000 # 14day
+
+# S3
+cloud:
+  aws:
+    credentials:
+      access-key: ${AWS_ACCESS_KEY}
+      secret-key: ${AWS_SECRET_KEY}
+    region:
+      static: ap-northeast-2
+    s3:
+      bucket: ${S3_BUCKET_NAME}
