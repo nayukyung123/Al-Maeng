@@ -3,6 +3,7 @@ package com.almaeng.domain.search.controller;
 import com.almaeng.domain.book.dto.BookResponse;
 import com.almaeng.domain.book.dto.BookSuggestionResponse;
 import com.almaeng.domain.search.service.BookSearchService;
+import com.almaeng.domain.search.service.SearchRankingService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -24,6 +25,7 @@ import java.util.List;
 public class BookSearchController {
 
     private final BookSearchService booksearchService;
+    private final SearchRankingService searchRankingService;
 
     // 도서 검색 자동완성
     @GetMapping("/suggestions")
@@ -40,6 +42,10 @@ public class BookSearchController {
     public ResponseEntity<ApiResponse<Slice<BookResponse>>> searchBooks(
             @RequestParam("keyword") String keyword,
             @ParameterObject @PageableDefault(size=10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable){
+        
+        // 실시간 검색어 제공을 위한 Redis 업데이트
+        searchRankingService.incrementSearchKeyword(keyword);
+
         return ResponseEntity.ok(ApiResponse.success(booksearchService.searchBooks(keyword, pageable)));
     }
 
