@@ -4,6 +4,7 @@ import com.almaeng.domain.completedbook.entity.CompletedBook;
 import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
 import com.almaeng.domain.genre.entity.Genre;
 import com.almaeng.domain.genre.repository.GenreRepository;
+import com.almaeng.domain.ticket.dto.PresignedUrlResponse;
 import com.almaeng.domain.ticket.dto.TicketCreateRequest;
 import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.entity.Ticket;
@@ -11,22 +12,40 @@ import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TicketService {
     private final TicketRepository ticketRepository;
     private final CompletedBookRepository completedBookRepository;
     private final GenreRepository genreRepository;
+    private final S3Presigner s3Presigner;
+    private final S3Client s3Client;
+
+    @Value("${cloud.aws.s3.bucket}")
+    private String bucketName;
+    @Value("${cloud.aws.region.static}")
+    private String region;
 
     // 완독 티켓 생성
     @Transactional
@@ -60,9 +79,29 @@ public class TicketService {
             throw new ApiException(ErrorCode.TICKET_ACCESS_DENIED);
         }
 
-        // S3 저장 로직 추가 이후 - db에서 티켓 삭제 이전에 실제 이미지 파일도 S3에서 삭제하는 로직 추가
+        // db 삭제 전 S3에서 실제 이미지 파일 지우기
+        if (ticket.getTicketImageUrl() != null) {
+            deleteImageFromS3(ticket.getTicketImageUrl());
+        }
 
         ticketRepository.delete(ticket);
+    }
+
+    // S3에서 이미지 삭제하는 메서드
+    private void deleteImageFromS3(String imageUrl) {
+        try {
+            String key = imageUrl.substring(imageUrl.indexOf("amazonaws.com/") + 14);
+
+            DeleteObjectRequest deleteRequest =  DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+
+            s3Client.deleteObject(deleteRequest);
+            log.info("S3 이미지 삭제 완료: {}", key);
+        } catch (Exception e) {
+            log.error("S3 이미지 삭제 실패 (수동 확인 필요): {}", imageUrl, e);
+        }
     }
 
     // 완독 티켓 상세 조회
@@ -110,5 +149,28 @@ public class TicketService {
         Page<Ticket> ticketPage = ticketRepository.findBinderTicketsByGenreIds(userId, targetGenreIds, pageable);
 
         return ticketPage.map(TicketResponse::from);
+    }
+
+    // S3 이미지 저장용 url 발급
+    public PresignedUrlResponse getPresignedUrl(Long userId, String fileExtension) {
+        String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + fileExtension;
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .contentType("image/" + fileExtension)
+                .build();
+
+        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(10))
+                .putObjectRequest(putObjectRequest)
+                .build();
+
+        PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
+        String presignedUrl = presignedRequest.url().toString();
+
+        String imageUrl = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
+
+        return new PresignedUrlResponse(presignedUrl, imageUrl);
     }
 }

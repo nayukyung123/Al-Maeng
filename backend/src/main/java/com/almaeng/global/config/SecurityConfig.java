@@ -1,7 +1,5 @@
 package com.almaeng.global.config;
 
-import com.almaeng.global.auth.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +9,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.almaeng.global.auth.JwtAuthenticationFilter;
+
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
@@ -29,6 +31,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 인증 및 API 문서화 관련
                         .requestMatchers("/api/auth/login/**","/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/health", "/api/auth/login/**", "/api/auth/signup", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
                         // 누구나 접근 가능한 GET API
                         .requestMatchers(HttpMethod.GET,

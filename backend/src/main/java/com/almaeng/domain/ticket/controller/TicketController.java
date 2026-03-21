@@ -1,8 +1,6 @@
 package com.almaeng.domain.ticket.controller;
 
-import com.almaeng.domain.ticket.dto.TicketCreateRequest;
-import com.almaeng.domain.ticket.dto.TicketCreateResponse;
-import com.almaeng.domain.ticket.dto.TicketResponse;
+import com.almaeng.domain.ticket.dto.*;
 import com.almaeng.domain.ticket.service.TicketService;
 import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -61,6 +59,15 @@ public class TicketController {
                                                               @RequestParam(required = false) String genre,
                                                               @RequestParam(defaultValue = "0") int page) {
         Page<TicketResponse> response = ticketService.getBinderTickets(userId, genre, page);
+
+        return ApiResponse.success(response);
+    }
+
+    // S3 이미지 저장용 링크 발급
+    @PostMapping("/image-url")
+    public ApiResponse<PresignedUrlResponse> getPresignedUrl(@RequestParam Long userId,
+                                                             @RequestBody PresignedUrlRequest reqeust) {
+        PresignedUrlResponse response = ticketService.getPresignedUrl(userId, reqeust.fileExtension());
 
         return ApiResponse.success(response);
     }

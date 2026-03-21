@@ -1,6 +1,8 @@
 package com.almaeng.domain.auth.service;
 
 import com.almaeng.domain.auth.dto.LoginResponse;
+import com.almaeng.domain.auth.dto.SignupRequest;
+import com.almaeng.domain.auth.dto.SignupResponse;
 import com.almaeng.domain.user.entity.SocialAccount;
 import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
@@ -117,5 +119,26 @@ public class AuthService {
         // DB 중복 검사
         boolean exists = userRepository.existsByNickname(nickname);
         return !exists;
+    }
+
+    // 회원가입 시 정보입력
+    @Transactional
+    public SignupResponse signup(Long userId, SignupRequest request) {
+        // 임시 유저 조회
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+        // 닉네임 유효성 및 중복 최종 검증
+        if (!checkNicknameAvailability(request.nickname())) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        // 온보딩 정보 업데이트
+        user.completeOnboarding(
+                request.nickname(),
+                request.profileImageUrl(),
+                request.birthYear(),
+                request.gender(),
+                request.tasteData()
+        );
+        return SignupResponse.success();
     }
 }
