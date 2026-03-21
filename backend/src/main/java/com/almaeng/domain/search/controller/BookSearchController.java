@@ -13,14 +13,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/books")
 @RequiredArgsConstructor
 public class BookSearchController {
 
@@ -28,7 +26,7 @@ public class BookSearchController {
     private final SearchRankingService searchRankingService;
 
     // 도서 검색 자동완성
-    @GetMapping("/suggestions")
+    @GetMapping("/api/books/suggestions")
     public ResponseEntity<ApiResponse<List<BookSuggestionResponse>>> getSuggestions(
             @RequestParam("keyword") String keyword){
 
@@ -38,7 +36,7 @@ public class BookSearchController {
     }
 
     // 도서 검색 결과
-    @GetMapping
+    @GetMapping("/api/books")
     public ResponseEntity<ApiResponse<Slice<BookResponse>>> searchBooks(
             @RequestParam("keyword") String keyword,
             @ParameterObject @PageableDefault(size=10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable){
