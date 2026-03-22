@@ -50,4 +50,22 @@ public class AuthController {
 
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    @PostMapping("/reissue")
+    public ResponseEntity<ApiResponse<TokenResponse>> reissue(
+            @Valid @RequestBody ReissueRequest request
+    ) {
+        TokenResponse response = authService.reissue(request.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader("Authorization") String bearerToken,
+            @AuthenticationPrincipal Long userId
+    ) {
+        String accessToken = bearerToken.substring(7);
+        authService.logout(accessToken, userId);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
 }
