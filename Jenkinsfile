@@ -18,8 +18,12 @@ pipeline {
         stage('Deploy & Health Check') {
             steps {
                 echo "Starting Deployment..."
-                withCredentials([file(credentialsId: 'almaeng-env', variable: 'ENV_FILE')]) {
+                withCredentials([
+                    file(credentialsId: 'almaeng-env', variable: 'ENV_FILE'),
+                    file(credentialsId: 'frontend-env', variable: 'FRONT_ENV_FILE')
+                    ]) {
                     sh 'cp $ENV_FILE .env'
+                    sh 'cp $FRONT_ENV_FILE ./frontend/.env.production'
 
                     echo "Deploying and waiting for health checks to pass..."
                     sh "docker compose -f ${COMPOSE_FILE} up -d --wait --build"
