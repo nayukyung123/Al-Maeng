@@ -26,7 +26,7 @@ if (data_dir / ".env").exists():
 # [2] 환경 변수 매핑 (드라마 코드와 변수명 및 기본값 동기화)
 API_KEY = os.getenv("TMDB_API_KEY")
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5433")
+DB_PORT = os.getenv("DB_PORT", "5432") # 주연님 로그상 5432 접속이므로 기본값 수정
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USERNAME")    # DB_USER -> DB_USERNAME으로 매핑
 DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -116,7 +116,7 @@ def get_movie_detail_optimized(movie_id, title=""):
     return description if description else None, keywords_list, release_date
 
 def process_movie(m, year):
-    """개별 가공 및 튜플 반환 (드라마 코드와 컬럼 순서 일치)"""
+    """개별 가공 및 튜플 반환 (release_date 필드 추가 반영)"""
     title = m.get('title', '')
     if not has_korean(title): return None
     
@@ -142,11 +142,11 @@ def process_movie(m, year):
 
     # 반환 튜플 (SQL 쿼리 순서에 맞춤)
     return (
-        m['id'], 
-        title, 
-        'MOVIE', 
-        description,
-        f"https://image.tmdb.org/t/p/w500{m.get('poster_path')}" if m.get('poster_path') else None,
+        m['id'],                                      # tmdb_id
+        title,                                        # title
+        'MOVIE',                                      # type
+        description,                                  # description
+        f"https://image.tmdb.org/t/p/w500{m.get('poster_path')}" if m.get('poster_path') else None, 
         f"https://image.tmdb.org/t/p/original{m.get('backdrop_path')}" if m.get('backdrop_path') else None,
         json.dumps(keywords, ensure_ascii=False),     # keywords
         vote_count,                                   # vote_count
@@ -270,7 +270,7 @@ def main():
                 print(f"\n   ✅ {current_year}년 수집 완료")
 
         conn.close()
-        print(f"\n🎉 모든 수집 종료! 총 {total_saved:,}개의 영화 데이터가 저장되었습니다.")
+        print(f"\n🎉 모든 수집 종료! 총 {total_saved:,}개의 영화 데이터가 최신순으로 적재되었습니다.")
         
     except Exception as e:
         print(f"\n❌ 오류 발생: {e}")
