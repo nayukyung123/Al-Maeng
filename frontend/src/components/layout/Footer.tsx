@@ -3,8 +3,8 @@ import { Mail } from "lucide-react";
 
 /** 저작권/법적 링크 목록 */
 const LEGAL_LINKS = [
-  { label: "Privacy", href: "/privacy" },
-  { label: "Terms", href: "/terms" },
+  { label: "Privacy", href: "/privacy", external: false },
+  { label: "Terms", href: "/terms", external: false },
   { label: "Instagram", href: "https://www.instagram.com", external: true },
 ] as const;
 
