@@ -30,6 +30,9 @@ pipeline {
             }
             steps {
                 dir("${FRONTEND_DIR}") {
+                    withCredentials([file(credentialsId: 'frontend-env', variable: 'FRONT_ENV_FILE')]) {
+                        sh 'cp $FRONT_ENV_FILE .env.production'
+                    }
                     sh 'npm ci'
                     sh 'npm run build'
                 }
