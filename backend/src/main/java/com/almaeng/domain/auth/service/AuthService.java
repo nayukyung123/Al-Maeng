@@ -3,6 +3,7 @@ package com.almaeng.domain.auth.service;
 import com.almaeng.domain.auth.dto.LoginResponse;
 import com.almaeng.domain.auth.dto.SignupRequest;
 import com.almaeng.domain.auth.dto.SignupResponse;
+import com.almaeng.domain.auth.dto.TokenResponse;
 import com.almaeng.domain.user.entity.SocialAccount;
 import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
@@ -14,7 +15,6 @@ import com.almaeng.global.error.ErrorCode;
 import com.almaeng.global.infra.oauth.OAuthClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,18 +27,14 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
+    // 예약어 리스트 (소문자로 통일해서 비교)
+    private static final List<String> RESERVED_WORDS = List.of("admin", "manage", "manager", "almaeng", "root");
+    private static final String TEMP_NICKNAME_PREFIX = "user_";
     private final List<OAuthClient> oAuthClients;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final TierRepository tierRepository;
-
-    // 예약어 리스트 (소문자로 통일해서 비교)
-    private static final List<String> RESERVED_WORDS = List.of("admin", "manage", "manager", "almaeng", "root");
-    private static final String TEMP_NICKNAME_PREFIX = "user_";
-
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpiration;
 
     // kakao, google, naver 식별, ID 추출
     @Transactional
@@ -51,7 +47,7 @@ public class AuthService {
         String providerId = oAuthClient.getProviderId(accessToken);
         // DB 조회를 통해 기존 유저면 '로그인 처리', 없으면 '신규 가입'으로 분기
         return userRepository.findByProviderId(providerId)
-                .map(user -> handleExistingUser(user))
+                .map(this::handleExistingUser)
                 .orElseGet(() -> handleNewUser(provider, providerId));
     }
 
@@ -99,8 +95,7 @@ public class AuthService {
         redisTemplate.opsForValue().set(
                 "RT:" + user.getId(),
                 refreshToken,
-                Duration.ofMillis(refreshExpiration)
-        );
+                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())        );
 
         return new LoginResponse(accessToken, refreshToken, isRegistered);
     }
@@ -140,5 +135,35 @@ public class AuthService {
                 request.tasteData()
         );
         return SignupResponse.success();
+    }
+
+    // 토큰 재발급
+    @Transactional
+    public TokenResponse reissue(String refreshToken) {
+        // 1. Refresh Token 자체의 유효성/만료 여부 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        // 2. 토큰에서 유저 ID 추출
+        Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+
+        // 3. Redis에 저장된 Refresh Token과 일치하는지 대조
+        String storedRefreshToken = redisTemplate.opsForValue().get("RT:" + userId);
+        if (!refreshToken.equals(storedRefreshToken)) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        // 4. 검증 통과
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(userId);
+
+        // 5. Redis의 기존 Refresh Token 갱신
+        redisTemplate.opsForValue().set(
+                "RT:" + userId,
+                newRefreshToken,
+                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())
+        );
+        return new TokenResponse(newAccessToken, newRefreshToken);
     }
 }
