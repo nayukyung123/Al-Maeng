@@ -59,4 +59,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader("Authorization") String bearerToken,
+            @AuthenticationPrincipal Long userId
+    ) {
+        String accessToken = bearerToken.substring(7);
+        authService.logout(accessToken, userId);
+        return ResponseEntity.ok(ApiResponse.success());
+    }
 }
