@@ -4,6 +4,7 @@ pipeline {
     options {
             disableConcurrentBuilds()
             timeout(time: 30, unit: 'MINUTES')
+            gitLabConnection('GitLab-Connection')
     }
 
     environment {
@@ -14,8 +15,10 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout & Notify GitLab') {
             steps {
+                updateGitlabCommitStatus name: 'CI Pipeline', state: 'pending'
+                
                 checkout scm
                 echo "🔍 CI Check for: ${env.GIT_BRANCH}"
             }
@@ -27,6 +30,9 @@ pipeline {
             }
             steps {
                 dir("${FRONTEND_DIR}") {
+                    withCredentials([file(credentialsId: 'frontend-env', variable: 'FRONT_ENV_FILE')]) {
+                        sh 'cp $FRONT_ENV_FILE .env.production'
+                    }
                     sh 'npm ci'
                     sh 'npm run build'
                 }
@@ -56,6 +62,13 @@ pipeline {
     }
 
     post {
+        success {
+            updateGitlabCommitStatus name: 'CI Pipeline', state: 'success'
+        }
+        failure {
+            updateGitlabCommitStatus name: 'CI Pipeline', state: 'failed'
+        }
+        
         always {
             script {
                 def sonarUrl = "${env.SONAR_URL}/dashboard?id=al-maeng-backend"

@@ -1,5 +1,6 @@
 package com.almaeng.domain.user.entity;
 
+import org.hibernate.annotations.ColumnTransformer;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
 import jakarta.persistence.*;
@@ -8,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,8 +29,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "tier_id", nullable = false)
-    private Integer tierId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tier_id", nullable = false)
+    private Tier tier;
 
     @Column(length = 100, nullable = false)
     private String nickname;
@@ -39,8 +42,9 @@ public class User {
     @Column(name = "birth_year")
     private Integer birthYear;
 
+    @Enumerated(EnumType.ORDINAL)
     @Column(name = "gender")
-    private Integer gender;
+    private Gender gender;
 
     @Column(name = "completed_count")
     private Integer completedCount = 0; // 완독 권수 기본값 세팅
@@ -49,6 +53,7 @@ public class User {
     private Integer preferenceCount = 0; // 찜 권수 기본값 세팅
 
     @Column(name = "embedding_vector", columnDefinition = "vector")
+    @ColumnTransformer(write = "?::vector")
     private String embeddingVector;
 
     @CreationTimestamp
@@ -66,9 +71,13 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "taste_data", columnDefinition = "jsonb")
+    private List<String> tasteData = new ArrayList<>();
+
     @Builder
-    public User(Integer tierId, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
-        this.tierId = tierId;
+    public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
+        this.tier = tier;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.birthYear = birthYear;
@@ -79,11 +88,20 @@ public class User {
     }
 
     // 처음 소셜 로그인 시 NOT NULL을 피하기 위한 임시 유저 생성기
-    public static User createOAuthTempUser(String provider) {
+    public static User createOAuthTempUser(String provider, Tier defaultTier) {
         String tempNickname = provider.toUpperCase() + "_" + UUID.randomUUID().toString().substring(0, 8);
         return User.builder()
-                .tierId(1) // 임시 유저도 기본 티어는 있어야 함
+                .tier(defaultTier) // 임시 유저도 기본 티어는 있어야 함
                 .nickname(tempNickname)
                 .build();
+    }
+
+    // 온보딩 완료를 위한 비즈니스 메서드
+    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender, List<String> tasteData) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
+        this.birthYear = birthYear;
+        this.gender = gender;
+        this.tasteData = tasteData;
     }
 }

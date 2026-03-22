@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: backend-test
+  profiles:
+    active: test
+  datasource:
+    password: "test-dummy-password"
+
+jwt:
+  secret: "this-is-dummy-secret-key-for-local-and-ci-tests-only-al-maeng-project"
+  access-expiration: 3600000
+  refresh-expiration: 1209600000
+
+oauth:
+  kakao:
+    client-id: "test-kakao-id"
+    client-secret: "test-kakao-secret"
+    redirect-uri: "http://localhost:8080/auth/callback/kakao"
+    user-info-uri: "http://localhost:8080/dummy"
+  google:
+    client-id: "test-google-id"
+    client-secret: "test-google-secret"
+    redirect-uri: "http://localhost:8080/auth/callback/google"
+    user-info-uri: "http://localhost:8080/dummy"
+  naver:
+    client-id: "test-naver-id"
+    client-secret: "test-naver-secret"
+    redirect-uri: "http://localhost:8080/auth/callback/naver"
+    user-info-uri: "http://localhost:8080/dummy"
+
+cloud:
+  aws:
+    credentials:
+      access-key: dummy-access-key-for-test
+      secret-key: dummy-secret-key-for-test
+    region:
+      static: ap-northeast-2
+    s3:
+      bucket: dummy-bucket-name
+
+notification:
+  mattermost:
+    enabled: false
