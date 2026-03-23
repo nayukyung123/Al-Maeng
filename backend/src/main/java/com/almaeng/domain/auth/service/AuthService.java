@@ -6,8 +6,10 @@ import com.almaeng.domain.auth.dto.SignupResponse;
 import com.almaeng.domain.user.entity.SocialAccount;
 import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
+import com.almaeng.domain.user.entity.UserTasteReportGenre;
 import com.almaeng.domain.user.repository.TierRepository;
 import com.almaeng.domain.user.repository.UserRepository;
+import com.almaeng.domain.user.repository.UserTasteReportGenreRepository;
 import com.almaeng.global.auth.JwtTokenProvider;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
@@ -27,15 +29,14 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
+    private static final List<String> RESERVED_WORDS = List.of("admin", "manage", "manager", "almaeng", "root");
+    private static final String TEMP_NICKNAME_PREFIX = "user_";
     private final List<OAuthClient> oAuthClients;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final TierRepository tierRepository;
-
-    // 예약어 리스트 (소문자로 통일해서 비교)
-    private static final List<String> RESERVED_WORDS = List.of("admin", "manage", "manager", "almaeng", "root");
-    private static final String TEMP_NICKNAME_PREFIX = "user_";
+    private final UserTasteReportGenreRepository tasteRepository;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -136,9 +137,18 @@ public class AuthService {
                 request.nickname(),
                 request.profileImageUrl(),
                 request.birthYear(),
-                request.gender(),
-                request.tasteData()
+                request.gender()
         );
+
+        // 취향 정보
+        if (request.genreIds() != null && !request.genreIds().isEmpty()) {
+            for (Long genreId : request.genreIds()) {
+                UserTasteReportGenre taste = new UserTasteReportGenre();
+                taste.setUser(user);
+                taste.setGenreId(genreId);
+                tasteRepository.save(taste);
+            }
+        }
         return SignupResponse.success();
     }
 }
