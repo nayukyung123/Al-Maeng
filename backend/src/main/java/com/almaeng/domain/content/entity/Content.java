@@ -1,10 +1,7 @@
 package com.almaeng.domain.content.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -14,6 +11,8 @@ import org.hibernate.type.SqlTypes;
 @DynamicUpdate
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Builder
 public class Content {
 
     @Id
@@ -49,16 +48,4 @@ public class Content {
     @Column(name = "genres", columnDefinition = "jsonb")
     private String genres;
 
-    @Builder
-    public Content(Long tmdbId, String title, String type, String description, String posterUrl, String bannerPosterUrl, Long voteCount, String keywords, String genres) {
-        this.tmdbId = tmdbId;
-        this.title = title;
-        this.type = type;
-        this.description = description;
-        this.posterUrl = posterUrl;
-        this.bannerPosterUrl = bannerPosterUrl;
-        this.voteCount = voteCount;
-        this.keywords = keywords;
-        this.genres = genres;
-    }
 }
