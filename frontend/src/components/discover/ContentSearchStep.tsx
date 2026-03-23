@@ -97,6 +97,11 @@ export default function ContentSearchStep() {
   // ── 검색 실행 (Enter / 돋보기 버튼) ──────────────────────
   const handleSearch = useCallback(() => {
     if (!keyword.trim()) return;
+    // 비로그인 사용자 → 로그인 안내 팝업
+    if (!isLoggedIn) {
+      setShowAuthGate(true);
+      return;
+    }
     setCommittedSearch(keyword);
     setIsFocused(false);
     if (selectedContent && selectedContent.title !== keyword) {
@@ -106,7 +111,7 @@ export default function ContentSearchStep() {
     setTimeout(() => {
       resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-  }, [keyword, selectedContent, setSelectedContent]);
+  }, [keyword, isLoggedIn, selectedContent, setSelectedContent]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

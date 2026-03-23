@@ -58,16 +58,16 @@ export default function AuthGate({ isVisible, onClose }: AuthGateProps) {
             </h2>
 
             <p className="text-sm text-gray-600 leading-relaxed mb-10 break-keep">
-              당신의 취향을 분석하고 딱 맞는 책을 추천해드려요.
+              취향 찾기 기능은 로그인한 회원만 이용할 수 있어요.
               <br />
-              영화나 드라마 취향을 입력하고 나만의 텍스트 세계를 발견해보세요.
+              로그인 후 영화·드라마 취향으로 나만의 책을 발견해보세요.
             </p>
 
             <button
               onClick={handleLogin}
               className="w-full bg-black text-white py-4 flex items-center justify-center gap-3 font-black text-sm tracking-widest uppercase hover:bg-[#0033FF] transition-colors"
             >
-              로그인하고 결과 보기 <ArrowRight size={18} />
+              로그인하러 가기 <ArrowRight size={18} />
             </button>
 
             <button
