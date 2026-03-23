@@ -62,18 +62,18 @@ export default function Header() {
 
         {/* ── 로고 (텍스트 로고: 최상위 페이지에서는 h1, 나머지는 strong) ── */}
         {pathname === "/" ? (
-          <h1>
+          <h1 className="m-0 leading-none flex items-center">
             <Link
               href="/"
               onClick={handleLogoClick}
-              className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0"
+              className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0 leading-none"
               aria-label="Al-Maeng 홈으로 이동"
             >
               Al-Maeng
             </Link>
           </h1>
         ) : (
-          <strong>
+          <strong className="leading-none flex items-center">
             <Link
               href="/"
               onClick={handleLogoClick}
@@ -87,17 +87,17 @@ export default function Header() {
 
         <div className="flex items-center gap-8">
           {/* ── PC 네비게이션 ── */}
-          <nav aria-label="주요 메뉴">
-            <ul className="hidden md:flex items-center gap-8 list-none">
+          <nav aria-label="주요 메뉴" className="flex items-center">
+            <ul className="hidden md:flex items-center gap-8 list-none m-0 p-0">
               {NAV_ITEMS.map((item) => {
                 const isActive = activeId === item.id;
                 return (
-                  <li key={item.id}>
+                  <li key={item.id} className="flex items-center">
                     <Link
                       href={item.href}
                       aria-current={isActive ? "page" : undefined}
                       className={clsx(
-                        "text-xs font-bold uppercase tracking-widest transition-colors hover:text-[#0033FF] whitespace-nowrap",
+                        "flex items-center leading-none text-xs font-bold uppercase tracking-widest transition-colors hover:text-[#0033FF] whitespace-nowrap",
                         isActive ? "text-[#0033FF]" : "text-black"
                       )}
                     >
@@ -235,9 +235,9 @@ export default function Header() {
               <Link
                 href="/login"
                 aria-label="로그인 페이지로 이동"
-                className="text-xs font-bold uppercase tracking-widest hover:text-[#0033FF] transition-colors"
+                className="flex items-center leading-none text-xs font-bold tracking-widest hover:text-[#0033FF] transition-colors"
               >
-                Login
+                로그인
               </Link>
             )}
           </div>
