@@ -12,7 +12,7 @@ import useAuthStore from "@/store/useAuthStore";
 const NAV_ITEMS = [
   { id: "home", label: "홈", href: "/" },
   { id: "wizard", label: "취향 찾기", href: "/wizard" },
-  { id: "library", label: "나의 티켓", href: "/library" },
+  { id: "tickets", label: "나의 티켓", href: "/tickets" },
 ] as const;
 
 /** 현재 pathname → 활성 navItem id 반환 */
