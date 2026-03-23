@@ -3,9 +3,11 @@ package com.almaeng.domain.recommendation.dto;
 import com.almaeng.domain.book.entity.Book;
 import com.almaeng.domain.content.entity.Content;
 import com.almaeng.domain.recommendation.entity.TagBookRecommendation;
+import com.almaeng.domain.recommendation.type.LengthType;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -21,6 +23,7 @@ public class ContentRecommendationResponse {
         private String title;
         private String posterUrl;
         private String description;
+        private String type;
     }
 
     @Getter @Builder
@@ -31,7 +34,8 @@ public class ContentRecommendationResponse {
         private String slug;
         private String coverImageUrl;
         private Integer pageCount;
-        private String reason;
+        private LengthType lengthType;
+        private BigDecimal score;
     }
 
     public static ContentResponse from(Content content) {
@@ -40,6 +44,7 @@ public class ContentRecommendationResponse {
                 .title(content.getTitle())
                 .posterUrl(content.getPosterUrl())
                 .description(content.getDescription())
+                .type(content.getType())
                 .build();
     }
 
@@ -52,7 +57,8 @@ public class ContentRecommendationResponse {
                 .slug(book.getSlug())
                 .coverImageUrl(book.getCoverImageUrl())
                 .pageCount(book.getPageCount())
-                .reason(reco.getReasonType())
+                .lengthType(reco.getLengthType())
+                .score(reco.getScore())
                 .build();
     }
 
