@@ -22,7 +22,6 @@ public class CurationResponse {
         private String author;
         private String coverImageUrl;
 
-        // 엔티티에서 필요한 데이터만 쏙쏙 뽑아내는 변환 메서드
         public static BookInfo from(TagBookRecommendation reco) {
             return BookInfo.builder()
                     .bookId(reco.getBook().getId())
