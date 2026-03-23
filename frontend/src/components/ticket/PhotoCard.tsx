@@ -22,7 +22,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
     <div
       ref={ref}
       className={cn(
-        "relative w-[480px] h-[240px] flex rounded-lg shadow-2xl isolation-auto transition-all duration-500", 
+        "relative w-[480px] h-[240px] flex rounded-lg shadow-2xl isolation-auto", 
         templateId === 'minimal' ? 'bg-stone-50 text-stone-900' : style.background,
         templateId === 'minimal' ? 'text-stone-900' : style.textColor,
         templateId === 'minimal' ? 'font-sans' : fontClass,
@@ -33,14 +33,14 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
       <div className="flex-1 p-6 flex gap-6 relative z-10 rounded-l-lg">
         {/* Image Section */}
         <div className={cn(
-          "w-32 h-full shrink-0 bg-black/5 overflow-hidden border border-current/20 shadow-inner transition-all duration-500",
+          "w-32 h-full shrink-0 bg-black/5 overflow-hidden border border-current/20 shadow-inner",
           templateId === 'modern' ? 'rounded-full' : 'rounded-sm'
         )}>
           <img 
             src={ticket.ticketImageUrl || ticket.coverImageUrl || `https://picsum.photos/seed/${ticket.id}/400/600`} 
             alt={ticket.title} 
             className={cn(
-              "w-full h-full object-cover transition-all duration-500",
+              "w-full h-full object-cover",
               templateId === 'classic' && !ticket.ticketImageUrl ? 'grayscale contrast-125' : ''
             )}
             referrerPolicy="no-referrer"

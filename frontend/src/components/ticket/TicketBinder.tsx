@@ -31,61 +31,87 @@ const fetchDummyBinderTickets = async (): Promise<GalleryTicket[]> => {
   });
 };
 
+const TicketSkeleton = ({ idx }: { idx: number }) => {
+  const yOffset = idx === 0 ? 'top-[42%]' : 'top-[58%]';
+  return (
+    <div className="relative w-full h-full">
+      <div className={`absolute ${yOffset} left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.45] sm:scale-[0.6] md:scale-[0.75] shadow-sm border border-black/5 rounded-lg`}>
+        <div className="w-[480px] h-[240px] bg-white/40 backdrop-blur-md rounded-lg shadow-sm animate-pulse flex p-6 gap-6 border border-white/50">
+          <div className="flex-1 flex gap-6">
+            <div className="w-[124px] h-[180px] bg-black/10 rounded-sm shadow-inner" />
+            <div className="flex-1 flex flex-col pt-4 gap-4">
+              <div className="w-3/4 h-8 bg-black/10 rounded" />
+              <div className="w-1/2 h-5 bg-black/10 rounded" />
+              <div className="w-full h-4 bg-black/10 rounded mt-auto" />
+              <div className="w-5/6 h-4 bg-black/10 rounded" />
+            </div>
+          </div>
+          <div className="w-px h-[190px] self-center border-l-2 border-dashed border-black/10" />
+          <div className="w-[100px] flex flex-col items-center justify-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-black/10" />
+            <div className="w-20 h-4 bg-black/10 rounded" />
+            <div className="w-16 h-4 bg-black/10 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => {
   const [books, setBooks] = useState<GalleryTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [pendingGenre, setPendingGenre] = useState<string | null>(null);
   const [flipState, setFlipState] = useState<'idle' | 'next-start' | 'next-anim' | 'prev-start' | 'prev-anim' | 'genre-flip-start' | 'genre-flip-anim'>('idle');
 
   useEffect(() => {
-    fetchDummyBinderTickets().then(setBooks);
+    fetchDummyBinderTickets().then((data) => {
+      setBooks(data);
+      setIsLoading(false);
+    });
   }, []);
 
-  const binderBooks = useMemo(() => {
+  const currentBinderBooks = useMemo(() => {
     let filtered = [...books];
-    if (selectedGenre) {
-      filtered = filtered.filter(b => b.genre === selectedGenre);
-    }
+    if (selectedGenre) filtered = filtered.filter(b => b.genre === selectedGenre);
     return filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
   }, [books, selectedGenre]);
+
+  const pendingBinderBooks = useMemo(() => {
+    let filtered = [...books];
+    if (pendingGenre) filtered = filtered.filter(b => b.genre === pendingGenre);
+    return filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+  }, [books, pendingGenre]);
 
   const genres = ['소설', '에세이', '자기계발', '인문학', '경제경영', '과학', '예술', '만화'];
 
   const handleGenreChange = (genre: string | null) => {
     if (selectedGenre === genre || flipState !== 'idle') return;
+    setPendingGenre(genre);
     setFlipState('genre-flip-start');
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setFlipState('genre-flip-anim');
-        setTimeout(() => {
-          setSelectedGenre(genre);
-          setPageIndex(0);
-        }, 350);
-      });
-    });
+    setTimeout(() => {
+      setFlipState('genre-flip-anim');
+    }, 200);
   };
 
   const turnNext = () => {
-    if (pageIndex >= Math.ceil(binderBooks.length / 4) - 1 || flipState !== 'idle') return;
+    if (pageIndex >= Math.ceil(currentBinderBooks.length / 4) - 1 || flipState !== 'idle') return;
     setFlipState('next-start');
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setFlipState('next-anim');
-      });
-    });
+    setTimeout(() => setFlipState('next-anim'), 50);
   };
 
   const turnPrev = () => {
     if (pageIndex <= 0 || flipState !== 'idle') return;
     setFlipState('prev-start');
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setFlipState('prev-anim');
-      });
-    });
+    setTimeout(() => setFlipState('prev-anim'), 50);
   };
 
-  const handleTransitionEnd = () => {
+  const handleTransitionEnd = (e: React.TransitionEvent) => {
+    if (e.target !== e.currentTarget) return;
+
     if (flipState === 'next-anim') {
       setPageIndex(p => p + 1);
       setFlipState('idle');
@@ -93,61 +119,81 @@ export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => 
       setPageIndex(p => p - 1);
       setFlipState('idle');
     } else if (flipState === 'genre-flip-anim') {
+      setSelectedGenre(pendingGenre);
+      setPendingGenre(null);
+      setPageIndex(0);
       setFlipState('idle');
     }
   };
 
-  const renderTickets = (start: number, end: number) => {
-    const pageBooks = binderBooks.slice(start, end);
-    const slots = [0, 1];
-    
+  const renderSlot = (start: number, idx: number, isPending: boolean = false) => {
+    if (isLoading) {
+      return <TicketSkeleton idx={idx} />;
+    }
+
+    const targetBooks = isPending ? pendingBinderBooks : currentBinderBooks;
+    const book = targetBooks[start + idx];
+    const yOffset = idx === 0 ? 'top-[42%]' : 'top-[58%]';
+
+    if (book) {
+      const randomRotation = idx % 2 === 0 ? '-rotate-1' : 'rotate-1';
+      const isFlipping = flipState !== 'idle';
+      const wrapperTransition = isFlipping ? '' : 'transition-transform duration-300 hover:scale-[1.02]';
+      const innerTransition = isFlipping ? '' : 'transition-transform duration-300 group-hover:rotate-0';
+
+      return (
+        <div key={`ticket-${book.id}`} className={`relative group cursor-pointer w-full h-full transform ${wrapperTransition}`} onClick={() => onOpenBook(book)}>
+          <div className={`absolute ${yOffset} left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.45] sm:scale-[0.6] md:scale-[0.75] shadow-sm border border-black/5 rounded-lg transition-transform ${randomRotation} group-hover:rotate-0`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/5 pointer-events-none z-10 rounded-lg border border-white/50" />
+            <PhotoCard ticket={book} />
+          </div>
+        </div>
+      );
+    }
+
+    // 빈 슬롯(추가 버튼)
+    const yOffsetEmpty = idx === 0 ? 'top-[42%]' : 'top-[58%]';
     return (
-      <div className="grid grid-cols-2 gap-4 md:gap-8 h-full">
-        {slots.map(idx => {
-          const book = pageBooks[idx];
-          if (book) {
-            return (
-              <div key={book.id} className="relative group cursor-pointer h-full flex items-center justify-center transform hover:scale-[1.02] transition-transform" onClick={() => onOpenBook(book)}>
-                {/* 
-                  3D 바인더에 최적화된 작은 사이즈 포토카드.
-                  원본 PhotoCard를 사용하면 너무 커서 UI가 망가질 수 있으므로 스케일 적용 
-                */}
-                <div className="scale-[0.6] md:scale-[0.8] origin-center shadow-xl">
-                  <PhotoCard ticket={book} />
-                </div>
-              </div>
-            );
-          }
-          
-          return (
-            <div key={`empty-${start}-${idx}`} onClick={onAddTicket} className="w-full aspect-[1/2] border border-black/5 rounded-sm flex flex-col p-3 bg-black/[0.01] relative overflow-hidden cursor-pointer hover:bg-black/5 transition-colors">
-              <div className="w-full h-full flex items-center justify-center">
-                <Plus size={32} className="text-black/20" />
-              </div>
-            </div>
-          );
-        })}
+      <div key={`empty-${start}-${idx}`} className="relative w-full h-full">
+        <div onClick={onAddTicket} className={`absolute ${yOffsetEmpty} left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] max-w-[300px] border-2 border-dashed border-black/10 rounded-lg flex flex-col bg-black/[0.02] hover:bg-black/5 transition-colors items-center justify-center cursor-pointer`}>
+          <Plus size={32} className="text-black/20" />
+        </div>
       </div>
     );
   };
 
-  // 3D 렌더링 가상화 방어
-  const getRenderTicketsSafe = (start: number, end: number) => {
-    const pageOffset = Math.abs((start / 4) - pageIndex);
-    if (pageOffset > 1) return null; 
-    return renderTickets(start, end);
-  }
+  const renderTickets = (start: number, end: number, isPending: boolean = false) => {
+    return (
+      <div className="grid grid-rows-2 h-full w-full py-2 relative">
+        <div className="absolute top-1/2 left-2 right-2 border-t border-white/60 shadow-[0_1px_2px_rgba(0,0,0,0.05)] pointer-events-none -translate-y-1/2" />
+
+        <div className="w-full h-full grid place-items-center p-1 pb-2">
+          {renderSlot(start, 0, isPending)}
+        </div>
+        <div className="w-full h-full grid place-items-center p-1 pt-2">
+          {renderSlot(start, 1, isPending)}
+        </div>
+      </div>
+    );
+  };
+
+  const getRenderTicketsSafe = (start: number, end: number, isPending: boolean = false) => {
+    const refIndex = isPending ? 0 : pageIndex;
+    const pageOffset = Math.abs((start / 4) - refIndex);
+    if (pageOffset > 2) return null;
+    return renderTickets(start, end, isPending);
+  };
 
   return (
-    <div className="animate-in fade-in py-12 px-6 md:px-12 flex flex-col items-center justify-center [perspective:2500px]">
-      <div className="relative w-full max-w-5xl ml-10 md:ml-12 aspect-[3/4] md:aspect-[2/1] bg-[#1a1a1a] p-2 md:p-3 rounded-xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.1)] [transform-style:preserve-3d]">
+    <div className="animate-in fade-in py-12 px-6 md:px-12 flex flex-col items-center justify-center [perspective:2500px] mt-24">
+      <div className="relative w-full max-w-5xl ml-10 md:ml-12 aspect-[3/4] md:aspect-[2/1] bg-white/20 backdrop-blur-xl border border-white/50 p-2 md:p-3 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.1),inset_0_0_0_1px_rgba(255,255,255,0.1)] [transform-style:preserve-3d]">
         <div className="absolute -left-14 md:-left-16 top-8 bottom-8 flex flex-col gap-1 z-0">
-          <button 
+          <button
             onClick={() => handleGenreChange(null)}
             className={cn(
               "w-14 md:w-16 py-2 rounded-l-lg text-[10px] font-black tracking-tighter uppercase transition-all border-y border-l flex items-center justify-center",
-              selectedGenre === null 
-                ? "bg-black text-white border-black z-10 -translate-x-3 shadow-[-8px_0_20px_rgba(0,0,0,0.4)]" 
+              selectedGenre === null
+                ? "bg-black text-white border-black z-10 -translate-x-3 shadow-[-8px_0_20px_rgba(0,0,0,0.4)]"
                 : "bg-stone-200 text-stone-500 border-stone-300 hover:bg-stone-300"
             )}
           >
@@ -156,7 +202,7 @@ export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => 
           {genres.map((genre, idx) => {
             const defaultColors = ['bg-slate-200', 'bg-stone-200', 'bg-zinc-200'];
             return (
-              <button 
+              <button
                 key={genre}
                 onClick={() => handleGenreChange(genre)}
                 className={cn(
@@ -171,56 +217,84 @@ export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => 
           })}
         </div>
 
+        <div
+          onClick={turnPrev}
+          className={`peer/prev group/prev absolute top-0 bottom-0 left-0 w-16 md:w-24 z-50 cursor-pointer flex items-center justify-start ${pageIndex === 0 || flipState !== 'idle' ? 'hidden' : 'block'}`}
+        >
+          <div className="ml-2 md:ml-4 opacity-0 group-hover/prev:opacity-100 transition-opacity duration-300">
+            <p className="text-black/30 font-black tracking-[0.3em] -rotate-90 text-[10px] uppercase select-none">Prev</p>
+          </div>
+        </div>
+
+        <div
+          onClick={turnNext}
+          className={`peer/next group/next absolute top-0 bottom-0 right-0 w-16 md:w-24 z-50 cursor-pointer flex items-center justify-end ${pageIndex >= Math.ceil(currentBinderBooks.length / 4) - 1 || flipState !== 'idle' ? 'hidden' : 'block'}`}
+        >
+          <div className="mr-2 md:mr-4 opacity-0 group-hover/next:opacity-100 transition-opacity duration-300">
+            <p className="text-black/30 font-black tracking-[0.3em] rotate-90 text-[10px] uppercase select-none">Next</p>
+          </div>
+        </div>
+
         <div className="relative w-full h-full flex [perspective:3000px] overflow-hidden rounded-lg">
-          <div className="w-1/2 h-full relative bg-[#FDFCF8] rounded-l-sm shadow-[inset_-20px_0_40px_rgba(0,0,0,0.05)] border-r border-black/10 z-0">
+          <div className="w-1/2 h-full relative bg-white/40 backdrop-blur-md rounded-l-sm shadow-[inset_-20px_0_40px_rgba(0,0,0,0.05)] border-r border-white/50 z-0">
             <div className="absolute inset-0 p-4 md:p-10 flex flex-col gap-4">
-               {getRenderTicketsSafe(pageIndex * 4, pageIndex * 4 + 2)}
+              {flipState.includes('prev')
+                ? getRenderTicketsSafe((pageIndex - 1) * 4, (pageIndex - 1) * 4 + 2)
+                : getRenderTicketsSafe(pageIndex * 4, pageIndex * 4 + 2)
+              }
+            </div>
+            <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-black/10 to-transparent opacity-0 peer-hover/prev:opacity-100 transition-opacity duration-500 pointer-events-none rounded-l-sm" />
+          </div>
+
+          <div className="w-1/2 h-full relative bg-white/40 backdrop-blur-md rounded-r-sm shadow-[inset_20px_0_40px_rgba(0,0,0,0.05)] border-l border-white/50 z-0">
+            <div className="absolute inset-0 p-4 md:p-10 flex flex-col gap-4">
+              {flipState.includes('next')
+                ? getRenderTicketsSafe((pageIndex + 1) * 4 + 2, (pageIndex + 1) * 4 + 4)
+                : flipState.includes('genre-flip')
+                  ? getRenderTicketsSafe(2, 4, true)
+                  : getRenderTicketsSafe(pageIndex * 4 + 2, pageIndex * 4 + 4)
+              }
             </div>
           </div>
 
-          <div className="w-1/2 h-full relative bg-[#FDFCF8] rounded-r-sm shadow-[inset_20px_0_40px_rgba(0,0,0,0.05)] z-0">
-            <div className="absolute inset-0 p-4 md:p-10 flex flex-col gap-4">
-               {getRenderTicketsSafe(pageIndex * 4 + 2, pageIndex * 4 + 4)}
-            </div>
-          </div>
-
-          <div 
-            className={`absolute top-0 right-0 w-1/2 h-full origin-left transition-transform duration-700 ease-in-out [transform-style:preserve-3d] z-30 ${
-              (flipState === 'next-start' || flipState === 'genre-flip-start') ? '[transform:rotateY(0deg)] opacity-100' : 
-              (flipState === 'next-anim' || flipState === 'genre-flip-anim') ? '[transform:rotateY(-180deg)] opacity-100' : 
-              flipState === 'prev-start' ? '[transform:rotateY(-180deg)] opacity-100' :
-              flipState === 'prev-anim' ? '[transform:rotateY(0deg)] opacity-100' :
-              'opacity-0 pointer-events-none'
+          <div className={`absolute top-0 right-0 w-1/2 h-full origin-left ease-in-out [transform-style:preserve-3d] z-50 ${(flipState === 'next-start' || flipState === 'genre-flip-start') ? 'transition-none [transform:rotateY(0deg)] opacity-100' :
+            (flipState === 'next-anim' || flipState === 'genre-flip-anim') ? 'transition-transform duration-700 [transform:rotateY(-180deg)] opacity-100' :
+              flipState === 'prev-start' ? 'transition-none [transform:rotateY(-180deg)] opacity-100' :
+                flipState === 'prev-anim' ? 'transition-transform duration-700 [transform:rotateY(0deg)] opacity-100' :
+                  'opacity-0 pointer-events-none'
             }`}
             onTransitionEnd={handleTransitionEnd}
           >
-            <div className="absolute inset-0 backface-hidden bg-[#FDFCF8] shadow-[inset_20px_0_60px_rgba(0,0,0,0.1),-10px_0_30px_rgba(0,0,0,0.2)] rounded-r-sm overflow-hidden" style={{ backfaceVisibility: 'hidden' }}>
+            <div className="absolute inset-0 backface-hidden bg-white/40 backdrop-blur-md shadow-[inset_20px_0_60px_rgba(0,0,0,0.1),-10px_0_30px_rgba(0,0,0,0.2)] rounded-r-sm overflow-hidden" style={{ backfaceVisibility: 'hidden' }}>
               <div className="absolute inset-0 p-4 md:p-10 flex flex-col gap-4">
-                {flipState.includes('prev') 
+                {flipState.includes('prev')
                   ? getRenderTicketsSafe((pageIndex - 1) * 4 + 2, (pageIndex - 1) * 4 + 4)
                   : getRenderTicketsSafe(pageIndex * 4 + 2, pageIndex * 4 + 4)
                 }
               </div>
+              <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-black/10 to-transparent opacity-0 peer-hover/next:opacity-100 transition-opacity duration-500 pointer-events-none rounded-r-sm" />
             </div>
-            <div className="absolute inset-0 backface-hidden [transform:rotateY(180deg)] bg-[#FDFCF8] shadow-[inset_-20px_0_60px_rgba(0,0,0,0.1),10px_0_30px_rgba(0,0,0,0.2)] rounded-l-sm border-r border-black/10 overflow-hidden" style={{ backfaceVisibility: 'hidden' }}>
+            <div className="absolute inset-0 backface-hidden [transform:rotateY(180deg)] bg-white/40 backdrop-blur-md shadow-[inset_-20px_0_60px_rgba(0,0,0,0.1),10px_0_30px_rgba(0,0,0,0.2)] rounded-l-sm border-r border-white/50 overflow-hidden" style={{ backfaceVisibility: 'hidden' }}>
               <div className="absolute inset-0 p-4 md:p-10 flex flex-col gap-4">
-                {flipState.includes('next') 
+                {flipState.includes('next')
                   ? getRenderTicketsSafe((pageIndex + 1) * 4, (pageIndex + 1) * 4 + 2)
                   : flipState.includes('prev')
-                  ? getRenderTicketsSafe(pageIndex * 4, pageIndex * 4 + 2)
-                  : getRenderTicketsSafe(0, 2)
+                    ? getRenderTicketsSafe(pageIndex * 4, pageIndex * 4 + 2)
+                    : flipState.includes('genre-flip')
+                      ? getRenderTicketsSafe(0, 2, true)
+                      : getRenderTicketsSafe(0, 2)
                 }
               </div>
             </div>
           </div>
-        </div>
 
-        <button onClick={turnPrev} disabled={pageIndex === 0 || flipState !== 'idle'} className="absolute -left-6 md:-left-10 top-1/2 -translate-y-1/2 w-10 h-10 md:w-16 md:h-16 bg-white shadow-xl rounded-full flex items-center justify-center disabled:opacity-0 hover:bg-black hover:text-white transition-all z-50 border border-black/5">
-          <ChevronLeft size={24} />
-        </button>
-        <button onClick={turnNext} disabled={pageIndex >= Math.ceil(binderBooks.length / 4) - 1 || flipState !== 'idle'} className="absolute -right-6 md:-right-10 top-1/2 -translate-y-1/2 w-10 h-10 md:w-16 md:h-16 bg-white shadow-xl rounded-full flex items-center justify-center disabled:opacity-0 hover:bg-black hover:text-white transition-all z-50 border border-black/5">
-          <ChevronRight size={24} />
-        </button>
+          {/* 바인더 중앙 철제 링 (양쪽 페이지 사이에 absolute로 추가) */}
+          <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-10 md:w-12 z-40 flex flex-col justify-evenly py-8 pointer-events-none">
+            {[1, 2, 3, 4].map(ring => (
+              <div key={ring} className="w-full h-1.5 md:h-2 bg-gradient-to-b from-gray-300 via-gray-400 to-gray-500 rounded-full shadow-[0_4px_4px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.8)] border border-gray-500/80" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
