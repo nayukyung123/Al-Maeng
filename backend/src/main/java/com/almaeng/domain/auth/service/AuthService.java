@@ -3,6 +3,7 @@ package com.almaeng.domain.auth.service;
 import com.almaeng.domain.auth.dto.LoginResponse;
 import com.almaeng.domain.auth.dto.SignupRequest;
 import com.almaeng.domain.auth.dto.SignupResponse;
+import com.almaeng.domain.auth.dto.TokenResponse;
 import com.almaeng.domain.user.entity.SocialAccount;
 import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
@@ -36,6 +37,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final StringRedisTemplate redisTemplate;
     private final TierRepository tierRepository;
+
     private final UserTasteReportGenreRepository tasteRepository;
 
     @Value("${jwt.refresh-expiration}")
@@ -52,7 +54,7 @@ public class AuthService {
         String providerId = oAuthClient.getProviderId(accessToken);
         // DB 조회를 통해 기존 유저면 '로그인 처리', 없으면 '신규 가입'으로 분기
         return userRepository.findByProviderId(providerId)
-                .map(user -> handleExistingUser(user))
+                .map(this::handleExistingUser)
                 .orElseGet(() -> handleNewUser(provider, providerId));
     }
 
@@ -100,8 +102,7 @@ public class AuthService {
         redisTemplate.opsForValue().set(
                 "RT:" + user.getId(),
                 refreshToken,
-                Duration.ofMillis(refreshExpiration)
-        );
+                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration()));
 
         return new LoginResponse(accessToken, refreshToken, isRegistered);
     }
@@ -150,5 +151,54 @@ public class AuthService {
             }
         }
         return SignupResponse.success();
+    }
+
+    // 토큰 재발급
+    @Transactional
+    public TokenResponse reissue(String refreshToken) {
+        // 1. Refresh Token 자체의 유효성/만료 여부 검증
+        if (!jwtTokenProvider.validateToken(refreshToken)) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        // 2. 토큰에서 유저 ID 추출
+        Long userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
+
+        // 3. Redis에 저장된 Refresh Token과 일치하는지 대조
+        String storedRefreshToken = redisTemplate.opsForValue().get("RT:" + userId);
+        if (!refreshToken.equals(storedRefreshToken)) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        // 4. 검증 통과
+        String newAccessToken = jwtTokenProvider.createAccessToken(userId);
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(userId);
+
+        // 5. Redis의 기존 Refresh Token 갱신
+        redisTemplate.opsForValue().set(
+                "RT:" + userId,
+                newRefreshToken,
+                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())
+        );
+        return new TokenResponse(newAccessToken, newRefreshToken);
+    }
+
+    // 로그아웃
+    @Transactional
+    public void logout(String accessToken, Long userId) {
+        // 1. Redis에서 해당 유저의 Refresh Token 삭제
+        if (Boolean.TRUE.equals(redisTemplate.hasKey("RT:" + userId))) {
+            redisTemplate.delete("RT:" + userId);
+        }
+
+        // 2. Access Token의 남은 유효시간 계산
+        Long expiration = jwtTokenProvider.getExpiration(accessToken);
+
+        // 3. Access Token을 블랙리스트에 저장
+        redisTemplate.opsForValue().set(
+                "BL:" + accessToken,
+                "logout",
+                Duration.ofMillis(expiration)
+        );
     }
 }

@@ -6,9 +6,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -21,27 +24,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
 
+    private final StringRedisTemplate redisTemplate;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-
         // Request Header에서 JWT 토큰 추출
         String token = resolveToken(request);
 
         // 토큰이 유효한지 검사
         if (token != null && jwtTokenProvider.validateToken(token)) {
-            // 3. 토큰에서 userId (subject) 꺼내기
-            // (주의: 현재 JwtTokenProvider에 getUserIdFromToken() 같은 메서드가 없다면 아래에 추가해야 합니다!)
-            Long userId = jwtTokenProvider.getUserIdFromToken(token);
+            String isLogout = redisTemplate.opsForValue().get("BL:" + token);
 
-            // 4. Spring Security Context에 인증 정보 저장
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userId, null, null);
+            if (ObjectUtils.isEmpty(isLogout)) {
+                // 토큰에서 userId 꺼내기
+                Long userId = jwtTokenProvider.getUserIdFromToken(token);
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            log.debug("Security Context에 '{}' 인증 정보를 저장했습니다, uri: {}", userId, request.getRequestURI());
+                // Spring Security Context에 인증 정보 저장
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userId, null, null);
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+                log.debug("Security Context에 '{}' 인증 정보를 저장했습니다, uri: {}", userId, request.getRequestURI());
+            }
         }
-
         filterChain.doFilter(request, response);
     }
 

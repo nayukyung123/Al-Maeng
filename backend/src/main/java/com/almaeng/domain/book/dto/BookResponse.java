@@ -8,6 +8,7 @@ import lombok.Getter;
 @Builder
 public class BookResponse {
     private Long id;
+    private String slug;
     private String title;
     private String author;
     private String coverImageUrl;
@@ -15,6 +16,7 @@ public class BookResponse {
     public static BookResponse from(Book book) {
         return BookResponse.builder()
                 .id(book.getId())
+                .slug(book.getSlug())
                 .title(book.getTitle())
                 .author(book.getAuthor())
                 .coverImageUrl(book.getCoverImageUrl())
