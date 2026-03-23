@@ -34,6 +34,8 @@ export interface CurationRequest {
 /** 큐레이션 결과 내 개별 도서 */
 export interface CurationBook {
   bookId: number;
+  /** 백엔드가 slug를 포함해 줄 경우 사용; 없으면 bookId를 fallback으로 사용 */
+  slug?: string;
   title: string;
   author: string;
   coverImageUrl: string;

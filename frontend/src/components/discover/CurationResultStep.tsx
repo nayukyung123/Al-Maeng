@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import useDiscoverStore from "@/store/useDiscoverStore";
 import type { CurationBook, CurationSection } from "@/api/curation";
 
@@ -35,8 +36,11 @@ export function CurationResultSkeleton() {
 // 개별 도서 카드
 // ─────────────────────────────────────────────────────────────
 function BookCard({ book }: { book: CurationBook }) {
+  // slug가 있으면 slug, 없으면 bookId를 경로로 사용
+  const href = `/books/${book.slug ?? book.bookId}`;
+
   return (
-    <div className="group cursor-pointer">
+    <Link href={href} className="group cursor-pointer block">
       <div className="w-full aspect-[3/4] bg-gray-100 mb-3 overflow-hidden rounded-sm shadow-md group-hover:shadow-xl transition-all duration-500 relative">
         {/* 책등 효과 */}
         <div className="absolute inset-y-0 left-0 w-[2px] bg-black/10 z-10" />
@@ -62,7 +66,7 @@ function BookCard({ book }: { book: CurationBook }) {
       <p className="text-[10px] md:text-xs text-gray-400 mt-1 font-medium">
         {book.author}
       </p>
-    </div>
+    </Link>
   );
 }
 
