@@ -3,15 +3,6 @@ import type { ApiResponse, SliceResponse } from "@/types/api";
 import type { Book, BookSuggestion } from "@/types/home";
 
 // ────────────────────────────────────────────────────────────
-// RankingType 매핑 (UI 탭 라벨 → 백엔드 enum)
-// ────────────────────────────────────────────────────────────
-export const RANK_TAB_MAP: Record<string, string> = {
-  완독순: "COMPLETED",
-  찜한순: "FAVORITE",
-  조회순: "VIEW",
-};
-
-// ────────────────────────────────────────────────────────────
 // 🟢 자동완성  GET /api/books/suggestions?keyword={keyword}
 //    응답: ApiResponse<BookSuggestionResponse[]>
 //            └ { bookId, title, author }
@@ -41,17 +32,27 @@ export async function fetchBooks(
 }
 
 // ────────────────────────────────────────────────────────────
-// 🟢 인기 도서 랭킹  GET /api/books/rankings?type=&period=
+// RankingType 탭 → 백엔드 enum
+// ────────────────────────────────────────────────────────────
+export const RANK_TYPE_MAP: Record<string, string> = {
+  완독순: "COMPLETED",
+  찜한순: "FAVORITE",
+  조회순: "VIEW",
+};
+
+// ────────────────────────────────────────────────────────────
+// 🟢 인기 도서 랭킹  GET /api/books/rankings?period=&type=
+//    period: "ALL_TIME" | "WEEKLY" (기본 ALL_TIME)
+//    type  : "COMPLETED" | "FAVORITE" | "VIEW" (기본 VIEW)
 //    응답: ApiResponse<BookResponse[]>
 //            └ { id, title, author, coverImageUrl }
 // ────────────────────────────────────────────────────────────
 export async function fetchBookRankings(
-  rankTab = "완독순",
-  period = "ALL_TIME"
+  period = "ALL_TIME",
+  type = "VIEW"
 ): Promise<Book[]> {
-  const type = RANK_TAB_MAP[rankTab] ?? "VIEW";
   const response = await apiClient.get<ApiResponse<Book[]>>("/api/books/rankings", {
-    params: { type, period },
+    params: { period, type },
   });
   return response.data.data;
 }
