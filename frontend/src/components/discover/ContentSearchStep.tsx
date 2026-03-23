@@ -175,6 +175,9 @@ export default function ContentSearchStep() {
           영상 작품은 무엇인가요?
         </h2>
 
+        {/* ②③ 검색창 + Next 버튼 – 스크롤 시 상단 고정 */}
+        <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm pt-4 pb-3 -mx-6 md:-mx-12 px-6 md:px-12">
+
         {/* ② 검색 입력창 */}
         <div className="w-full relative">
           <div className="flex items-center gap-3 pb-1">
@@ -279,8 +282,8 @@ export default function ContentSearchStep() {
           </AnimatePresence>
         </div>
 
-        {/* ③ Next 버튼 – 검색창 바로 아래 고정 */}
-        <div className="mt-5 flex justify-end">
+        {/* ③ Next 버튼 */}
+        <div className="mt-4 flex justify-end">
           <button
             onClick={handleNext}
             disabled={!selectedContent}
@@ -289,6 +292,8 @@ export default function ContentSearchStep() {
             Next <ArrowRight size={32} />
           </button>
         </div>
+
+        </div>{/* /sticky wrapper */}
 
         {/* ④ 검색 결과 그리드 (페이지 자연 스크롤) */}
         {hasSearched && (
