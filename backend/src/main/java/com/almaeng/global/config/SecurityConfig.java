@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
-        private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint; // feat 브랜치에서 가져옴
+        private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
         private final CorsConfigurationSource corsConfigurationSource;
 
         @Bean
@@ -33,20 +33,21 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
-                                                // 1. 인증 및 API 문서화 관련 (feat 브랜치의 reissue 포함)
+                                                // 1. 인증 및 API 문서화 관련
                                                 .requestMatchers(
                                                                 "/actuator/health",
                                                                 "/api/auth/login/**",
                                                                 "/api/auth/signup",
-                                                                "/api/auth/reissue", // 토큰 재발급 API 권한 해제 필수
+                                                                "/api/auth/reissue",
                                                                 "/swagger-ui/**",
                                                                 "/v3/api-docs/**")
                                                 .permitAll()
 
-                                                // 2. 누구나 접근 가능한 GET API (dev 브랜치의 상세 매핑 유지)
+                                                // 2. 누구나 접근 가능한 GET API
                                                 .requestMatchers(HttpMethod.GET,
                                                                 "/api/auth/check-nickname",
-                                                                "/api/books/*/reviews", // 리뷰 조회 (아래 시니어 코멘트 참고)
+                                                                "/api/genres", // 사용자 취향 조사용 장르 조회
+                                                                "/api/books/*/reviews", // 리뷰 조회
                                                                 "/api/banners", // 상단 배너 조회
                                                                 "/api/books/suggestions", // 도서 검색어 자동완성
                                                                 "/api/keywords/rankings", // 실시간 검색 랭킹
@@ -57,7 +58,7 @@ public class SecurityConfig {
 
                                                 // 3. 그 외의 요청은 인증 필요
                                                 .anyRequest().authenticated())
-                                // 4. 예외 처리 설정 (프론트엔드 에러 핸들링을 위해 필수)
+                                // 4. 예외 처리 설정
                                 .exceptionHandling(exception -> exception
                                                 .authenticationEntryPoint(customAuthenticationEntryPoint))
                                 // 5. 필터 등록

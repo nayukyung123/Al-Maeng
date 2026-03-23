@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
@@ -155,15 +154,13 @@ public class TicketService {
     public PresignedUrlResponse getPresignedUrl(Long userId, String fileExtension) {
         String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + fileExtension;
 
-        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileName)
-                .contentType("image/" + fileExtension)
-                .build();
-
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(10))
-                .putObjectRequest(putObjectRequest)
+                .putObjectRequest(req -> req
+                        .bucket(bucketName)
+                        .key(fileName)
+                        .contentType("image/" + fileExtension)
+                )
                 .build();
 
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
