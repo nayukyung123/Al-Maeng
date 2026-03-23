@@ -35,22 +35,20 @@ services:
     build: ./backend
     container_name: almaeng-backend-prod
     restart: always
+    env_file:
+      - .env
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-      - SPRING_FLYWAY_ENABLED=true
       - SPRING_FLYWAY_URL=jdbc:postgresql://db:5432/${DB_NAME}
       - SPRING_FLYWAY_USER=${DB_USERNAME}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD}
       - SPRING_FLYWAY_LOCATIONS=classpath:db/migration
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
       - TZ=Asia/Seoul
-      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
-      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
     depends_on:
       db:
         condition: service_healthy
@@ -58,6 +56,11 @@ services:
         condition: service_started
     networks:
       - almaeng-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   frontend:
     build: ./frontend
@@ -67,7 +70,8 @@ services:
       - NEXT_PUBLIC_API_URL=/api            
       - INTERNAL_API_URL=http://backend:8080
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - almaeng-network
 
@@ -76,14 +80,18 @@ services:
       context: ./infra/nginx
       dockerfile: Dockerfile
     container_name: almaeng-nginx-proxy
+    restart: always
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /var/www/certbot:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - frontend
       - backend
     networks:
       - almaeng-network
-
 
 networks:
   almaeng-network:

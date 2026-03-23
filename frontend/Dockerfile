@@ -1,5 +1,5 @@
 # 1. 빌드 단계 (Build Stage)
-FROM node:24-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # 의존성 설치
@@ -11,7 +11,7 @@ COPY . .
 RUN npm run build 
 
 # 2. 실행 단계 (Production Stage): 이미지 용량 최적화
-FROM node:24-alpine AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 # 프로덕션 환경 설정
