@@ -37,7 +37,7 @@ export default function ContentCuration({
     onCurationChange((curationIndex + 1) % curations.length);
 
   const handleBookClick = (book: CurationBook) => {
-    router.push(`/search?q=${encodeURIComponent(book.title)}`);
+    router.push(`/books/${book.slug}`);
   };
 
   return (

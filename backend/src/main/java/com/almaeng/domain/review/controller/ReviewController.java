@@ -22,7 +22,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    @PostMapping("/books/{slug}/review")
+    @PostMapping("/books/{slug}/revies")
     public ResponseEntity<ApiResponse<Long>> createReview(
             @RequestParam Long userId,
             @PathVariable String slug,
@@ -34,7 +34,7 @@ public class ReviewController {
                 .body(ApiResponse.success(reviewId));
     }
 
-    @GetMapping("/books/{slug}/review")
+    @GetMapping("/books/{slug}/reviews")
     public ResponseEntity<ApiResponse<Slice<ReviewResponse>>> getReviews(
             @PathVariable String slug,
             @RequestParam(defaultValue = "false") boolean excludeSpoiler,

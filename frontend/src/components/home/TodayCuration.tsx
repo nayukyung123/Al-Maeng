@@ -60,7 +60,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
   };
 
   const handleBookClick = (book: Book) => {
-    router.push(`/books/${book.id}`);
+    router.push(`/books/${book.slug}`);
   };
 
   return (

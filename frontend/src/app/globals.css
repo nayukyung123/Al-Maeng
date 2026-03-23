@@ -128,3 +128,12 @@
     @apply font-sans;
   }
 }
+
+/* 스크롤바 숨김 유틸리티 (RecommendationList 가로 스크롤) */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
