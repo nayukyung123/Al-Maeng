@@ -102,8 +102,23 @@ export default function ReviewInput({
     <div
       ref={inputRef}
       id="comment-input"
-      className="bg-white border border-gray-100 p-8 mb-16 flex gap-6 shadow-sm relative scroll-mt-8"
+      className="bg-white border border-gray-100 p-8 mb-16 flex gap-6 shadow-sm relative scroll-mt-8 overflow-hidden"
     >
+      {/* ── 비로그인 오버레이 ── */}
+      {!isLoggedIn && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-5 backdrop-blur-sm bg-white/60">
+          <p className="text-lg font-black tracking-tight">
+            로그인 후 이용하실 수 있습니다
+          </p>
+          <button
+            onClick={() => router.push("/login")}
+            className="px-8 py-3 bg-black text-white text-sm font-black uppercase tracking-widest hover:bg-[#4D41FF] transition-all"
+          >
+            로그인 시작하기
+          </button>
+        </div>
+      )}
+
       {/* 수정 모드 배지 */}
       {editingReview && (
         <div className="absolute -top-4 left-8 bg-black text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest">

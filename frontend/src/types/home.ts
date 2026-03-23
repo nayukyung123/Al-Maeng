@@ -1,6 +1,7 @@
 /** 도서 (검색 결과 / 랭킹) — BookResponse DTO */
 export interface Book {
   id: number;
+  slug: string;
   title: string;
   author: string;
   /** 백엔드 BookResponse.coverImageUrl */

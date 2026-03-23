@@ -96,10 +96,10 @@ export async function fetchRecommendations(
 // 🟢 완료된 API — 리뷰 목록 조회 GET /api/books/{slug}/reviews
 // ────────────────────────────────────────────────────────────
 export async function fetchReviews(slug: string): Promise<Review[]> {
-  const res = await apiClient.get<ApiResponse<Review[]>>(
+  const res = await apiClient.get<ApiResponse<{ content: Review[] }>>(
     `/api/books/${slug}/reviews`
   );
-  return res.data.data;
+  return res.data.data.content || [];
 }
 
 // ────────────────────────────────────────────────────────────
