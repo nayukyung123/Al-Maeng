@@ -40,7 +40,8 @@ public class SecurityConfig {
                                                                 "/api/auth/signup",
                                                                 "/api/auth/reissue",
                                                                 "/swagger-ui/**",
-                                                                "/v3/api-docs/**")
+                                                                "/v3/api-docs/**",
+                                                                "/api/auth/callback/**")
                                                 .permitAll()
 
                                                 // 2. 누구나 접근 가능한 GET API
