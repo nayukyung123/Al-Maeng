@@ -150,7 +150,19 @@ public class AuthService {
                 tasteRepository.save(taste);
             }
         }
-        return SignupResponse.success();
+
+        //온보딩 완료 후 정식 토큰 발급
+        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId());
+        String newRefreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+        // Redis의 Refresh Token 갱신
+        redisTemplate.opsForValue().set(
+                "RT:" + user.getId(),
+                newRefreshToken,
+                Duration.ofMillis(jwtTokenProvider.getRefreshExpiration())
+        );
+
+        return SignupResponse.success(newAccessToken, newRefreshToken);
     }
 
     // 토큰 재발급
