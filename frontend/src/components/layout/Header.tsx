@@ -51,25 +51,32 @@ export default function Header() {
     setIsDropdownOpen(false);
   };
 
+  /** 로고 클릭: 검색 오버레이가 열려 있으면 닫아주는 이벤트 발행 */
+  const handleLogoClick = () => {
+    window.dispatchEvent(new CustomEvent("closeSearchOverlay"));
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md z-40 border-b border-black/10">
       <div className="max-w-7xl mx-auto w-full h-full flex justify-between items-center px-6 md:px-12">
 
         {/* ── 로고 (텍스트 로고: 최상위 페이지에서는 h1, 나머지는 strong) ── */}
         {pathname === "/" ? (
-          <h1>
+          <h1 className="m-0 leading-none flex items-center">
             <Link
               href="/"
-              className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0"
+              onClick={handleLogoClick}
+              className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0 leading-none"
               aria-label="Al-Maeng 홈으로 이동"
             >
               Al-Maeng
             </Link>
           </h1>
         ) : (
-          <strong>
+          <strong className="leading-none flex items-center">
             <Link
               href="/"
+              onClick={handleLogoClick}
               className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0"
               aria-label="Al-Maeng 홈으로 이동"
             >
@@ -80,17 +87,17 @@ export default function Header() {
 
         <div className="flex items-center gap-8">
           {/* ── PC 네비게이션 ── */}
-          <nav aria-label="주요 메뉴">
-            <ul className="hidden md:flex items-center gap-8 list-none">
+          <nav aria-label="주요 메뉴" className="flex items-center">
+            <ul className="hidden md:flex items-center gap-8 list-none m-0 p-0">
               {NAV_ITEMS.map((item) => {
                 const isActive = activeId === item.id;
                 return (
-                  <li key={item.id}>
+                  <li key={item.id} className="flex items-center">
                     <Link
                       href={item.href}
                       aria-current={isActive ? "page" : undefined}
                       className={clsx(
-                        "text-xs font-bold uppercase tracking-widest transition-colors hover:text-[#0033FF] whitespace-nowrap",
+                        "flex items-center leading-none text-xs font-bold uppercase tracking-widest transition-colors hover:text-[#0033FF] whitespace-nowrap",
                         isActive ? "text-[#0033FF]" : "text-black"
                       )}
                     >
@@ -228,9 +235,9 @@ export default function Header() {
               <Link
                 href="/login"
                 aria-label="로그인 페이지로 이동"
-                className="text-xs font-bold uppercase tracking-widest hover:text-[#0033FF] transition-colors"
+                className="flex items-center leading-none text-xs font-bold tracking-widest hover:text-[#0033FF] transition-colors"
               >
-                Login
+                로그인
               </Link>
             )}
           </div>
