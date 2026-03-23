@@ -24,6 +24,12 @@ export interface CurationBook {
   title: string;
   copy: string;
   seed: string;
+  /**
+   * 도서 상세 페이지 라우팅용 slug (또는 id 문자열).
+   * 백엔드 연동 시 BookResponse의 id나 slug로 교체.
+   * Mock 데이터에서는 seed 값을 그대로 활용.
+   */
+  slug: string;
 }
 
 /** 히어로 슬라이더 / 컨텐츠 큐레이션 배너 */
