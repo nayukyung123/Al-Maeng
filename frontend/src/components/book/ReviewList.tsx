@@ -77,7 +77,7 @@ export default function ReviewList({
               <img
                 src={profileSrc}
                 alt={review.nickname}
-                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                className="w-full h-full object-cover transition-all duration-500"
                 referrerPolicy="no-referrer"
               />
             </div>

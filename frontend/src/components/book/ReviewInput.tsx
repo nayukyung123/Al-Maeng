@@ -131,7 +131,7 @@ export default function ReviewInput({
         <img
           src={profileSrc}
           alt="내 프로필"
-          className="w-full h-full object-cover grayscale"
+          className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
         />
       </div>

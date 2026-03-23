@@ -37,7 +37,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
           <img
             src={coverSrc}
             alt={book.title}
-            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700"
+            className="w-full h-full object-cover transition-all duration-700"
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/10 pointer-events-none" />
@@ -82,7 +82,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
             <img
               src="https://www.aladin.co.kr/favicon.ico"
               alt="Aladin"
-              className="w-4 h-4 grayscale group-hover:grayscale-0 transition-all"
+              className="w-4 h-4 transition-all"
               referrerPolicy="no-referrer"
             />
             <span>알라딘에서 구매하기</span>
