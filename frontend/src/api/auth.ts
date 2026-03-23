@@ -22,7 +22,8 @@ export interface LoginResponse {
 
 export interface SignupResponse {
   message: string;
-  accessToken?: string;
+  accessToken: string;
+  refreshToken: string;
   user?: {
     id: number;
     email: string;

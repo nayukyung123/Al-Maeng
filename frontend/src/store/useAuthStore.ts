@@ -21,7 +21,7 @@ interface AuthState {
 
   // --- Actions ---
   /** 로그인: 유저 정보와 토큰을 저장 */
-  login: (user: UserInfo, accessToken: string, refreshToken?: string) => void;
+  login: (user: UserInfo, accessToken: string, refreshToken: string) => void;
   /** 로그아웃: 상태 초기화 */
   logout: () => void;
   /** 유저 정보 부분 업데이트 */
@@ -41,10 +41,8 @@ const useAuthStore = create<AuthState>()(
       login: (user, accessToken, refreshToken) => {
         // localStorage에도 직접 저장 → axios 인터셉터에서 참조
         localStorage.setItem("accessToken", accessToken);
-        if (refreshToken) {
-          localStorage.setItem("refreshToken", refreshToken);
-        }
-        set({ isLoggedIn: true, user, accessToken, refreshToken: refreshToken || null });
+        localStorage.setItem("refreshToken", refreshToken);
+        set({ isLoggedIn: true, user, accessToken, refreshToken });
       },
 
       logout: () => {

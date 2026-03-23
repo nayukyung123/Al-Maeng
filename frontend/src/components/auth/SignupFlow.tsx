@@ -6,7 +6,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronRight, Check, Camera, User, X } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse } from "@/api/auth";
+import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, LoginResponse } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 
@@ -61,9 +61,6 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   const { user, login } = useAuthStore();
   
   const [step, setStep] = useState(1);
-  const [nicknameError, setNicknameError] = useState<string>("");
-  const [isNicknameAvailable, setIsNicknameAvailable] = useState<boolean>(false);
-
   const [formData, setFormData] = useState({
     nickname: "",
     birthYear: "",
@@ -109,13 +106,12 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     },
     onSuccess: (res) => {
       // 진짜 토큰 저장 
-      // FIXME: 현재 SignupResponse 에 message만 정의되어 있습니다. 
-      // 만약 백엔드에서 갱신된 토큰을 줄 경우 아래처럼 처리, 주지 않을 경우 기존 토큰 유지
-      const newToken = (res as any)?.accessToken;
-      const refToken = localStorage.getItem("refreshToken") || undefined;
-      if (newToken) {
+      const newToken = res.accessToken;
+      const newRefToken = res.refreshToken;
+      
+      if (newToken && newRefToken) {
          // Zustand (및 localStorage) 업데이트
-         login(user || { id: 0, email: "", nickname: formData.nickname }, newToken, refToken);
+         login(user || { id: 0, email: "", nickname: formData.nickname }, newToken, newRefToken);
       }
       
       if (onComplete) {
@@ -145,42 +141,6 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     }
   };
 
-  const handleNicknameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, nickname: e.target.value });
-    setIsNicknameAvailable(false);
-    setNicknameError("");
-  };
-
-  const handleNicknameCheck = async () => {
-    if (!formData.nickname) {
-       setNicknameError("닉네임을 입력해주세요.");
-       return;
-    }
-    if (formData.nickname.length < 2 || formData.nickname.length > 10) {
-      setNicknameError("닉네임은 2자 이상, 10자 이하여야 합니다.");
-      return;
-    }
-    const regex = /^[가-힣a-zA-Z0-9]+$/;
-    if (!regex.test(formData.nickname)) {
-      setNicknameError("닉네임은 특수문자나 띄어쓰기를 포함할 수 없습니다.");
-      return;
-    }
-
-    try {
-      const res = await checkNickname(formData.nickname);
-      if (res.isAvailable) {
-        setIsNicknameAvailable(true);
-        setNicknameError("");
-      } else {
-        setIsNicknameAvailable(false);
-        setNicknameError("이미 사용 중인 닉네임입니다.");
-      }
-    } catch (err: any) {
-      setIsNicknameAvailable(false);
-      setNicknameError(err.response?.data?.message || err.response?.data?.data?.nickname || "닉네임 확인에 실패했습니다.");
-    }
-  };
-
   const handleSocialLoginSuccess = (data: LoginResponse) => {
     if (data.isRegistered) {
       // 기존 회원
@@ -189,7 +149,9 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     } else {
       // 신규 회원
       localStorage.setItem("accessToken", data.accessToken);
-      if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
       setStep(2);
     }
   };
@@ -365,24 +327,13 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
                     Nickname
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={formData.nickname}
-                      onChange={handleNicknameChange}
-                      placeholder="사용하실 닉네임을 입력하세요"
-                      className={`flex-1 border-b-2 py-3 text-lg focus:outline-none transition-colors ${nicknameError ? 'border-red-500 focus:border-red-500' : isNicknameAvailable ? 'border-green-500 focus:border-green-500' : 'border-black focus:border-[#0033FF]'}`}
-                    />
-                    <button
-                      onClick={handleNicknameCheck}
-                      disabled={!formData.nickname || isNicknameAvailable}
-                      className="whitespace-nowrap px-4 py-2 bg-black text-white rounded-xl text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      중복 확인
-                    </button>
-                  </div>
-                  {nicknameError && <p className="text-red-500 text-xs mt-2 font-bold">{nicknameError}</p>}
-                  {isNicknameAvailable && <p className="text-green-500 text-xs mt-2 font-bold">사용 가능한 닉네임입니다.</p>}
+                  <input
+                    type="text"
+                    value={formData.nickname}
+                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                    placeholder="사용하실 닉네임을 입력하세요"
+                    className="w-full border-b-2 border-black py-3 text-lg focus:outline-none focus:border-[#0033FF] transition-colors"
+                  />
                 </div>
 
                 <div>
@@ -425,7 +376,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
                 </div>
 
                 <button
-                  disabled={!isNicknameAvailable || !formData.birthYear || !formData.gender}
+                  disabled={!formData.nickname || !formData.birthYear || !formData.gender}
                   onClick={() => setStep(3)}
                   className="w-full h-14 bg-black text-white rounded-xl font-bold mt-8 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
                 >
