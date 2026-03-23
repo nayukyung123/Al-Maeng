@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { fetchTodayRecommendations } from "@/api/recommendations";
+import { ALL_BOOKS } from "@/data/books";
 import useAuthStore from "@/store/useAuthStore";
 import LimitPopup from "./LimitPopup";
 import type { Book } from "@/types/home";
@@ -29,8 +30,17 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
     queryKey: ["todayRecommendations"],
     queryFn: fetchTodayRecommendations,
     enabled: isLoggedIn,
-    staleTime: 0, // 새로고침 때마다 재호출
+    staleTime: 0,
   });
+
+  // 비로그인 시 블러 뒤에 보여줄 플레이스홀더 (ALL_BOOKS에서 5개 고정 샘플)
+  const placeholderBooks = useMemo(
+    () => ALL_BOOKS.slice(0, 5),
+    []
+  );
+
+  // 화면에 실제 렌더링할 목록: 로그인 시 API 결과, 비로그인 시 플레이스홀더
+  const displayBooks = isLoggedIn ? books : placeholderBooks;
 
   const handleRefresh = async () => {
     if (refreshCount >= MAX_REFRESH) {
@@ -90,7 +100,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
           }`}
           style={{ scrollbarWidth: "none" }}
         >
-          {books.map((book, i) => (
+          {displayBooks.map((book, i) => (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
