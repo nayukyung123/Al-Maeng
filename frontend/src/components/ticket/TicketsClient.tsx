@@ -24,17 +24,20 @@ export const TicketsClient = () => {
   };
 
   return (
-    <div className="pt-24 pb-32 min-h-screen relative animate-in fade-in duration-500 bg-stone-50 overflow-hidden">
-      {/* Header & Toggle */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 px-6 md:px-12 gap-6 relative z-10">
+    <div className={cn(
+      "relative w-full bg-stone-50 overflow-hidden",
+      view === "gallery" ? "h-[100dvh]" : "min-h-[100dvh] pt-24 pb-32"
+    )}>
+      {/* Header & Toggle (공중 부양, 이벤트 통과) */}
+      <div className="absolute top-24 left-6 right-6 md:left-12 md:right-12 z-40 pointer-events-none flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h2 className="text-4xl md:text-5xl font-black tracking-tight uppercase">My Archive</h2>
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight uppercase">My Ticket</h2>
           <p className="text-sm text-gray-400 mt-2 font-medium uppercase tracking-widest">
             {view === "gallery" ? "갤러리" : "티켓 바인더"}
           </p>
         </div>
         
-        <div className="flex bg-white/50 backdrop-blur-sm p-1 rounded-full border border-black/5">
+        <div className="flex bg-white/50 backdrop-blur-sm p-1 rounded-full border border-black/5 pointer-events-auto">
           <button 
             onClick={() => setView("gallery")}
             className={cn(
@@ -56,7 +59,7 @@ export const TicketsClient = () => {
         </div>
       </div>
 
-      <div className="relative w-full">
+      <div className="relative w-full h-full">
         {/* 비로그인 안내 오버레이 */}
         {!isLoggedIn && (
           <div className="absolute inset-0 z-50 flex items-center justify-center">
@@ -64,10 +67,10 @@ export const TicketsClient = () => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="sticky top-1/2 -translate-y-1/2 bg-white w-full max-w-md p-12 border border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center text-center z-[60] mx-6"
+              className="sticky top-1/2 -translate-y-1/2 bg-white w-full max-w-md p-12 border border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] flex flex-col items-center text-center z-[60] mx-6 pointer-events-auto"
             >
               <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6 mt-4">
-                MY ARCHIVE
+                MY TICKET
               </h2>
               <p className="text-sm text-gray-600 leading-relaxed mb-10 break-keep">
                 읽은 책들을 티켓으로 발행하고 나만의 바인더를 채워보세요.<br/>

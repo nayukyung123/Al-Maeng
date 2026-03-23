@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { GalleryTicket } from '@/types/ticket';
 import { DraggableCard } from './DraggableCard';
 
@@ -33,22 +33,24 @@ export const CardGallery = () => {
 
   const scatteredCards = useMemo(() => {
     return tickets.map((ticket, index) => {
-      const x = (Math.random() - 0.5) * 1200; 
-      const y = (Math.random() - 0.5) * 400;  
+      // 좀 더 응축된 화면 안에서 스폰되도록 조정 (화면 밖으로 나가는 것 최소화)
+      const x = (Math.random() - 0.5) * 800; 
+      const y = (Math.random() - 0.5) * 300;  
       const rotate = (Math.random() - 0.5) * 40;
       return { ticket, x, y, rotate, delay: index * 0.05 };
     });
   }, [tickets]);
 
   return (
-    <div className="relative w-full min-h-[70vh] flex items-center justify-center overflow-x-auto hide-scrollbar py-20 cursor-grab active:cursor-grabbing">
-      <div className="relative min-w-[2000px] flex items-center justify-center pt-24">
+    // z-10을 부여하고 화면 전체(절대값)를 덮도록 설정. 내부 카드가 상위 요소 밑으로 드래그됨
+    <div className="absolute inset-0 pt-24 flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing z-10">
+      <div className="relative w-full h-full flex items-center justify-center">
         {scatteredCards.map((card) => (
-          <DraggableCard key={card.ticket.id} {...card} />
+          <DraggableCard key={card.ticket.id} {...card} dragConstraints={{ left: -1000, right: 1000, top: -500, bottom: 500 }} />
         ))}
         {/* 배경 텍스처 */}
-        <div className="absolute inset-0 -z-10 bg-stone-50 opacity-50" />
-        <div className="absolute inset-0 -z-10 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')] opacity-20" />
+        <div className="absolute inset-0 -z-10 bg-stone-50 opacity-50 pointer-events-none" />
+        <div className="absolute inset-0 -z-10 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')] opacity-20 pointer-events-none" />
       </div>
     </div>
   );

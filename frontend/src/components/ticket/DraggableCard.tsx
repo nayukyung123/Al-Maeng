@@ -10,14 +10,16 @@ interface DraggableCardProps {
   y: number;
   rotate: number;
   delay: number;
+  dragConstraints?: any;
 }
 
-export const DraggableCard = ({ ticket, x, y, rotate, delay }: DraggableCardProps) => {
+export const DraggableCard = ({ ticket, x, y, rotate, delay, dragConstraints }: DraggableCardProps) => {
   const dragControls = useDragControls();
 
   return (
     <motion.div
       drag
+      dragConstraints={dragConstraints}
       dragControls={dragControls}
       dragMomentum={false}
       initial={{ 
