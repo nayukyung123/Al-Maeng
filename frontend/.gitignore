@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 루트 설정 예외 처리: 프론트엔드 lib 폴더는 깃에 포함
+!src/lib/
