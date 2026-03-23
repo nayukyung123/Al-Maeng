@@ -51,6 +51,11 @@ export default function Header() {
     setIsDropdownOpen(false);
   };
 
+  /** 로고 클릭: 검색 오버레이가 열려 있으면 닫아주는 이벤트 발행 */
+  const handleLogoClick = () => {
+    window.dispatchEvent(new CustomEvent("closeSearchOverlay"));
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md z-40 border-b border-black/10">
       <div className="max-w-7xl mx-auto w-full h-full flex justify-between items-center px-6 md:px-12">
@@ -60,6 +65,7 @@ export default function Header() {
           <h1>
             <Link
               href="/"
+              onClick={handleLogoClick}
               className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0"
               aria-label="Al-Maeng 홈으로 이동"
             >
@@ -70,6 +76,7 @@ export default function Header() {
           <strong>
             <Link
               href="/"
+              onClick={handleLogoClick}
               className="font-black text-2xl tracking-tighter uppercase italic hover:text-[#0033FF] transition-colors shrink-0"
               aria-label="Al-Maeng 홈으로 이동"
             >

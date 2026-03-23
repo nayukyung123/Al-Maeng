@@ -40,6 +40,16 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Header 로고 클릭 시 발행되는 이벤트 수신 → 오버레이 닫기
+  useEffect(() => {
+    const handleClose = () => {
+      setIsSearchOpen(false);
+      setSearchQuery("");
+    };
+    window.addEventListener("closeSearchOverlay", handleClose);
+    return () => window.removeEventListener("closeSearchOverlay", handleClose);
+  }, []);
+
   // 🟢 자동완성 — GET /api/books/suggestions
   const { data: suggestions = [] } = useQuery<BookSuggestion[]>({
     queryKey: ["suggestions", debouncedQuery],
