@@ -16,10 +16,12 @@ interface AuthState {
   user: UserInfo | null;
   /** 액세스 토큰 */
   accessToken: string | null;
+  /** 리프레시 토큰 */
+  refreshToken: string | null;
 
   // --- Actions ---
   /** 로그인: 유저 정보와 토큰을 저장 */
-  login: (user: UserInfo, accessToken: string) => void;
+  login: (user: UserInfo, accessToken: string, refreshToken?: string) => void;
   /** 로그아웃: 상태 초기화 */
   logout: () => void;
   /** 유저 정보 부분 업데이트 */
@@ -34,16 +36,21 @@ const useAuthStore = create<AuthState>()(
       isLoggedIn: false,
       user: null,
       accessToken: null,
+      refreshToken: null,
 
-      login: (user, accessToken) => {
+      login: (user, accessToken, refreshToken) => {
         // localStorage에도 직접 저장 → axios 인터셉터에서 참조
         localStorage.setItem("accessToken", accessToken);
-        set({ isLoggedIn: true, user, accessToken });
+        if (refreshToken) {
+          localStorage.setItem("refreshToken", refreshToken);
+        }
+        set({ isLoggedIn: true, user, accessToken, refreshToken: refreshToken || null });
       },
 
       logout: () => {
         localStorage.removeItem("accessToken");
-        set({ isLoggedIn: false, user: null, accessToken: null });
+        localStorage.removeItem("refreshToken");
+        set({ isLoggedIn: false, user: null, accessToken: null, refreshToken: null });
       },
 
       updateUser: (partial) =>
@@ -64,6 +71,7 @@ const useAuthStore = create<AuthState>()(
         isLoggedIn: state.isLoggedIn,
         user: state.user,
         accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
       }),
     }
   )
