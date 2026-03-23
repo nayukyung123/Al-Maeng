@@ -6,7 +6,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronRight, Check, Camera, User, X } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, LoginResponse } from "@/api/auth";
+import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 
@@ -153,6 +153,25 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
         localStorage.setItem("refreshToken", data.refreshToken);
       }
       setStep(2);
+    }
+  };
+
+  const handleNextStep2 = async () => {
+    if (!formData.nickname) {
+      alert("닉네임을 입력해주세요.");
+      return;
+    }
+    
+    try {
+      const res = await checkNickname(formData.nickname);
+      if (res.isAvailable) {
+        setStep(3);
+      } else {
+        alert("이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.");
+      }
+    } catch (err: any) {
+      console.error("Nickname check failed:", err);
+      alert("닉네임 확인 중 오류가 발생했습니다.");
     }
   };
 
@@ -377,7 +396,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
 
                 <button
                   disabled={!formData.nickname || !formData.birthYear || !formData.gender}
-                  onClick={() => setStep(3)}
+                  onClick={handleNextStep2}
                   className="w-full h-14 bg-black text-white rounded-xl font-bold mt-8 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
                 >
                   다음 단계 <ChevronRight size={20} />
