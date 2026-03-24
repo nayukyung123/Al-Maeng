@@ -105,12 +105,13 @@ export async function fetchReviews(slug: string): Promise<Review[]> {
 // ────────────────────────────────────────────────────────────
 // 🟢 완료된 API — 리뷰 작성 POST /api/books/{slug}/reviews
 //    Body: { content, rating, isSpoiler }
+//    Response: 생성된 reviewId (Long)
 // ────────────────────────────────────────────────────────────
 export async function createReview(
   slug: string,
   body: CreateReviewBody
-): Promise<Review> {
-  const res = await apiClient.post<ApiResponse<Review>>(
+): Promise<number> {
+  const res = await apiClient.post<ApiResponse<number>>(
     `/api/books/${slug}/reviews`,
     body
   );
@@ -122,19 +123,15 @@ export async function createReview(
 //    Body: { content, rating, isSpoiler }
 // ────────────────────────────────────────────────────────────
 export async function updateReview(
-  reviewId: string,
+  reviewId: number,
   body: UpdateReviewBody
-): Promise<Review> {
-  const res = await apiClient.patch<ApiResponse<Review>>(
-    `/api/reviews/${reviewId}`,
-    body
-  );
-  return res.data.data;
+): Promise<void> {
+  await apiClient.patch(`/api/reviews/${reviewId}`, body);
 }
 
 // ────────────────────────────────────────────────────────────
 // 🟢 완료된 API — 리뷰 삭제 DELETE /api/reviews/{reviewId}
 // ────────────────────────────────────────────────────────────
-export async function deleteReview(reviewId: string): Promise<void> {
+export async function deleteReview(reviewId: number): Promise<void> {
   await apiClient.delete(`/api/reviews/${reviewId}`);
 }

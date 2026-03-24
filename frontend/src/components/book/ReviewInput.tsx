@@ -1,50 +1,47 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star, Send, AlertCircle } from "lucide-react";
+import { Star, Send, AlertCircle, X } from "lucide-react";
+import axios from "axios";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
-import { createReview, updateReview } from "@/api/bookDetail";
-import type { Review } from "@/types/book";
+import { createReview } from "@/api/bookDetail";
 
 interface ReviewInputProps {
   slug: string;
-  /** 수정 중인 리뷰 — null 이면 새 리뷰 작성 모드 */
-  editingReview: Review | null;
-  onCancelEdit: () => void;
 }
 
-export default function ReviewInput({
-  slug,
-  editingReview,
-  onCancelEdit,
-}: ReviewInputProps) {
+export default function ReviewInput({ slug }: ReviewInputProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isLoggedIn, user } = useAuthStore();
-
-  const inputRef = useRef<HTMLDivElement>(null);
 
   /* ── 폼 로컬 상태 ── */
   const [comment, setComment] = useState("");
   const [rating, setRating] = useState(0);
   const [isSpoilerInput, setIsSpoilerInput] = useState(false);
 
-  /** editingReview 변경 시 폼 동기화 + 스크롤 이동 */
+  /* ── 에러 팝업 상태 ── */
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  /** 에러 메시지가 세팅되면 3초 후 자동으로 사라짐 */
   useEffect(() => {
-    if (editingReview) {
-      setComment(editingReview.content);
-      setRating(editingReview.rating);
-      setIsSpoilerInput(editingReview.isSpoiler);
-      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(null), 1500);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
+
+  /** API 에러 → 백엔드 message 필드 추출 후 팝업 표시 */
+  const handleApiError = (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.message;
+      setErrorMessage(msg || "오류가 발생했습니다. 다시 시도해주세요.");
     } else {
-      setComment("");
-      setRating(0);
-      setIsSpoilerInput(false);
+      setErrorMessage("오류가 발생했습니다. 다시 시도해주세요.");
     }
-  }, [editingReview]);
+  };
 
   /* ── 캐시 무효화 헬퍼 ── */
   const invalidateReviews = () =>
@@ -53,30 +50,17 @@ export default function ReviewInput({
   /* ── 리뷰 작성 Mutation ── */
   const createMutation = useMutation({
     mutationFn: () =>
-      createReview(slug, { content: comment, rating, isSpoiler: isSpoilerInput }),
+      createReview(slug, { content: comment, rating, spoiler: isSpoilerInput }),
     onSuccess: () => {
       invalidateReviews();
       setComment("");
       setRating(0);
       setIsSpoilerInput(false);
     },
+    onError: handleApiError,
   });
 
-  /* ── 리뷰 수정 Mutation ── */
-  const updateMutation = useMutation({
-    mutationFn: () =>
-      updateReview(editingReview!.id, {
-        content: comment,
-        rating,
-        isSpoiler: isSpoilerInput,
-      }),
-    onSuccess: () => {
-      invalidateReviews();
-      onCancelEdit();
-    },
-  });
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending;
 
   /** 제출 핸들러 */
   const handleSubmit = () => {
@@ -85,12 +69,7 @@ export default function ReviewInput({
       return;
     }
     if (!comment.trim() || rating === 0) return;
-
-    if (editingReview) {
-      updateMutation.mutate();
-    } else {
-      createMutation.mutate();
-    }
+    createMutation.mutate();
   };
 
   /** 프로필 이미지 */
@@ -99,8 +78,42 @@ export default function ReviewInput({
     : `https://picsum.photos/seed/${user?.id ?? "myprofile"}/200/200`;
 
   return (
+    <>
+    {/* ── 에러 토스트 ── */}
     <div
-      ref={inputRef}
+      className={cn(
+        "fixed top-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm bg-white pointer-events-auto",
+        "shadow-[0_4px_24px_rgba(0,0,0,0.12)]",
+        "transition-all duration-300",
+        errorMessage
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 -translate-y-3 pointer-events-none"
+      )}
+    >
+      {/* 상단 포인트 바 */}
+      <div className="h-1 w-full bg-[#4D41FF]" />
+
+      <div className="flex items-start gap-4 px-6 py-4">
+        {/* 아이콘 */}
+        <AlertCircle size={18} className="text-[#4D41FF] shrink-0 mt-0.5" />
+
+        {/* 메시지 */}
+        <p className="flex-1 text-sm font-black leading-snug tracking-tight break-keep sm:whitespace-nowrap">
+          {errorMessage}
+        </p>
+
+        {/* 닫기 버튼 */}
+        <button
+          onClick={() => setErrorMessage(null)}
+          aria-label="닫기"
+          className="text-gray-300 hover:text-black transition-colors shrink-0"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+
+    <div
       id="comment-input"
       className="bg-white border border-gray-100 p-8 mb-16 flex gap-6 shadow-sm relative scroll-mt-8 overflow-hidden"
     >
@@ -116,13 +129,6 @@ export default function ReviewInput({
           >
             로그인 시작하기
           </button>
-        </div>
-      )}
-
-      {/* 수정 모드 배지 */}
-      {editingReview && (
-        <div className="absolute -top-4 left-8 bg-black text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest">
-          수정 중
         </div>
       )}
 
@@ -197,16 +203,8 @@ export default function ReviewInput({
           </button>
         </div>
 
-        {/* 수정 취소 */}
-        {editingReview && (
-          <button
-            onClick={onCancelEdit}
-            className="text-[10px] font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-widest"
-          >
-            수정 취소
-          </button>
-        )}
       </div>
     </div>
+    </>
   );
 }

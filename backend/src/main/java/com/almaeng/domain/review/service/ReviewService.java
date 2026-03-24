@@ -31,6 +31,7 @@ public class ReviewService {
     private final CompletedBookRepository completedBookRepository;
 
     private static final String CREATED_AT = "createdAt"; // 정렬
+
     @Transactional
     public Long createReview(Long userId, String slug, ReviewCreateRequest request) {
         // slug로 도서 조회
@@ -41,14 +42,13 @@ public class ReviewService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
-
         // 완독 여부 검증
-        if(!completedBookRepository.existsByUserIdAndBookId(userId, book.getId())) {
+        if (!completedBookRepository.existsByUserIdAndBookId(userId, book.getId())) {
             throw new ApiException(ErrorCode.NOT_COMPLETED_BOOK);
         }
 
         // 중복 리뷰 검증
-        if(reviewRepository.existsByUserIdAndBookId(userId, book.getId())) {
+        if (reviewRepository.existsByUserIdAndBookId(userId, book.getId())) {
             throw new ApiException(ErrorCode.ALREADY_REVIEWED_BOOK);
         }
 
@@ -73,7 +73,7 @@ public class ReviewService {
 
     @Transactional(readOnly = true)
     public Slice<ReviewResponse> getReviewList(String slug, boolean excludeSpoiler,
-                                               ReviewSortType sortType, Pageable pageable) {
+            ReviewSortType sortType, Pageable pageable) {
         // slug 도서 조회
         Book book = bookRepository.findBySlug(slug)
                 .orElseThrow(() -> new ApiException(ErrorCode.BOOK_NOT_FOUND));
@@ -95,14 +95,14 @@ public class ReviewService {
         // DTO 변환 (작성자 티어 정보 포함)
         return reviewSlice.map(r -> new ReviewResponse(
                 r.getId(),
+                r.getUser().getId(),
                 r.getUser().getNickname(),
                 r.getUser().getTier().getTierName(),
                 r.getUser().getProfileImageUrl(),
                 r.getRating(),
                 r.getContent(),
                 r.getSpoiler(),
-                r.getCreatedAt()
-        ));
+                r.getCreatedAt()));
     }
 
     @Transactional
@@ -129,8 +129,8 @@ public class ReviewService {
     }
 
     // 권한 검증
-    private void validateReviewOwner(Long userId, Review review){
-        if(!review.getUser().getId().equals(userId)){
+    private void validateReviewOwner(Long userId, Review review) {
+        if (!review.getUser().getId().equals(userId)) {
             throw new ApiException(ErrorCode.NOT_REVIEW_OWNER);
         }
     }

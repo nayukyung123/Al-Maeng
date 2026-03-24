@@ -13,6 +13,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,10 +22,11 @@ import org.springframework.web.bind.annotation.*;
 public class ReviewController {
 
     private final ReviewService reviewService;
-
+    
+    // 리뷰 작성
     @PostMapping("/books/{slug}/reviews")
     public ResponseEntity<ApiResponse<Long>> createReview(
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable String slug,
             @Valid @RequestBody ReviewCreateRequest request) {
 
@@ -33,7 +35,8 @@ public class ReviewController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(reviewId));
     }
-
+    
+    // 리뷰 조회
     @GetMapping("/books/{slug}/reviews")
     public ResponseEntity<ApiResponse<Slice<ReviewResponse>>> getReviews(
             @PathVariable String slug,
@@ -45,10 +48,11 @@ public class ReviewController {
 
         return ResponseEntity.ok(ApiResponse.success(reviews));
     }
-
+    
+    // 리뷰 수정
     @PatchMapping("/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> updateReview(
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long reviewId,
             @Valid @RequestBody ReviewUpdateRequest request) {
 
@@ -56,10 +60,11 @@ public class ReviewController {
 
         return ResponseEntity.ok(ApiResponse.success(null));
     }
-
+    
+    // 리뷰 삭제
     @DeleteMapping("/reviews/{reviewId}")
     public ResponseEntity<ApiResponse<Void>> deleteReview(
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long reviewId) {
 
         reviewService.deleteReview(userId, reviewId);
