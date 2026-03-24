@@ -1,6 +1,14 @@
 import apiClient from "@/lib/axios";
 import type { ApiResponse, SliceResponse } from "@/types/api";
-import type { GalleryTicket } from "@/types/ticket";
+import type { CardStyle, GalleryTicket } from "@/types/ticket";
+
+/** 백엔드 `StyleData` VO와 동일한 camelCase JSON 필드 */
+export interface TicketStyleDataDto {
+  orientation: string;
+  coverShape: string;
+  typography: string;
+  ticketColor: string;
+}
 
 interface TicketResponseDto {
   id: number;
@@ -11,6 +19,9 @@ interface TicketResponseDto {
   comment: string | null;
   completedAt: string;
   ticketImageUrl: string | null;
+  styleData: TicketStyleDataDto | null;
+  /** 백엔드 `TicketResponse.genreName` (대분류, 없으면 "미분류") */
+  genreName: string;
 }
 
 interface TicketCreateRequest {
@@ -18,6 +29,7 @@ interface TicketCreateRequest {
   completedAt: string;
   comment?: string;
   ticketImageUrl?: string;
+  styleData: TicketStyleDataDto;
 }
 
 interface TicketCreateResponse {
@@ -29,23 +41,56 @@ interface PresignedUrlResponse {
   imageUrl: string;
 }
 
+function parseStyleFromDto(style: TicketStyleDataDto | null): {
+  templateId: string;
+  style: CardStyle;
+} {
+  if (!style) {
+    return {
+      templateId: "classic",
+      style: {
+        font: "serif",
+        background: "bg-white",
+        textColor: "text-stone-900",
+        orientation: "horizontal",
+      },
+    };
+  }
+
+  const font =
+    style.typography === "sans" || style.typography === "mono" || style.typography === "serif"
+      ? style.typography
+      : "serif";
+  const orientation =
+    style.orientation === "vertical" || style.orientation === "horizontal"
+      ? style.orientation
+      : "horizontal";
+
+  return {
+    templateId: style.coverShape || "classic",
+    style: {
+      font,
+      background: style.ticketColor || "bg-white",
+      textColor: "text-stone-900",
+      orientation,
+    },
+  };
+}
+
 function toGalleryTicket(dto: TicketResponseDto): GalleryTicket {
+  const { templateId, style } = parseStyleFromDto(dto.styleData);
   return {
     id: dto.id,
     bookId: dto.bookId,
     title: dto.title,
     author: dto.author,
+    genre: dto.genreName?.trim() ? dto.genreName : "미분류",
     coverImageUrl: dto.coverImageUrl,
     ticketImageUrl: dto.ticketImageUrl ?? undefined,
     comment: dto.comment ?? undefined,
     completedAt: dto.completedAt?.slice(0, 10) ?? "",
-    templateId: "classic",
-    style: {
-      font: "serif",
-      background: "bg-white",
-      textColor: "text-stone-900",
-      orientation: "horizontal",
-    },
+    templateId,
+    style,
   };
 }
 

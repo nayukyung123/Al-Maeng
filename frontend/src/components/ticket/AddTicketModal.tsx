@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, Search, Plus, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { PhotoCard } from "./PhotoCard";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
-import { createTicket, fetchTicketImagePresignedUrl } from "@/api/tickets";
+import { createTicket, fetchTicketImagePresignedUrl, type TicketStyleDataDto } from "@/api/tickets";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -28,7 +28,6 @@ const COLOR_PALETTE = [
 export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: AddTicketModalProps) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
   
@@ -52,29 +51,25 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
     enabled: isOpen,
   });
 
-  useEffect(() => {
-    if (step !== 1) return;
-    const normalized = searchQuery.trim().toLowerCase();
+  const searchResults = useMemo(() => {
     const mapped = completedBooks.map((book) => ({
       id: String(book.bookId),
       title: book.title,
       author: book.author,
-      genre: "독서",
+      genre: book.genreName ?? "미분류",
       completedAt: book.completedAt,
       coverImageUrl: book.coverImageUrl,
     }));
-    if (!normalized) {
-      setSearchResults(mapped);
-      return;
-    }
-    setSearchResults(
-      mapped.filter(
-        (book) =>
-          book.title.toLowerCase().includes(normalized) ||
-          book.author.toLowerCase().includes(normalized)
-      )
+  
+    const normalized = searchQuery.trim().toLowerCase();
+    if (!normalized) return mapped;
+  
+    return mapped.filter(
+      (book) =>
+        book.title.toLowerCase().includes(normalized) ||
+        book.author.toLowerCase().includes(normalized)
     );
-  }, [searchQuery, step, completedBooks]);
+  }, [completedBooks, searchQuery]);
 
   useEffect(() => {
     if (!isOpen || !initialBookId || completedBooks.length === 0) return;
@@ -84,7 +79,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
       id: String(matched.bookId),
       title: matched.title,
       author: matched.author,
-      genre: "독서",
+      genre: matched.genreName ?? "미분류",
       completedAt: matched.completedAt,
       coverImageUrl: matched.coverImageUrl,
     });
@@ -113,11 +108,18 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
         uploadedImageUrl = imageUrl;
       }
       const completedAtIso = `${ticketData.dateRead}T00:00:00`;
+      const styleData: TicketStyleDataDto = {
+        orientation: ticketData.orientation,
+        coverShape: ticketData.imageLayout,
+        typography: ticketData.font,
+        ticketColor: ticketData.background,
+      };
       const created = await createTicket({
         bookId: parseInt(selectedBook.id, 10),
         completedAt: completedAtIso,
         comment: ticketData.review || undefined,
         ticketImageUrl: uploadedImageUrl || undefined,
+        styleData,
       });
       const newTicket: GalleryTicket = {
         id: created.id,
