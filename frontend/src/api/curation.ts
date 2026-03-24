@@ -65,19 +65,21 @@ export async function fetchContentSuggestions(
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🟢 영상 콘텐츠 전체 검색  GET /api/contents?keyword={keyword}
+// 🟢 영상 콘텐츠 전체 검색  GET /api/contents?keyword={keyword}&sortType={sortType}
+//    sortType: "accuracy"(기본) | "latest"
 //    응답: ApiResponse<Slice<ContentResponse>>
 //            └ { content: ContentItem[], last, number, size }
 // ─────────────────────────────────────────────────────────────
 export async function searchContents(
   keyword: string,
   page = 0,
-  size = 10
+  size = 10,
+  sortType = "accuracy"
 ): Promise<SliceResponse<ContentItem>> {
   if (!keyword.trim()) return { content: [], last: true, number: 0, size: 0 };
   const response = await apiClient.get<ApiResponse<SliceResponse<ContentItem>>>(
     "/api/contents",
-    { params: { keyword, page, size, sort: "id,DESC" } }
+    { params: { keyword, page, size, sortType } }
   );
   return response.data.data ?? { content: [], last: true, number: 0, size: 0 };
 }
