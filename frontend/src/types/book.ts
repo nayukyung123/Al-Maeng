@@ -40,12 +40,12 @@ export interface Review {
 export interface CreateReviewBody {
   content: string;
   rating: number;
-  isSpoiler: boolean;
+  spoiler: boolean; // 백엔드 ReviewCreateRequest DTO 필드명과 일치
 }
 
 /** 리뷰 수정 요청 바디 */
 export interface UpdateReviewBody {
   content: string;
   rating: number;
-  isSpoiler: boolean;
+  spoiler: boolean; // 백엔드 ReviewUpdateRequest DTO 필드명과 일치
 }

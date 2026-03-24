@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star, Send, AlertCircle } from "lucide-react";
+import { Star, Send, AlertCircle, X } from "lucide-react";
+import axios from "axios";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import { createReview, updateReview } from "@/api/bookDetail";
@@ -32,6 +33,26 @@ export default function ReviewInput({
   const [rating, setRating] = useState(0);
   const [isSpoilerInput, setIsSpoilerInput] = useState(false);
 
+  /* ── 에러 팝업 상태 ── */
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  /** 에러 메시지가 세팅되면 3초 후 자동으로 사라짐 */
+  useEffect(() => {
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(null), 1500);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
+
+  /** API 에러 → 백엔드 message 필드 추출 후 팝업 표시 */
+  const handleApiError = (error: unknown) => {
+    if (axios.isAxiosError(error)) {
+      const msg = error.response?.data?.message;
+      setErrorMessage(msg || "오류가 발생했습니다. 다시 시도해주세요.");
+    } else {
+      setErrorMessage("오류가 발생했습니다. 다시 시도해주세요.");
+    }
+  };
+
   /** editingReview 변경 시 폼 동기화 + 스크롤 이동 */
   useEffect(() => {
     if (editingReview) {
@@ -53,13 +74,14 @@ export default function ReviewInput({
   /* ── 리뷰 작성 Mutation ── */
   const createMutation = useMutation({
     mutationFn: () =>
-      createReview(slug, { content: comment, rating, isSpoiler: isSpoilerInput }),
+      createReview(slug, { content: comment, rating, spoiler: isSpoilerInput }),
     onSuccess: () => {
       invalidateReviews();
       setComment("");
       setRating(0);
       setIsSpoilerInput(false);
     },
+    onError: handleApiError,
   });
 
   /* ── 리뷰 수정 Mutation ── */
@@ -68,12 +90,13 @@ export default function ReviewInput({
       updateReview(editingReview!.id, {
         content: comment,
         rating,
-        isSpoiler: isSpoilerInput,
+        spoiler: isSpoilerInput,
       }),
     onSuccess: () => {
       invalidateReviews();
       onCancelEdit();
     },
+    onError: handleApiError,
   });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -99,6 +122,41 @@ export default function ReviewInput({
     : `https://picsum.photos/seed/${user?.id ?? "myprofile"}/200/200`;
 
   return (
+    <>
+    {/* ── 에러 토스트 ── */}
+    <div
+      className={cn(
+        "fixed top-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm bg-white pointer-events-auto",
+        "shadow-[0_4px_24px_rgba(0,0,0,0.12)]",
+        "transition-all duration-300",
+        errorMessage
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 -translate-y-3 pointer-events-none"
+      )}
+    >
+      {/* 상단 포인트 바 */}
+      <div className="h-1 w-full bg-[#4D41FF]" />
+
+      <div className="flex items-start gap-4 px-6 py-4">
+        {/* 아이콘 */}
+        <AlertCircle size={18} className="text-[#4D41FF] shrink-0 mt-0.5" />
+
+        {/* 메시지 */}
+        <p className="flex-1 text-sm font-black leading-snug tracking-tight break-keep sm:whitespace-nowrap">
+          {errorMessage}
+        </p>
+
+        {/* 닫기 버튼 */}
+        <button
+          onClick={() => setErrorMessage(null)}
+          aria-label="닫기"
+          className="text-gray-300 hover:text-black transition-colors shrink-0"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    </div>
+
     <div
       ref={inputRef}
       id="comment-input"
@@ -208,5 +266,6 @@ export default function ReviewInput({
         )}
       </div>
     </div>
+    </>
   );
 }
