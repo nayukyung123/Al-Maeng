@@ -55,6 +55,7 @@ public class SecurityConfig {
                                                                 "/api/keywords/rankings", // 실시간 검색 랭킹
                                                                 "/api/books", // 도서 검색 결과
                                                                 "/api/books/*", // 도서 상세 조회 ({slug} 대응)
+                                                                "/api/books/*/recommendations", // 유사 도서 추천 조회
                                                                 "/api/books/rankings", // 인기 도서 랭킹
                                                                 "/api/recommendations/contents" // 컨텐츠 크로스 추천
                                                 ).permitAll()
