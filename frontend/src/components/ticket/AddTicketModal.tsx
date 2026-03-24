@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { PhotoCard } from "./PhotoCard";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
-import { createTicket, fetchTicketImagePresignedUrl, type TicketStyleDataDto } from "@/api/tickets";
+import { createTicket, fetchTicketImagePresignedUrl, fetchGalleryTickets, type TicketStyleDataDto } from "@/api/tickets";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -52,15 +52,28 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
     enabled: isOpen,
   });
 
+  const { data: existingTickets = [] } = useQuery({
+    queryKey: ["gallery-tickets"],
+    queryFn: fetchGalleryTickets,
+    enabled: isOpen,
+  });
+
+  const ticketedBookIds = useMemo(
+    () => new Set(existingTickets.map((t) => t.bookId)),
+    [existingTickets]
+  );
+
   const searchResults = useMemo(() => {
-    const mapped = completedBooks.map((book) => ({
-      id: String(book.bookId),
-      title: book.title,
-      author: book.author,
-      genre: book.genreName ?? "미분류",
-      completedAt: book.completedAt,
-      coverImageUrl: book.coverImageUrl,
-    }));
+    const mapped = completedBooks
+      .filter((book) => !ticketedBookIds.has(book.bookId))
+      .map((book) => ({
+        id: String(book.bookId),
+        title: book.title,
+        author: book.author,
+        genre: book.genreName ?? "미분류",
+        completedAt: book.completedAt,
+        coverImageUrl: book.coverImageUrl,
+      }));
   
     const normalized = searchQuery.trim().toLowerCase();
     if (!normalized) return mapped;
@@ -70,7 +83,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
         book.title.toLowerCase().includes(normalized) ||
         book.author.toLowerCase().includes(normalized)
     );
-  }, [completedBooks, searchQuery]);
+  }, [completedBooks, ticketedBookIds, searchQuery]);
 
   useEffect(() => {
     if (!isOpen || !initialBookId || completedBooks.length === 0) return;
@@ -230,18 +243,29 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                   <Search className="text-gray-300 ml-4" size={28} />
                 </div>
                 <div className="mt-8 space-y-2 max-h-[50vh] overflow-y-auto pr-2 hide-scrollbar">
-                  {searchResults.map((book, idx) => (
-                    <div key={book.id} onClick={() => handleSelectBook(book)} className={cn("flex items-center p-4 cursor-pointer transition-all border border-transparent rounded-lg group", idx === 0 ? "bg-stone-50 border-stone-200 shadow-sm" : "hover:bg-stone-50")}>
-                      <div className="w-12 h-16 bg-stone-200 mr-6 overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
-                        <img src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/200/300`} alt="Cover" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" crossOrigin="anonymous"/>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-black text-lg tracking-tight group-hover:text-[#0033FF] transition-colors">{book.title}</p>
-                        <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">{book.author}</p>
-                      </div>
-                      <ChevronRight className="text-stone-300 group-hover:text-[#0033FF] transition-colors" size={20} />
+                  {searchResults.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <p className="text-gray-400 font-bold text-sm tracking-widest uppercase">
+                        {searchQuery.trim() ? "검색 결과가 없습니다." : "티켓을 만들 수 있는 완독 도서가 없습니다."}
+                      </p>
+                      {!searchQuery.trim() && (
+                        <p className="text-gray-300 text-xs mt-2">모든 완독 도서에 이미 티켓이 발행되었어요.</p>
+                      )}
                     </div>
-                  ))}
+                  ) : (
+                    searchResults.map((book, idx) => (
+                      <div key={book.id} onClick={() => handleSelectBook(book)} className={cn("flex items-center p-4 cursor-pointer transition-all border border-transparent rounded-lg group", idx === 0 ? "bg-stone-50 border-stone-200 shadow-sm" : "hover:bg-stone-50")}>
+                        <div className="w-12 h-16 bg-stone-200 mr-6 overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
+                          <img src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/200/300`} alt="Cover" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" crossOrigin="anonymous"/>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-black text-lg tracking-tight group-hover:text-[#0033FF] transition-colors">{book.title}</p>
+                          <p className="text-xs text-stone-400 font-bold uppercase tracking-widest">{book.author}</p>
+                        </div>
+                        <ChevronRight className="text-stone-300 group-hover:text-[#0033FF] transition-colors" size={20} />
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
