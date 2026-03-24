@@ -56,6 +56,17 @@ const TEMP_GENRE_MAP: Record<string, number> = {
   "판타지": 18,
 };
 
+/** JWT payload의 sub 클레임에서 userId(number)를 추출합니다. */
+function parseUserIdFromToken(token: string): number {
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload: { sub?: string } = JSON.parse(atob(base64));
+    return payload.sub ? parseInt(payload.sub, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
 export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   const router = useRouter();
   const { user, login } = useAuthStore();
@@ -110,8 +121,9 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
       const newRefToken = res.refreshToken;
       
       if (newToken && newRefToken) {
-         // Zustand (및 localStorage) 업데이트
-         login(user || { id: 0, email: "", nickname: formData.nickname }, newToken, newRefToken);
+        // JWT sub 클레임에서 userId 추출 후 정확히 저장
+        const userId = parseUserIdFromToken(newToken);
+        login({ id: userId, email: "", nickname: formData.nickname }, newToken, newRefToken);
       }
       
       if (onComplete) {
@@ -142,12 +154,14 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   };
 
   const handleSocialLoginSuccess = (data: LoginResponse) => {
+    const userId = parseUserIdFromToken(data.accessToken);
+
     if (data.isRegistered) {
-      // 기존 회원
-      login(user || { id: 0, email: "", nickname: "" }, data.accessToken, data.refreshToken);
+      // 기존 회원: JWT sub에서 추출한 userId로 정확히 저장
+      login({ id: userId, email: "", nickname: "" }, data.accessToken, data.refreshToken);
       router.push("/");
     } else {
-      // 신규 회원
+      // 신규 회원: 온보딩 단계로 이동 (최종 가입 시 userId 재설정)
       localStorage.setItem("accessToken", data.accessToken);
       if (data.refreshToken) {
         localStorage.setItem("refreshToken", data.refreshToken);
