@@ -11,4 +11,6 @@ public interface UserWishlistRepository extends JpaRepository<UserWishlist, Long
     @Query(value = "SELECT w FROM UserWishlist w JOIN FETCH w.book b WHERE w.user.id = :userId ORDER BY w.createdAt DESC",
             countQuery = "SELECT count(w) FROM UserWishlist w WHERE w.user.id = :userId")
     Page<UserWishlist> findWishlistWithBookByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    boolean existsByUserIdAndBookId(Long userId, Long bookId);
 }
