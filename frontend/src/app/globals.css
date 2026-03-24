@@ -135,6 +135,20 @@
   }
 }
 
+@layer utilities {
+  .font-pretendard {
+    font-family: "Pretendard", sans-serif;
+  }
+
+  .font-gowun {
+    font-family: "Gowun Dodum", sans-serif;
+  }
+
+  .font-noto-serif-kr {
+    font-family: "Noto Serif KR", serif;
+  }
+}
+
 /* 스크롤바 숨김 유틸리티 (RecommendationList 가로 스크롤) */
 .hide-scrollbar {
   -ms-overflow-style: none;

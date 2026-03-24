@@ -6,24 +6,15 @@ import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { PhotoCard } from "./PhotoCard";
-
-const mockSearchCompletedBooks = async (query: string): Promise<any[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const searchPool = [
-        { id: '101', title: '사피엔스', author: '유발 하라리', genre: '인문' },
-        { id: '102', title: '코스모스', author: '칼 세이건', genre: '과학' },
-        { id: '103', title: '데미안', author: '헤르만 헤세', genre: '소설' },
-      ];
-      resolve(searchPool.filter((b) => b.title.includes(query) || b.author.includes(query)));
-    }, 500);
-  });
-};
+import { useQuery } from "@tanstack/react-query";
+import { fetchCompletedBooks } from "@/api/completedBooks";
+import { createTicket, fetchTicketImagePresignedUrl } from "@/api/tickets";
 
 interface AddTicketModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (newTicket: GalleryTicket) => void;
+  initialBookId?: number | null;
 }
 
 const COLOR_PALETTE = [
@@ -34,11 +25,10 @@ const COLOR_PALETTE = [
   { id: 'bg-[#e2e8f0]', name: 'MUTED BLUE', hex: '#e2e8f0' },
 ];
 
-export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalProps) => {
+export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: AddTicketModalProps) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
   
@@ -54,15 +44,51 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [customImageFile, setCustomImageFile] = useState<File | null>(null);
+
+  const { data: completedBooks = [] } = useQuery({
+    queryKey: ["completed-books"],
+    queryFn: fetchCompletedBooks,
+    enabled: isOpen,
+  });
 
   useEffect(() => {
-    if (step === 1 && searchQuery.trim()) {
-      setIsSearching(true);
-      mockSearchCompletedBooks(searchQuery).then(setSearchResults).finally(() => setIsSearching(false));
-    } else {
-      setSearchResults([]);
+    if (step !== 1) return;
+    const normalized = searchQuery.trim().toLowerCase();
+    const mapped = completedBooks.map((book) => ({
+      id: String(book.bookId),
+      title: book.title,
+      author: book.author,
+      genre: "독서",
+      completedAt: book.completedAt,
+      coverImageUrl: book.coverImageUrl,
+    }));
+    if (!normalized) {
+      setSearchResults(mapped);
+      return;
     }
-  }, [searchQuery, step]);
+    setSearchResults(
+      mapped.filter(
+        (book) =>
+          book.title.toLowerCase().includes(normalized) ||
+          book.author.toLowerCase().includes(normalized)
+      )
+    );
+  }, [searchQuery, step, completedBooks]);
+
+  useEffect(() => {
+    if (!isOpen || !initialBookId || completedBooks.length === 0) return;
+    const matched = completedBooks.find((book) => book.bookId === initialBookId);
+    if (!matched) return;
+    handleSelectBook({
+      id: String(matched.bookId),
+      title: matched.title,
+      author: matched.author,
+      genre: "독서",
+      completedAt: matched.completedAt,
+      coverImageUrl: matched.coverImageUrl,
+    });
+  }, [isOpen, initialBookId, completedBooks]);
 
   const handleSelectBook = (book: any) => {
     setSelectedBook(book);
@@ -73,9 +99,28 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
     if (!selectedBook) return;
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      let uploadedImageUrl = ticketData.customImage;
+      if (customImageFile) {
+        const fileExtension = customImageFile.name.split(".").pop()?.toLowerCase() || "jpg";
+        const { presignedUrl, imageUrl } = await fetchTicketImagePresignedUrl(fileExtension);
+        await fetch(presignedUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": customImageFile.type || "image/jpeg",
+          },
+          body: customImageFile,
+        });
+        uploadedImageUrl = imageUrl;
+      }
+      const completedAtIso = `${ticketData.dateRead}T00:00:00`;
+      const created = await createTicket({
+        bookId: parseInt(selectedBook.id, 10),
+        completedAt: completedAtIso,
+        comment: ticketData.review || undefined,
+        ticketImageUrl: uploadedImageUrl || undefined,
+      });
       const newTicket: GalleryTicket = {
-        id: `t-${Date.now()}`,
+        id: created.id,
         bookId: parseInt(selectedBook.id),
         title: selectedBook.title,
         author: selectedBook.author,
@@ -89,7 +134,8 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
           textColor: 'text-stone-900',
           orientation: ticketData.orientation 
         },
-        ticketImageUrl: ticketData.customImage || `https://picsum.photos/seed/${selectedBook.id}/400/600`,
+        coverImageUrl: selectedBook.coverImageUrl,
+        ticketImageUrl: uploadedImageUrl || selectedBook.coverImageUrl || `https://picsum.photos/seed/${selectedBook.id}/400/600`,
         rating: 4.5 // 임시
       };
       onSuccess(newTicket);
@@ -115,11 +161,12 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
       background: "bg-white",
     });
     setSelectedBook(null);
+    setCustomImageFile(null);
     onClose();
   };
 
   const previewTicket: GalleryTicket & { rating?: number } = {
-    id: 'preview',
+    id: -1,
     bookId: parseInt(selectedBook?.id || '0'),
     title: selectedBook?.title || 'TITLE',
     author: selectedBook?.author || 'AUTHOR',
@@ -162,13 +209,13 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                     placeholder="이미 완독한 도서명 또는 작가명을 입력하세요"
                     className="w-full text-2xl font-bold outline-none bg-transparent placeholder:text-gray-300" autoFocus
                   />
-                  {isSearching ? <Loader2 className="text-[#0033FF] ml-4 animate-spin" size={28} /> : <Search className="text-gray-300 ml-4" size={28} />}
+                  <Search className="text-gray-300 ml-4" size={28} />
                 </div>
                 <div className="mt-8 space-y-2 max-h-[50vh] overflow-y-auto pr-2 hide-scrollbar">
                   {searchResults.map((book, idx) => (
                     <div key={book.id} onClick={() => handleSelectBook(book)} className={cn("flex items-center p-4 cursor-pointer transition-all border border-transparent rounded-lg group", idx === 0 ? "bg-stone-50 border-stone-200 shadow-sm" : "hover:bg-stone-50")}>
                       <div className="w-12 h-16 bg-stone-200 mr-6 overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
-                        <img src={`https://picsum.photos/seed/${book.id}/200/300`} alt="Cover" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" crossOrigin="anonymous"/>
+                        <img src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/200/300`} alt="Cover" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" crossOrigin="anonymous"/>
                       </div>
                       <div className="flex-1">
                         <p className="font-black text-lg tracking-tight group-hover:text-[#0033FF] transition-colors">{book.title}</p>
@@ -239,6 +286,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
+                        setCustomImageFile(file);
                         const reader = new FileReader();
                         reader.onloadend = () => setTicketData({ ...ticketData, customImage: reader.result as string });
                         reader.readAsDataURL(file);

@@ -8,19 +8,20 @@ interface PhotoCardProps {
   className?: string;
   holeColor?: string;
   rating?: number; 
+  onClick?: () => void;
 }
 
-export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, className, holeColor = 'bg-[#f5f2ed]', rating }, ref) => {
+export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, className, holeColor = 'bg-[#f5f2ed]', rating, onClick }, ref) => {
   const templateId = ticket.templateId || 'classic';
   const style = ticket.style || { background: 'bg-white', textColor: 'text-stone-900', font: 'serif' };
   
   const isHorizontal = style.orientation !== 'vertical';
 
   const fontClass = {
-    serif: "font-['Noto_Serif_KR',_serif]",
-    sans: "font-['Pretendard',_sans-serif]",
-    mono: "font-['Gowun_Dodum',_sans-serif]", 
-  }[style.font as string] || "font-['Noto_Serif_KR',_serif]";
+    serif: "font-noto-serif-kr",
+    sans: "font-pretendard",
+    mono: "font-gowun",
+  }[style.font as string] || "font-noto-serif-kr";
 
   const renderRating = (score: number | undefined) => {
     if (score === undefined) return null;
@@ -37,6 +38,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
   return (
     <div
       ref={ref}
+      onClick={onClick}
       className={cn(
         "relative flex shadow-2xl isolation-auto shrink-0 transition-all rounded-lg",
         isHorizontal ? "w-[480px] h-[240px] flex-row" : "w-[240px] h-[480px] flex-col",

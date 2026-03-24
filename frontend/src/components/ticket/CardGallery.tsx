@@ -4,12 +4,12 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { GalleryTicket } from '@/types/ticket';
 import { DraggableCard } from './DraggableCard';
 
-const fetchDummyGalleryTickets = (): GalleryTicket[] => {
+export const getMockGalleryTickets = (): GalleryTicket[] => {
   return Array.from({ length: 7 }).map((_, i) => {
     const orientation = i % 3 === 2 ? 'vertical' : 'horizontal';
     
     return {
-      id: `ticket-${i}`,
+      id: 1000 + i,
       bookId: 100 + i,
       title: [
         '사피엔스: 유인원에서 사이보그까지', 
@@ -34,13 +34,21 @@ const fetchDummyGalleryTickets = (): GalleryTicket[] => {
   });
 };
 
-export const CardGallery = () => {
+interface CardGalleryProps {
+  tickets?: GalleryTicket[];
+  onSelectTicket?: (ticket: GalleryTicket) => void;
+}
+
+export const CardGallery = ({ tickets: ticketsProp, onSelectTicket }: CardGalleryProps) => {
   const [tickets, setTickets] = useState<GalleryTicket[]>([]);
 
   useEffect(() => {
-    // 빈 배열 마운트 후 데이터를 불러옴
-    setTickets(fetchDummyGalleryTickets());
-  }, []);
+    if (ticketsProp) {
+      setTickets(ticketsProp);
+      return;
+    }
+    setTickets(getMockGalleryTickets());
+  }, [ticketsProp]);
 
   const scatteredCards = useMemo(() => {
     return tickets.map((ticket, index) => {
@@ -62,6 +70,7 @@ export const CardGallery = () => {
           <DraggableCard 
             key={card.ticket.id} 
             {...card} 
+            onClick={() => onSelectTicket?.(card.ticket)}
             dragConstraints={{ left: -1000, right: 1000, top: -500, bottom: 500 }} 
           />
         ))}

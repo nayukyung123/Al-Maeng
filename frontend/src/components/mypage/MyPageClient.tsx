@@ -1,22 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
 import { Book, UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import useAuthStore from "@/store/useAuthStore";
 import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
+import { deleteTicket, fetchGalleryTickets } from '@/api/tickets';
+import { useRouter } from 'next/navigation';
 
 export default function MyPageClient() {
   const { isLoggedIn } = useAuthStore();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [isMounted, setIsMounted] = useState(false);
   const [wishlistPage, setWishlistPage] = useState(1);
   const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [issuedTickets, setIssuedTickets] = useState<Set<number>>(new Set());
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data: completedBooks = [] } = useQuery({
@@ -26,6 +29,42 @@ export default function MyPageClient() {
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
+  });
+
+  const { data: galleryTickets = [] } = useQuery({
+    queryKey: ["tickets", "gallery"],
+    queryFn: fetchGalleryTickets,
+    enabled: isLoggedIn,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const knownTicketMap = useMemo(() => {
+    const map = new Map<number, number>();
+    galleryTickets.forEach((ticket) => map.set(ticket.bookId, ticket.id));
+
+    const binderCaches = queryClient.getQueriesData({
+      queryKey: ["tickets", "binder"],
+    });
+    binderCaches.forEach(([, data]) => {
+      const maybePage = data as { content?: { bookId: number; id: number }[] } | undefined;
+      maybePage?.content?.forEach((ticket) => {
+        if (!map.has(ticket.bookId)) {
+          map.set(ticket.bookId, ticket.id);
+        }
+      });
+    });
+
+    return map;
+  }, [galleryTickets, queryClient]);
+
+  const deleteTicketMutation = useMutation({
+    mutationFn: (ticketId: number) => deleteTicket(ticketId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
+        queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+      ]);
+    },
   });
 
   const [editFormData, setEditFormData] = useState<UserData>({
@@ -54,10 +93,6 @@ export default function MyPageClient() {
       });
     }
 
-    const savedTickets = localStorage.getItem('issuedTickets');
-    if (savedTickets) {
-      setIssuedTickets(new Set(JSON.parse(savedTickets)));
-    }
   }, []);
 
   // SSR 단계이거나 하이드레이션 이전이면 스켈레톤만 렌더링
@@ -65,15 +100,13 @@ export default function MyPageClient() {
     return <div className="pt-24 pb-32 px-6 min-h-screen animate-pulse bg-gray-50" />;
   }
 
-  const toggleTicket = (bookId: number) => {
-    const newTickets = new Set(issuedTickets);
-    if (newTickets.has(bookId)) {
-      newTickets.delete(bookId);
-    } else {
-      newTickets.add(bookId);
+  const handleTicketAction = async (bookId: number) => {
+    const ticketId = knownTicketMap.get(bookId);
+    if (!ticketId) {
+      router.push(`/tickets?issueBookId=${bookId}`);
+      return;
     }
-    setIssuedTickets(newTickets);
-    localStorage.setItem('issuedTickets', JSON.stringify(Array.from(newTickets)));
+    await deleteTicketMutation.mutateAsync(ticketId);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,17 +335,17 @@ export default function MyPageClient() {
 
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4 z-10">
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      toggleTicket(book.bookId);
+                      await handleTicketAction(book.bookId);
                     }}
                     className="w-full py-2.5 bg-transparent border border-white text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-white hover:text-black transition-colors"
                   >
-                    {issuedTickets.has(book.bookId) ? '티켓 삭제하기' : '티켓 발행하기'}
+                    {knownTicketMap.has(book.bookId) ? '티켓 삭제하기' : '티켓 발행하기'}
                   </button>
                 </div>
 
-                {issuedTickets.has(book.bookId) && (
+                {knownTicketMap.has(book.bookId) && (
                   <div className="absolute top-2 right-2 bg-[#4D41FF] text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg z-20 animate-in zoom-in duration-300">
                     TICKET ISSUED
                   </div>

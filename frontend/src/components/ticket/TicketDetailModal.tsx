@@ -8,13 +8,15 @@ import { toPng } from "html-to-image";
 import { PhotoCard } from "./PhotoCard";
 
 interface TicketDetailModalProps {
-  ticket: GalleryTicket & { rating?: number };
+  ticket: (GalleryTicket & { rating?: number }) | null;
   onClose: () => void;
+  onDelete?: (ticketId: number) => Promise<void>;
 }
 
-export const TicketDetailModal = ({ ticket, onClose }: TicketDetailModalProps) => {
+export const TicketDetailModal = ({ ticket, onClose, onDelete }: TicketDetailModalProps) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const ticketRef = useRef<HTMLDivElement>(null);
 
   if (!ticket) return null;
@@ -36,6 +38,17 @@ export const TicketDetailModal = ({ ticket, onClose }: TicketDetailModalProps) =
       console.error('Failed to download ticket:', err);
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(ticket.id);
+      onClose();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -117,14 +130,26 @@ export const TicketDetailModal = ({ ticket, onClose }: TicketDetailModalProps) =
         </div>
       </div>
 
-      <button 
-        onClick={downloadTicket}
-        disabled={isDownloading}
-        className="mt-16 md:mt-24 flex items-center gap-2 bg-white text-black px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#0033FF] hover:text-white transition-colors disabled:opacity-50 z-50"
-      >
-        {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-        {isDownloading ? 'DOWNLOADING...' : 'SAVE TICKET'}
-      </button>
+      <div className="mt-16 md:mt-24 flex items-center gap-3 z-50">
+        <button 
+          onClick={downloadTicket}
+          disabled={isDownloading}
+          className="flex items-center gap-2 bg-white text-black px-8 py-3 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#0033FF] hover:text-white transition-colors disabled:opacity-50"
+        >
+          {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+          {isDownloading ? 'DOWNLOADING...' : 'SAVE TICKET'}
+        </button>
+        {onDelete && (
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            {isDeleting && <Loader2 size={16} className="animate-spin" />}
+            {isDeleting ? "DELETING..." : "DELETE"}
+          </button>
+        )}
+      </div>
       
       <div className="fixed -left-[9999px] top-0">
         <div ref={ticketRef} className="bg-transparent p-4 inline-block">

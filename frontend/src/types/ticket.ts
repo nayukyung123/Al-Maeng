@@ -10,7 +10,7 @@ export interface CardStyle {
 
 export interface GalleryTicket {
   /** 티켓 고유 식별자 */
-  id: string;
+  id: number;
 
   /** 기반이 된 원본 도서 ID */
   bookId: number;
@@ -33,7 +33,7 @@ export interface GalleryTicket {
   /** 짧은 감상평 (리뷰) */
   comment?: string;
 
-  /** 완독 일자 */
+  /** 완독 일자 (ISO 문자열) */
   completedAt: string;
 
   // --- 이하 프론트엔드 목업 및 디자인 속성 --- //

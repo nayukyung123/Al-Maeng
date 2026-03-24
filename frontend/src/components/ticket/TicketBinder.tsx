@@ -9,6 +9,8 @@ import { PhotoCard } from "./PhotoCard";
 interface TicketBinderProps {
   onOpenBook: (ticket: GalleryTicket) => void;
   onAddTicket: () => void;
+  tickets?: GalleryTicket[];
+  isLoadingExternal?: boolean;
 }
 
 const fetchDummyBinderTickets = async (): Promise<GalleryTicket[]> => {
@@ -67,7 +69,7 @@ const TicketSkeleton = ({ idx }: { idx: number }) => {
   );
 };
 
-export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => {
+export const TicketBinder = ({ onOpenBook, onAddTicket, tickets, isLoadingExternal = false }: TicketBinderProps) => {
   const [books, setBooks] = useState<GalleryTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,11 +79,16 @@ export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => 
   const [flipState, setFlipState] = useState<'idle' | 'next-start' | 'next-anim' | 'prev-start' | 'prev-anim' | 'genre-flip-start' | 'genre-flip-anim'>('idle');
 
   useEffect(() => {
+    if (tickets) {
+      setBooks(tickets);
+      setIsLoading(isLoadingExternal);
+      return;
+    }
     fetchDummyBinderTickets().then((data) => {
       setBooks(data);
       setIsLoading(false);
     });
-  }, []);
+  }, [tickets, isLoadingExternal]);
 
   const currentBinderBooks = useMemo(() => {
     let filtered = [...books];

@@ -1,27 +1,102 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, ChevronRight } from "lucide-react";
-import { CardGallery } from "./CardGallery";
+import { CardGallery, getMockGalleryTickets } from "./CardGallery";
 import { TicketBinder } from "./TicketBinder";
 import { AddTicketModal } from "./AddTicketModal";
 import { TicketDetailModal } from "./TicketDetailModal";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import useAuthStore from "@/store/useAuthStore";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteTicket as deleteTicketApi, fetchBinderTickets, fetchGalleryTickets } from "@/api/tickets";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { fetchCompletedBooks } from "@/api/completedBooks";
+import { EmptyTicketState } from "./EmptyTicketState";
+import { Loader2 } from "lucide-react";
 
 export const TicketsClient = () => {
   const [view, setView] = useState<"gallery" | "binder">("gallery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<GalleryTicket | null>(null);
+  const binderPage = 0;
+  const binderGenre: string | null = null;
+  const { isLoggedIn } = useAuthStore();
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  // 글로벌 Auth 스토어 대신 임시 상수
-  const isLoggedIn = true;
+  const issueBookId = useMemo(() => {
+    const raw = searchParams.get("issueBookId");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [searchParams]);
 
-  const handleTicketAdded = (newTicket: GalleryTicket) => {
-    // API 연동 시 React Query invalidate 후 재 랜더링 유도
-    console.log("Ticket Added Success:", newTicket);
+  const {
+    data: galleryTickets = [],
+    isLoading: isGalleryLoading,
+  } = useQuery({
+    queryKey: ["tickets", "gallery"],
+    queryFn: fetchGalleryTickets,
+    enabled: isLoggedIn,
+  });
+
+  const { data: binderPageData, isLoading: isBinderLoading } = useQuery({
+    queryKey: ["tickets", "binder", binderGenre ?? "ALL", binderPage],
+    queryFn: () => fetchBinderTickets({ page: binderPage, genre: binderGenre }),
+    enabled: isLoggedIn,
+  });
+
+  const {
+    data: completedBooks = [],
+    isLoading: isCompletedLoading,
+  } = useQuery({
+    queryKey: ["completed-books"],
+    queryFn: fetchCompletedBooks,
+    enabled: isLoggedIn,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!issueBookId) return;
+    setIsAddModalOpen(true);
+    router.replace(pathname, { scroll: false });
+  }, [issueBookId, pathname, router]);
+
+  const handleTicketAdded = async (_newTicket: GalleryTicket) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
+      queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+    ]);
   };
+
+  const handleModalClose = () => {
+    setIsAddModalOpen(false);
+    router.replace(pathname, { scroll: false });
+  };
+
+  const handleDeleteTicket = async (ticketId: number) => {
+    await deleteTicketApi(ticketId);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
+      queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+    ]);
+  };
+
+  const guestTickets = useMemo(() => getMockGalleryTickets(), []);
+  const shownGalleryTickets = isLoggedIn ? galleryTickets : guestTickets;
+  const shownBinderTickets = isLoggedIn
+    ? (binderPageData?.content ?? [])
+    : guestTickets;
+
+  const isTicketsLoading = isLoggedIn && (isGalleryLoading || isBinderLoading || isCompletedLoading);
+  const isEmptyGallery = isLoggedIn && !isTicketsLoading && view === "gallery" && shownGalleryTickets.length === 0;
+  const isEmptyBinder = isLoggedIn && !isTicketsLoading && view === "binder" && shownBinderTickets.length === 0;
+  const emptyVariant = completedBooks.length === 0 ? "newUser" : "hasCompletedBooks";
 
   return (
     <div className={cn(
@@ -60,9 +135,14 @@ export const TicketsClient = () => {
       </div>
 
       <div className="relative w-full h-full">
+        {!isLoggedIn && <div className="absolute inset-0 z-20 pointer-events-auto" />}
+        {(isEmptyGallery || isEmptyBinder) && (
+          <div className="absolute inset-0 z-[25] pointer-events-auto" />
+        )}
+
         {/* 비로그인 안내 오버레이 */}
         {!isLoggedIn && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -78,44 +158,75 @@ export const TicketsClient = () => {
               </p>
               <button 
                 className="w-full bg-black text-white py-4 flex items-center justify-center gap-3 font-black text-sm tracking-widest uppercase hover:bg-[#0033FF] transition-colors"
+                onClick={() => router.push("/login")}
               >
                 로그인하고 시작하기 <ChevronRight size={18} />
               </button>
             </motion.div>
-            <div className="absolute inset-0 bg-white/40 pointer-events-none" />
+            <div className="absolute inset-0 bg-white/30 pointer-events-none" />
+          </div>
+        )}
+
+        {isTicketsLoading && (
+          <div className="absolute inset-0 z-10 pt-24 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-gray-400">
+              <Loader2 className="animate-spin" size={28} />
+              <p className="text-xs font-black uppercase tracking-widest">Loading</p>
+            </div>
           </div>
         )}
 
         {/* 뷰 스위칭 */}
-        {view === "gallery" ? (
-          <CardGallery />
-        ) : (
-          <TicketBinder 
-            onOpenBook={setSelectedTicket}
-            onAddTicket={() => setIsAddModalOpen(true)}
+        {!isTicketsLoading &&
+          (view === "gallery" ? (
+            <CardGallery tickets={shownGalleryTickets} />
+          ) : (
+            <TicketBinder
+              tickets={shownBinderTickets}
+              isLoadingExternal={isLoggedIn && isBinderLoading}
+              onOpenBook={setSelectedTicket}
+              onAddTicket={() => setIsAddModalOpen(true)}
+            />
+          ))}
+
+        {(isEmptyGallery || isEmptyBinder) && (
+          <EmptyTicketState
+            variant={emptyVariant}
+            primaryLabel={emptyVariant === "newUser" ? "첫 완독 도서 검색하기" : "첫 티켓 발급하기"}
+            onPrimaryAction={() => {
+              if (emptyVariant === "newUser") {
+                router.push("/search?focus=true");
+              } else {
+                setIsAddModalOpen(true);
+              }
+            }}
           />
         )}
       </div>
 
       {/* 플로팅 버튼 (티켓 추가) */}
-      <button 
-        onClick={() => setIsAddModalOpen(true)}
-        className="fixed bottom-24 md:bottom-12 right-6 md:right-12 w-16 h-16 bg-[#0033FF] text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-40"
-      >
-        <Plus size={32} />
-      </button>
+      {isLoggedIn && (
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="fixed bottom-24 md:bottom-12 right-6 md:right-12 w-16 h-16 bg-[#0033FF] text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-40"
+        >
+          <Plus size={32} />
+        </button>
+      )}
 
       {/* 티켓 발행 모달 */}
       <AddTicketModal 
         isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
+        onClose={handleModalClose}
         onSuccess={handleTicketAdded} 
+        initialBookId={issueBookId}
       />
 
       {/* 3D 플립 티켓 상세조회 (다운로드 지원) 모달 */}
       <TicketDetailModal 
         ticket={selectedTicket} 
         onClose={() => setSelectedTicket(null)} 
+        onDelete={isLoggedIn ? handleDeleteTicket : undefined}
       />
     </div>
   );

@@ -11,9 +11,10 @@ interface DraggableCardProps {
   rotate: number;
   delay: number;
   dragConstraints?: any;
+  onClick?: () => void;
 }
 
-export const DraggableCard = ({ ticket, x, y, rotate, delay, dragConstraints }: DraggableCardProps) => {
+export const DraggableCard = ({ ticket, x, y, rotate, delay, dragConstraints, onClick }: DraggableCardProps) => {
   const dragControls = useDragControls();
 
   return (
@@ -46,7 +47,8 @@ export const DraggableCard = ({ ticket, x, y, rotate, delay, dragConstraints }: 
       <div className="relative group">
         <PhotoCard
           ticket={ticket}
-          className="shadow-2xl"
+          className="shadow-2xl cursor-pointer"
+          onClick={onClick}
         />
       </div>
     </motion.div>
