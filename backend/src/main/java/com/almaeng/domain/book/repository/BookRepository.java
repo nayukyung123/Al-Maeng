@@ -45,13 +45,13 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findTop5ByFavoriteWeekly(@Param("startDate") LocalDateTime startDate);
     
     // 전체 인기 도서 - 조회순
-    @Query(value = "SELECT b.* FROM books b JOIN view_log v ON b.id = v.book_id " +
-            "GROUP BY b.id ORDER BY COUNT(v.id) DESC, b.id DESC LIMIT 5", nativeQuery = true)
+    @Query(value = "SELECT b.* FROM books b JOIN click_log c ON b.id = c.book_id " +
+            "GROUP BY b.id ORDER BY COUNT(c.id) DESC, b.id DESC LIMIT 5", nativeQuery = true)
     List<Book> findTop5ByViewAllTime();
 
     // 주간 인기 도서 - 조회순
-    @Query(value = "SELECT b.* FROM books b JOIN view_log v ON b.id = v.book_id " +
-            "WHERE v.created_at >= :startDate " +
-            "GROUP BY b.id ORDER BY COUNT(v.id) DESC, b.id DESC LIMIT 5", nativeQuery = true)
+    @Query(value = "SELECT b.* FROM books b JOIN click_log c ON b.id = c.book_id " +
+            "WHERE c.created_at >= :startDate " +
+            "GROUP BY b.id ORDER BY COUNT(c.id) DESC, b.id DESC LIMIT 5", nativeQuery = true)
     List<Book> findTop5ByViewWeekly(@Param("startDate") LocalDateTime startDate);
 }
