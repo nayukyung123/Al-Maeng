@@ -44,6 +44,7 @@ export default function ContentSearchStep() {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   // ── 자동완성: GET /api/contents/suggestions ───────────────
+  // 비로그인 사용자도 허용 (백엔드 SecurityConfig에서 공개 처리)
   const { data: suggestions = [], isFetching: isSuggestionFetching } =
     useQuery({
       queryKey: ["content-suggestions", debouncedKeyword],
