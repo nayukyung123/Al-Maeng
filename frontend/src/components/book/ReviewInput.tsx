@@ -1,32 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star, Send, AlertCircle, X } from "lucide-react";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
-import { createReview, updateReview } from "@/api/bookDetail";
-import type { Review } from "@/types/book";
+import { createReview } from "@/api/bookDetail";
 
 interface ReviewInputProps {
   slug: string;
-  /** 수정 중인 리뷰 — null 이면 새 리뷰 작성 모드 */
-  editingReview: Review | null;
-  onCancelEdit: () => void;
 }
 
-export default function ReviewInput({
-  slug,
-  editingReview,
-  onCancelEdit,
-}: ReviewInputProps) {
+export default function ReviewInput({ slug }: ReviewInputProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isLoggedIn, user } = useAuthStore();
-
-  const inputRef = useRef<HTMLDivElement>(null);
 
   /* ── 폼 로컬 상태 ── */
   const [comment, setComment] = useState("");
@@ -53,20 +43,6 @@ export default function ReviewInput({
     }
   };
 
-  /** editingReview 변경 시 폼 동기화 + 스크롤 이동 */
-  useEffect(() => {
-    if (editingReview) {
-      setComment(editingReview.content);
-      setRating(editingReview.rating);
-      setIsSpoilerInput(editingReview.isSpoiler);
-      inputRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      setComment("");
-      setRating(0);
-      setIsSpoilerInput(false);
-    }
-  }, [editingReview]);
-
   /* ── 캐시 무효화 헬퍼 ── */
   const invalidateReviews = () =>
     queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
@@ -84,22 +60,7 @@ export default function ReviewInput({
     onError: handleApiError,
   });
 
-  /* ── 리뷰 수정 Mutation ── */
-  const updateMutation = useMutation({
-    mutationFn: () =>
-      updateReview(editingReview!.id, {
-        content: comment,
-        rating,
-        spoiler: isSpoilerInput,
-      }),
-    onSuccess: () => {
-      invalidateReviews();
-      onCancelEdit();
-    },
-    onError: handleApiError,
-  });
-
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending;
 
   /** 제출 핸들러 */
   const handleSubmit = () => {
@@ -108,12 +69,7 @@ export default function ReviewInput({
       return;
     }
     if (!comment.trim() || rating === 0) return;
-
-    if (editingReview) {
-      updateMutation.mutate();
-    } else {
-      createMutation.mutate();
-    }
+    createMutation.mutate();
   };
 
   /** 프로필 이미지 */
@@ -158,7 +114,6 @@ export default function ReviewInput({
     </div>
 
     <div
-      ref={inputRef}
       id="comment-input"
       className="bg-white border border-gray-100 p-8 mb-16 flex gap-6 shadow-sm relative scroll-mt-8 overflow-hidden"
     >
@@ -174,13 +129,6 @@ export default function ReviewInput({
           >
             로그인 시작하기
           </button>
-        </div>
-      )}
-
-      {/* 수정 모드 배지 */}
-      {editingReview && (
-        <div className="absolute -top-4 left-8 bg-black text-white text-[10px] font-bold px-3 py-1 uppercase tracking-widest">
-          수정 중
         </div>
       )}
 
@@ -255,15 +203,6 @@ export default function ReviewInput({
           </button>
         </div>
 
-        {/* 수정 취소 */}
-        {editingReview && (
-          <button
-            onClick={onCancelEdit}
-            className="text-[10px] font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-widest"
-          >
-            수정 취소
-          </button>
-        )}
       </div>
     </div>
     </>

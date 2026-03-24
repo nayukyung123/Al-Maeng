@@ -123,7 +123,7 @@ export async function createReview(
 //    Body: { content, rating, isSpoiler }
 // ────────────────────────────────────────────────────────────
 export async function updateReview(
-  reviewId: string,
+  reviewId: number,
   body: UpdateReviewBody
 ): Promise<void> {
   await apiClient.patch(`/api/reviews/${reviewId}`, body);
@@ -132,6 +132,6 @@ export async function updateReview(
 // ────────────────────────────────────────────────────────────
 // 🟢 완료된 API — 리뷰 삭제 DELETE /api/reviews/{reviewId}
 // ────────────────────────────────────────────────────────────
-export async function deleteReview(reviewId: string): Promise<void> {
+export async function deleteReview(reviewId: number): Promise<void> {
   await apiClient.delete(`/api/reviews/${reviewId}`);
 }

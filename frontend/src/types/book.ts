@@ -26,13 +26,14 @@ export interface RecommendedBook {
 
 /** 리뷰 — ReviewResponse DTO */
 export interface Review {
-  id: string;
-  userId: number;
+  id: number;       // 백엔드 Long → JSON number
+  userId: number;   // 백엔드 Long → JSON number
   nickname: string;
+  tierName?: string;
   profileImageUrl?: string;
   rating: number;
   content: string;
-  isSpoiler: boolean;
+  spoiler: boolean; // 백엔드 필드명 spoiler (isSpoiler 아님)
   createdAt: string;
 }
 
