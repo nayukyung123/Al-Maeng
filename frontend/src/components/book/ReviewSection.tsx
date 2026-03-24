@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchReviews } from "@/api/bookDetail";
 import ReviewInput from "./ReviewInput";
@@ -17,9 +16,6 @@ export default function ReviewSection({
   slug,
   reviewCount,
 }: ReviewSectionProps) {
-  /** 수정 중인 리뷰 — null이면 새 리뷰 작성 모드 */
-  const [editingReview, setEditingReview] = useState<Review | null>(null);
-
   /* ── 리뷰 목록 조회 ── */
   const {
     data: reviews = [],
@@ -28,7 +24,6 @@ export default function ReviewSection({
   } = useQuery<Review[]>({
     queryKey: ["reviews", slug],
     queryFn: () => fetchReviews(slug),
-    staleTime: 60 * 1000, // 1분
   });
 
   return (
@@ -42,11 +37,7 @@ export default function ReviewSection({
       </h3>
 
       {/* 리뷰 입력 박스 */}
-      <ReviewInput
-        slug={slug}
-        editingReview={editingReview}
-        onCancelEdit={() => setEditingReview(null)}
-      />
+      <ReviewInput slug={slug} />
 
       {/* 리뷰 목록 */}
       {isLoading && (
@@ -72,11 +63,7 @@ export default function ReviewSection({
       )}
 
       {!isLoading && !isError && (
-        <ReviewList
-          reviews={reviews}
-          slug={slug}
-          onEditRequest={(review) => setEditingReview(review)}
-        />
+        <ReviewList reviews={reviews} slug={slug} />
       )}
     </section>
   );

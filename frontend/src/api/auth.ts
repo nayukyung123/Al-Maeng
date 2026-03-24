@@ -92,3 +92,14 @@ export async function logout() {
   const response = await apiClient.post<ApiResponse<void>>("/api/auth/logout");
   return response.data;
 }
+
+export interface GenreResponse {
+  id: number;
+  genreName: string;
+  parentId: number | null;
+}
+
+export async function fetchGenres() {
+  const response = await apiClient.get<ApiResponse<GenreResponse[]>>("/api/genres");
+  return response.data.data;
+}

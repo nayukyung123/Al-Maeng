@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ReviewResponse {
     private Long id;
+    private Long userId;
     private String nickname;
     private String tierName;
     private String profileImageUrl;
