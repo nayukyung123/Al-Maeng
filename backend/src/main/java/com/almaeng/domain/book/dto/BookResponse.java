@@ -1,11 +1,15 @@
 package com.almaeng.domain.book.dto;
 
 import com.almaeng.domain.book.entity.Book;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class BookResponse {
     private Long id;
     private String slug;
