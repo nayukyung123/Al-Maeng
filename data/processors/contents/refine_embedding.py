@@ -23,16 +23,34 @@ root_dir = data_dir.parent
 load_dotenv(dotenv_path=root_dir / ".env")
 load_dotenv(dotenv_path=data_dir / ".env", override=True)
 
+# 진행 상태 저장 파일 경로
+PROGRESS_FILE = current_file.parent / "refine_progress.txt"
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 
+def get_last_processed_id():
+    """마지막으로 완료된 태그 ID를 파일에서 읽어옴"""
+    if PROGRESS_FILE.exists():
+        try:
+            with open(PROGRESS_FILE, 'r') as f:
+                return int(f.read().strip())
+        except:
+            return 0
+    return 0
+
+def save_progress(last_id):
+    """완료된 태그 ID를 파일에 저장"""
+    with open(PROGRESS_FILE, 'w') as f:
+        f.write(str(last_id))
+
 def run_refinement():
     """
     테스트 코드에서 검증된 '탈-키워드' 서사 보정 로직을 전체 태그에 적용합니다.
-    단순 키워드 매칭을 피하고 도서의 서사와 매칭되도록 임베딩 벡터를 재추출합니다.
+    중단 시 이어서 시작할 수 있는 로직이 포함되어 있습니다.
     """
     db_params = {
         'host': os.getenv("DB_HOST", "127.0.0.1").strip(),
@@ -51,20 +69,33 @@ def run_refinement():
         return
 
     try:
-        # contents 테이블과 JOIN하여 장르 정보를 함께 조회
-        logging.info("🔍 보정할 전체 태그 및 장르 데이터 조회 중...")
+        # 마지막 진행 지점 확인
+        last_id = get_last_processed_id()
+        if last_id > 0:
+            logging.info(f"🔄 이전 작업 기록 발견: ID {last_id} 이후부터 재개합니다.")
+
+        # contents 테이블과 JOIN하여 장르 정보를 함께 조회 (이미 완료된 ID는 제외)
+        logging.info("🔍 보정할 태그 및 장르 데이터 조회 중...")
         cur.execute("""
             SELECT t.id, t.tag_name, c.genres
             FROM tags t
             JOIN contents c ON t.content_id = c.id
+            WHERE t.id > %s
             ORDER BY t.id ASC
-        """)
+        """, (last_id,))
+        
         rows = cur.fetchall()
         total_count = len(rows)
-        logging.info(f"📈 총 {total_count:,}개의 태그 벡터 보정(Anti-Keyword Trap) 시작...")
+        
+        if total_count == 0:
+            logging.info("✅ 모든 태그가 이미 보정되었거나 처리할 데이터가 없습니다.")
+            return
+
+        logging.info(f"📈 남은 {total_count:,}개의 태그 벡터 보정(Anti-Keyword Trap) 시작...")
 
         batch_size = 32
         start_time = time.time()
+        current_processed = 0
 
         for i in range(0, total_count, batch_size):
             batch = rows[i:i+batch_size]
@@ -75,8 +106,6 @@ def run_refinement():
                 tag_name = row['tag_name']
                 genres_str = ", ".join(genres) if isinstance(genres, list) and genres else "정서적인"
                 
-                # [테스트 코드에서 가져온 핵심 보정 문구]
-                # 임베딩 모델이 제목의 단어가 아닌 '이야기의 흐름'에 집중하도록 유도
                 context_text = (
                     f"이 문구는 단순한 키워드가 아니라, [{genres_str}] 장르의 소설이 담고 있는 "
                     f"깊은 서사와 감정의 색채를 묘사합니다: '{tag_name}'. "
@@ -85,7 +114,7 @@ def run_refinement():
                 )
                 enriched_texts.append(context_text)
 
-            # 새 벡터 생성 (embedding.py의 Qwen 로직 사용)
+            # 새 벡터 생성
             if get_embeddings:
                 new_vectors = get_embeddings(enriched_texts)
 
@@ -93,20 +122,29 @@ def run_refinement():
                 for row, vector in zip(batch, new_vectors):
                     vec_str = "[" + ",".join(map(str, vector)) + "]"
                     cur.execute("UPDATE tags SET embedding_vector = %s WHERE id = %s", (vec_str, row['id']))
+                
+                conn.commit()
+                
+                # 배치 마지막 ID 저장 (중단 시 재개 지점)
+                last_batch_id = batch[-1]['id']
+                save_progress(last_batch_id)
+                current_processed += len(batch)
             else:
                 logging.error("❌ 임베딩 함수를 로드할 수 없어 작업을 중단합니다.")
                 break
             
-            conn.commit()
-            
             # 진행 상황 로깅 (320건마다 출력)
-            if (i + batch_size) % 320 == 0 or (i + batch_size) >= total_count:
+            if current_processed % 320 == 0 or current_processed >= total_count:
                 elapsed = time.time() - start_time
-                avg_speed = (i + batch_size) / elapsed
-                rem_time = (total_count - (i + batch_size)) / avg_speed if avg_speed > 0 else 0
-                logging.info(f"   - 진행: {min(i + batch_size, total_count):,}/{total_count:,} 완료 (남은 시간: {rem_time/60:.1f}분)")
+                avg_speed = current_processed / elapsed
+                rem_time = (total_count - current_processed) / avg_speed if avg_speed > 0 else 0
+                logging.info(f"   - 진행: {current_processed:,}/{total_count:,} 완료 (남은 시간: {rem_time/60:.1f}분)")
 
         logging.info("✅ 모든 태그의 임베딩 벡터가 '탈-키워드 서사형'으로 보정 완료되었습니다.")
+        
+        # 완료 후 진행 파일 삭제 (선택 사항)
+        if PROGRESS_FILE.exists():
+            os.remove(PROGRESS_FILE)
 
     except Exception as e:
         conn.rollback()
