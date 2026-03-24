@@ -49,4 +49,15 @@ public class WishlistService {
 
         wishlistRepository.save(newWishlist);
     }
+
+    @Transactional
+    public void deleteWishlist(Long userId, Long bookId) {
+
+        // 1. 내 찜 목록에 해당 도서가 있는지 확인
+        UserWishlist wishlist = wishlistRepository.findByUserIdAndBookId(userId, bookId)
+                .orElseThrow(() -> new ApiException(ErrorCode.WISHLIST_NOT_FOUND));
+
+        // 2. 찜 내역 삭제
+        wishlistRepository.delete(wishlist);
+    }
 }
