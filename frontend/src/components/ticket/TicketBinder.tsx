@@ -16,7 +16,6 @@ const fetchDummyBinderTickets = async (): Promise<GalleryTicket[]> => {
     setTimeout(() => {
       resolve(
         Array.from({ length: 15 }).map((_, i) => {
-          // 🔥 3장 중 1장 꼴로 세로형(vertical) 할당
           const orientation = i % 3 === 2 ? 'vertical' : 'horizontal';
           
           return {
@@ -32,7 +31,7 @@ const fetchDummyBinderTickets = async (): Promise<GalleryTicket[]> => {
               font: 'sans', 
               background: 'bg-stone-50', 
               textColor: 'text-stone-900',
-              orientation: orientation // 🔥 방향 데이터 추가!
+              orientation: orientation
             }
           };
         })
@@ -146,7 +145,6 @@ export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => 
     const yOffset = idx === 0 ? 'top-[42%]' : 'top-[58%]';
 
     if (book) {
-      // 🔥 가로형/세로형 판별
       const isVertical = book.style?.orientation === 'vertical';
       
       const randomRotation = idx % 2 === 0 ? '-rotate-1' : 'rotate-1';
@@ -154,14 +152,11 @@ export const TicketBinder = ({ onOpenBook, onAddTicket }: TicketBinderProps) => 
       
       const wrapperTransition = isFlipping ? '' : 'transition-transform duration-300 hover:scale-[1.02]';
       
-      // 🔥 세로형이면 기본으로 90도 눕히고, 가로형이면 살짝 삐뚤게 꽂습니다.
       const baseRotation = isVertical ? '-rotate-90' : randomRotation;
-      // 🔥 마우스 호버 시: 세로형은 88도로 살짝 들썩이게, 가로형은 0도로 똑바로 서게 만듭니다.
       const hoverRotation = isFlipping ? '' : (isVertical ? 'group-hover:-rotate-[88deg]' : 'group-hover:rotate-0');
 
       return (
         <div key={`ticket-${book.id}`} className={`relative group cursor-pointer w-full h-full transform ${wrapperTransition}`} onClick={() => onOpenBook(book)}>
-          {/* 🔥 baseRotation과 hoverRotation 변수를 클래스에 적용 */}
           <div className={`absolute ${yOffset} left-1/2 -translate-x-1/2 -translate-y-1/2 scale-[0.45] sm:scale-[0.6] md:scale-[0.75] shadow-sm border border-black/5 rounded-lg transition-transform ${baseRotation} ${hoverRotation}`}>
             <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-black/5 pointer-events-none z-10 rounded-lg border border-white/50" />
             <PhotoCard ticket={book} />

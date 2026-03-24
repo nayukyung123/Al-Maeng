@@ -43,4 +43,6 @@ export interface GalleryTicket {
 
   /** 템플릿 세부 스타일 (폰트, 컬러셋) */
   style?: CardStyle;
+
+  rating?: number;
 }

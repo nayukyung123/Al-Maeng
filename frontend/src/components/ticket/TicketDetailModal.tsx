@@ -65,7 +65,6 @@ export const TicketDetailModal = ({ ticket, onClose }: TicketDetailModalProps) =
           <div className={cn(
             "absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-lg flex shadow-2xl overflow-hidden",
             isHorizontal ? "flex-row-reverse" : "flex-col",
-            // 🔥 뒷면에서도 톱니바퀴 완전 삭제!
             ticket.templateId === 'minimal' ? 'bg-stone-50 text-stone-900' : `${ticket.style?.background || 'bg-white'} ${ticket.style?.textColor || 'text-stone-900'}`
           )}>
             {!isHorizontal ? (
@@ -112,7 +111,6 @@ export const TicketDetailModal = ({ ticket, onClose }: TicketDetailModalProps) =
           </div>
         </div>
 
-        {/* 🔥 항상 표시되도록 opacity-100 고정, 줄바꿈 방지 whitespace-nowrap 추가 */}
         <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 text-white/50 flex items-center gap-2 pointer-events-none whitespace-nowrap">
           <RotateCcw size={16} />
           <span className="text-xs tracking-widest uppercase font-bold">Click to flip</span>

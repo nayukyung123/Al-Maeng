@@ -17,10 +17,10 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
   const isHorizontal = style.orientation !== 'vertical';
 
   const fontClass = {
-    serif: 'font-serif',
-    sans: 'font-sans',
-    mono: 'font-mono',
-  }[style.font as string] || 'font-serif';
+    serif: "font-['Noto_Serif_KR',_serif]",
+    sans: "font-['Pretendard',_sans-serif]",
+    mono: "font-['Gowun_Dodum',_sans-serif]", 
+  }[style.font as string] || "font-['Noto_Serif_KR',_serif]";
 
   const renderRating = (score: number | undefined) => {
     if (score === undefined) return null;
@@ -40,7 +40,6 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
       className={cn(
         "relative flex shadow-2xl isolation-auto shrink-0 transition-all rounded-lg",
         isHorizontal ? "w-[480px] h-[240px] flex-row" : "w-[240px] h-[480px] flex-col",
-        // 🔥 톱니바퀴 효과(clip-path) 완전 삭제 완료!
         templateId === 'minimal' ? 'bg-stone-50 text-stone-900' : style.background,
         templateId === 'minimal' ? 'text-stone-900' : style.textColor,
         templateId === 'minimal' ? 'font-sans' : fontClass,
@@ -49,7 +48,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
     >
       
       {isHorizontal ? (
-        // === 가로형 레이아웃 (기존 유지) ===
+        // === 가로형 레이아웃 ===
         <>
           <div className="flex-1 p-6 flex gap-6 relative z-10 rounded-l-lg flex-row">
             <div className={cn("shrink-0 bg-black/5 overflow-hidden border border-current/20 shadow-inner w-32 h-full", templateId === 'modern' ? 'rounded-full' : 'rounded-sm')}>
@@ -62,26 +61,21 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
                   <span className="text-[9px] font-mono opacity-40">#{ticket.id.toString().padStart(4, '0')}</span>
                 </div>
                 <div className="space-y-1">
-                  <h2 className={cn("text-xl leading-tight font-black uppercase tracking-tight line-clamp-2", templateId === 'minimal' ? 'font-sans normal-case tracking-normal' : (style.font === 'serif' ? 'italic' : ''))}>{ticket.title}</h2>
+                  <h2 className={cn("text-xl leading-tight font-black uppercase tracking-tight line-clamp-2", templateId === 'minimal' ? 'font-sans normal-case tracking-normal' : '')}>{ticket.title}</h2>
                   <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {ticket.author}</p>
                 </div>
                 {ticket.comment && (
-                  <p className={cn("text-[10px] leading-relaxed opacity-70 line-clamp-2 italic border-l border-current/30 pl-3", templateId === 'minimal' ? 'not-italic font-medium' : '')}>{ticket.comment}</p>
+                  <p className={cn("text-[10px] leading-relaxed opacity-70 line-clamp-2 border-l border-current/30 pl-3", templateId === 'minimal' ? 'font-medium' : '')}>{ticket.comment}</p>
                 )}
               </div>
-              <div className="flex justify-between items-end pt-2 border-t border-current/10 gap-4">
-                {renderRating(rating || ticket.rating)}
-                <div className="flex-1 grid grid-cols-2 gap-x-2 text-right">
-                    <div>
-                        <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold">DATE</p>
-                        <p className="text-[10px] font-mono font-bold">{ticket.completedAt.replace(/-/g, '.')}</p>
-                    </div>
-                    {ticket.genre && (
-                        <div>
-                            <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold">GENRE</p>
-                            <p className="text-[10px] font-mono font-bold">{ticket.genre.toUpperCase()}</p>
-                        </div>
-                    )}
+              <div className="flex justify-between items-start pt-3 border-t border-current/10 w-full mt-auto">
+                <div className="flex flex-col text-left">
+                  <span className="text-[8px] uppercase tracking-widest opacity-40 font-bold mb-0.5">GENRE</span>
+                  <span className="text-[10px] font-mono font-bold">{ticket.genre ? ticket.genre.toUpperCase() : '-'}</span>
+                </div>
+                <div className="flex flex-col text-right ml-auto">
+                  <span className="text-[8px] uppercase tracking-widest opacity-40 font-bold mb-0.5">DATE</span>
+                  <span className="text-[10px] font-mono font-bold">{ticket.completedAt.replace(/-/g, '.')}</span>
                 </div>
               </div>
             </div>
@@ -105,7 +99,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
           </div>
         </>
       ) : (
-        // === 🔥 세로형 레이아웃 (사진 크기 축소 & 여백 최적화) ===
+        // === 세로형 레이아웃 ===
         <div className="w-full h-full p-6 flex flex-col relative z-10 rounded-lg">
           
           <div className="flex justify-between items-start mb-3">
@@ -113,7 +107,6 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
             <span className="text-[9px] font-mono opacity-40">#{ticket.id.toString().padStart(4, '0')}</span>
           </div>
 
-          {/* 🔥 이미지 높이를 h-44에서 h-32(약 128px)로 줄여서 하단 공간 확보 */}
           <div className={cn(
             "w-full h-32 shrink-0 bg-black/5 overflow-hidden border border-current/20 shadow-inner mb-4 relative",
             templateId === 'modern' ? 'rounded-full' : 'rounded-sm'
@@ -130,22 +123,20 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
           </div>
 
           <div className="flex-1 flex flex-col min-h-0">
-            {/* 타이틀 영역 */}
             <div className="space-y-1 mb-4">
-              <h2 className={cn("text-lg leading-tight font-black uppercase tracking-tight line-clamp-2", style.font === 'serif' ? 'italic' : '')}>{ticket.title}</h2>
+              <h2 className={cn("text-lg leading-tight font-black uppercase tracking-tight line-clamp-2")}>{ticket.title}</h2>
               <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {ticket.author}</p>
             </div>
 
-            {/* 정보 그리드 영역 */}
             <div className="border-t border-current/10 pt-3 pb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-auto">
                 <div className="flex flex-col gap-0.5">
-                    <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold">DATE COMPLETED</p>
+                    <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold whitespace-nowrap">DATE COMPLETED</p>
                     <p className="font-mono font-bold text-xs">{ticket.completedAt.replace(/-/g, '.')}</p>
                 </div>
                 {ticket.genre && (
-                    <div className="flex flex-col gap-0.5 text-right">
-                        <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold">GENRE</p>
-                        <p className="font-mono font-bold text-xs">{ticket.genre.toUpperCase()}</p>
+                    <div className="flex flex-col gap-0.5 text-right overflow-hidden">
+                        <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold whitespace-nowrap">GENRE</p>
+                        <p className="font-mono font-bold text-xs truncate">{ticket.genre.toUpperCase()}</p>
                     </div>
                 )}
                 <div className="col-span-2 flex flex-col gap-1 mt-1">
@@ -154,10 +145,23 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
                 </div>
             </div>
 
-            {/* 코멘트 영역 (넘치지 않게 처리) */}
             {ticket.comment && (
-              <div className="relative border border-current/30 p-3 rounded-md bg-current/5 mt-2 overflow-hidden shrink-0">
-                <p className={cn("text-[9px] leading-relaxed opacity-70 break-keep italic line-clamp-2", templateId === 'minimal' ? 'not-italic font-medium' : '')}>{ticket.comment}</p>
+              <div className="relative mt-2 px-3 w-full h-[32px] shrink-0 flex flex-col justify-center">
+                
+                <span className="absolute top-[-6px] left-0 font-serif text-[28px] leading-none opacity-30 select-none pointer-events-none">
+                  “
+                </span>
+                
+                <p className={cn(
+                  "text-[9.5px] leading-[16px] opacity-90 w-full line-clamp-2 break-all whitespace-normal relative z-10 text-center",
+                  templateId === 'minimal' ? 'not-italic font-medium' : 'italic font-medium'
+                )}>
+                  {ticket.comment}
+                </p>
+                
+                <span className="absolute bottom-[-16px] right-0 font-serif text-[28px] leading-none opacity-30 select-none pointer-events-none">
+                  ”
+                </span>
               </div>
             )}
           </div>
