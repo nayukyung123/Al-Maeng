@@ -16,17 +16,19 @@ export async function fetchBookSuggestions(keyword: string): Promise<BookSuggest
 }
 
 // ────────────────────────────────────────────────────────────
-// 🟢 도서 검색  GET /api/books?keyword={keyword}
+// 🟢 도서 검색  GET /api/books?keyword={keyword}&sortType={sortType}
+//    sortType: "accuracy"(기본) | "latest" | "rating"
 //    응답: ApiResponse<Slice<BookResponse>>
 //            └ { content: Book[], hasNext, ... }
 // ────────────────────────────────────────────────────────────
 export async function fetchBooks(
   keyword: string,
   page = 0,
-  size = 10
+  size = 10,
+  sortType = "accuracy"
 ): Promise<SliceResponse<Book>> {
   const response = await apiClient.get<ApiResponse<SliceResponse<Book>>>("/api/books", {
-    params: { keyword, page, size, sort: "id,DESC" },
+    params: { keyword, page, size, sortType },
   });
   return response.data.data;
 }
