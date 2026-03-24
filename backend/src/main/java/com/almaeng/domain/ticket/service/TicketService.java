@@ -62,6 +62,7 @@ public class TicketService {
                 .completedBook(completedBook)
                 .comment(request.comment())
                 .ticketImageUrl(request.ticketImageUrl())
+                .styleData(request.styleData())
                 .build();
 
         return ticketRepository.save(ticket).getId();
