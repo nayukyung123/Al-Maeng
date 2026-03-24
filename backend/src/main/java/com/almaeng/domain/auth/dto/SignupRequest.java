@@ -23,5 +23,5 @@ public record SignupRequest(
 
         @NotEmpty(message = "최소 하나 이상의 취향 정보를 선택해야 합니다.")
         @Size(min = 1, message = "취향 정보 배열이 비어있을 수 없습니다.")
-        List<String> tasteData
+        List<Long> genreIds
 ) {}

@@ -11,11 +11,13 @@ export interface ApiResponse<T> {
 
 /**
  * Spring Data Slice (페이지네이션)
- * GET /api/books?keyword= 응답에 사용
+ * 백엔드 Slice JSON 직렬화 스펙: content, last, number, size
  */
 export interface SliceResponse<T> {
   content: T[];
-  hasNext: boolean;
-  size: number;
+  /** 마지막 페이지 여부 (false이면 다음 페이지 존재) */
+  last: boolean;
+  /** 현재 페이지 번호 (0-based) */
   number: number;
+  size: number;
 }

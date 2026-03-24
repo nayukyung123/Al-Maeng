@@ -71,9 +71,8 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "taste_data", columnDefinition = "jsonb")
-    private List<String> tasteData = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserTasteReportGenre> tasteReports = new ArrayList<>();
 
     @Builder
     public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
@@ -97,11 +96,10 @@ public class User {
     }
 
     // 온보딩 완료를 위한 비즈니스 메서드
-    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender, List<String> tasteData) {
+    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.birthYear = birthYear;
         this.gender = gender;
-        this.tasteData = tasteData;
     }
 }
