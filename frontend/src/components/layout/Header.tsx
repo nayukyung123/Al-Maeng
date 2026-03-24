@@ -12,7 +12,7 @@ import { logout as logoutApi } from "@/api/auth";
 /** 메인 네비게이션 항목 정의 */
 const NAV_ITEMS = [
   { id: "home", label: "홈", href: "/" },
-  { id: "wizard", label: "취향 찾기", href: "/wizard" },
+  { id: "wizard", label: "취향 찾기", href: "/discover" },
   { id: "library", label: "갤러리", href: "/library" },
 ] as const;
 
