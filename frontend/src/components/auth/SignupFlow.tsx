@@ -5,8 +5,8 @@ import Script from "next/script";
 import { useGoogleLogin } from "@react-oauth/google";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronRight, Check, Camera, User, X } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse } from "@/api/auth";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse, fetchGenres, GenreResponse } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 
@@ -15,46 +15,6 @@ interface SignupFlowProps {
   onClose?: () => void;
 }
 
-const NOVEL_SUB_GENRES = [
-  "스릴러",
-  "SF",
-  "로맨스",
-  "다큐",
-  "공포",
-  "액션",
-  "코미디",
-  "판타지",
-];
-const BOOK_GENRES = [
-  "문학(소설)",
-  "에세이",
-  "자기계발",
-  "인문학",
-  "경제경영",
-  "과학",
-  "예술",
-  "만화",
-];
-
-// TODO: 추후 /api/genres API 호출로 대체
-const TEMP_GENRE_MAP: Record<string, number> = {
-  "문학(소설)": 1,
-  "에세이": 2,
-  "자기계발": 3,
-  "인문학": 4,
-  "경제경영": 5,
-  "과학": 6,
-  "예술": 7,
-  "만화": 8,
-  "스릴러": 11,
-  "SF": 12,
-  "로맨스": 13,
-  "다큐": 14,
-  "공포": 15,
-  "액션": 16,
-  "코미디": 17,
-  "판타지": 18,
-};
 
 export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   const router = useRouter();
@@ -67,8 +27,17 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     gender: "", // "남성" | "여성"
     profileImagePreview: null as string | null,
     profileImageFile: null as File | null,
-    selectedBookGenres: [] as string[],
+    selectedGenreIds: [] as number[],
   });
+
+  const { data: genres = [], isLoading: isGenresLoading, isError: isGenresError } = useQuery<GenreResponse[]>({
+    queryKey: ['genres'],
+    queryFn: fetchGenres,
+    staleTime: 1000 * 60 * 60 * 24, // 24시간: 오버페칭 방지
+  });
+
+  const mainGenres = React.useMemo(() => genres.filter((g) => g.parentId === null), [genres]);
+  const novelSubGenres = React.useMemo(() => genres.filter((g) => g.parentId === 27594), [genres]);
 
   const authMutation = useMutation({
     mutationFn: async () => {
@@ -87,9 +56,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
       }
 
       // 2. SignupRequest 매핑
-      const genreIds = formData.selectedBookGenres
-        .map((g) => TEMP_GENRE_MAP[g])
-        .filter((id) => id !== undefined);
+      const genreIds = formData.selectedGenreIds;
 
       const requestData = {
         profileImageUrl: finalImageUrl,
@@ -226,21 +193,22 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     }
   }, []);
 
-  const toggleGenre = (genre: string) => {
+  const toggleGenreId = (genreId: number) => {
     setFormData((prev) => {
-      const current = prev.selectedBookGenres;
-      if (current.includes(genre)) {
-        return { ...prev, selectedBookGenres: current.filter((g) => g !== genre) };
+      const current = prev.selectedGenreIds;
+      if (current.includes(genreId)) {
+        return { ...prev, selectedGenreIds: current.filter((id) => id !== genreId) };
       } else {
-        return { ...prev, selectedBookGenres: [...current, genre] };
+        return { ...prev, selectedGenreIds: [...current, genreId] };
       }
     });
   };
 
-  const isNovelSelected = formData.selectedBookGenres.includes("문학(소설)");
+  const isNovelSelected = formData.selectedGenreIds.includes(27594);
   const isSubGenreMissing =
     isNovelSelected &&
-    !NOVEL_SUB_GENRES.some((genre) => formData.selectedBookGenres.includes(genre));
+    novelSubGenres.length > 0 &&
+    !novelSubGenres.some((g) => formData.selectedGenreIds.includes(g.id));
 
   return (
     <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center px-6">
@@ -473,87 +441,100 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
               <h2 className="text-2xl font-bold mb-8">당신의 취향을 알려주세요</h2>
 
               <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2 hide-scrollbar">
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
-                    Books
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {BOOK_GENRES.map((genre) => (
-                      <button
-                        key={genre}
-                        onClick={() => toggleGenre(genre)}
-                        className={`px-4 py-2 rounded-full border-2 font-bold transition-all ${
-                          formData.selectedBookGenres.includes(genre)
-                            ? "border-[#0033FF] bg-[#0033FF] text-white"
-                            : "border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200"
-                        }`}
-                      >
-                        {genre}
-                      </button>
-                    ))}
+                {isGenresLoading ? (
+                  <div className="flex justify-center items-center py-20">
+                    <div className="w-8 h-8 border-4 border-[#0033FF] border-t-transparent rounded-full animate-spin"></div>
                   </div>
-                </div>
-
-                <AnimatePresence>
-                  {isNovelSelected && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="flex items-center justify-between mb-4 mt-8">
-                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
-                          어떤 소설을 좋아하시나요?
-                        </label>
-                        <button
-                          onClick={() => {
-                            const allSelected = NOVEL_SUB_GENRES.every((genre) =>
-                              formData.selectedBookGenres.includes(genre)
-                            );
-                            if (allSelected) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                selectedBookGenres: prev.selectedBookGenres.filter(
-                                  (g) => !NOVEL_SUB_GENRES.includes(g)
-                                ),
-                              }));
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                selectedBookGenres: Array.from(
-                                  new Set([...prev.selectedBookGenres, ...NOVEL_SUB_GENRES])
-                                ),
-                              }));
-                            }
-                          }}
-                          className="text-[10px] font-black text-[#0033FF] uppercase tracking-widest hover:underline"
-                        >
-                          {NOVEL_SUB_GENRES.every((genre) =>
-                            formData.selectedBookGenres.includes(genre)
-                          )
-                            ? "전체 해제"
-                            : "전체 선택"}
-                        </button>
-                      </div>
+                ) : isGenresError ? (
+                  <div className="flex justify-center items-center py-20 text-red-500 font-bold">
+                    장르 정보를 불러오는 데 실패했습니다. 다시 시도해 주세요.
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+                        Books
+                      </label>
                       <div className="flex flex-wrap gap-2">
-                        {NOVEL_SUB_GENRES.map((genre) => (
+                        {mainGenres.map((genre) => (
                           <button
-                            key={genre}
-                            onClick={() => toggleGenre(genre)}
-                            className={`px-4 py-2 rounded-full border-2 font-bold text-sm transition-all ${
-                              formData.selectedBookGenres.includes(genre)
-                                ? "border-black bg-black text-white"
-                                : "border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200"
+                            key={genre.id}
+                            onClick={() => toggleGenreId(genre.id)}
+                            className={`px-4 py-2 rounded-full border-2 font-bold transition-all ${
+                              formData.selectedGenreIds.includes(genre.id)
+                                ? "border-[#0033FF] bg-[#0033FF] text-white"
+                                : "border-gray-100 bg-gray-50 text-gray-500 hover:border-gray-200"
                             }`}
                           >
-                            {genre}
+                            {genre.genreName}
                           </button>
                         ))}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+
+                    <AnimatePresence>
+                      {isNovelSelected && novelSubGenres.length > 0 && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="flex items-center justify-between mb-4 mt-8">
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">
+                              어떤 소설을 좋아하시나요?
+                            </label>
+                            <button
+                              onClick={() => {
+                                const subGenreIds = novelSubGenres.map(g => g.id);
+                                const allSelected = subGenreIds.every((id) =>
+                                  formData.selectedGenreIds.includes(id)
+                                );
+                                if (allSelected) {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    selectedGenreIds: prev.selectedGenreIds.filter(
+                                      (id) => !subGenreIds.includes(id)
+                                    ),
+                                  }));
+                                } else {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    selectedGenreIds: Array.from(
+                                      new Set([...prev.selectedGenreIds, ...subGenreIds])
+                                    ),
+                                  }));
+                                }
+                              }}
+                              className="text-[10px] font-black text-[#0033FF] uppercase tracking-widest hover:underline"
+                            >
+                              {novelSubGenres.every((g) =>
+                                formData.selectedGenreIds.includes(g.id)
+                              )
+                                ? "전체 해제"
+                                : "전체 선택"}
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {novelSubGenres.map((genre) => (
+                              <button
+                                key={genre.id}
+                                onClick={() => toggleGenreId(genre.id)}
+                                className={`px-4 py-2 rounded-full border-2 font-bold text-sm transition-all ${
+                                  formData.selectedGenreIds.includes(genre.id)
+                                    ? "border-black bg-black text-white"
+                                    : "border-gray-100 bg-gray-50 text-gray-400 hover:border-gray-200"
+                                }`}
+                              >
+                                {genre.genreName}
+                              </button>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
               </div>
 
               <div className="flex gap-3 mt-8">
@@ -565,7 +546,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
                   이전
                 </button>
                 <button
-                  disabled={isSubGenreMissing || authMutation.isPending || formData.selectedBookGenres.length === 0}
+                  disabled={isSubGenreMissing || authMutation.isPending || formData.selectedGenreIds.length === 0}
                   onClick={() => authMutation.mutate()}
                   className="flex-[2] h-14 bg-black text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
                 >
