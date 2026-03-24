@@ -33,35 +33,28 @@ def get_conn():
         return None
 
 def import_contents_to_local():
-    """TSV 파일을 읽어 JSON 보정 후 제약 조건을 완화하여 로컬 DB에 주입"""
+    """영화/TV 데이터 주입 (contents_for_tagging.tsv)"""
     conn = get_conn()
     if not conn: return
     cur = conn.cursor()
-    
     file_path = current_dir / "contents_for_tagging.tsv"
+    
     if not file_path.exists():
         print(f"❌ 파일을 찾을 수 없습니다: {file_path}")
         return
 
-    print(f"📥 {file_path.name} 데이터 정제 및 제약 조건 조정 중...")
-    
+    print(f"📥 {file_path.name} 데이터 정제 및 contents 테이블 주입 중...")
     try:
-        # 1. 로컬 DB 제약 조건 일시 완화 (tmdb_id, type 등 필수값 제외 처리)
-        # 로컬은 가공 전용이므로 NULL을 허용하도록 변경합니다.
         cur.execute("ALTER TABLE contents ALTER COLUMN tmdb_id DROP NOT NULL;")
         cur.execute("ALTER TABLE contents ALTER COLUMN type DROP NOT NULL;")
-        
-        # 2. 기존 데이터 초기화
         cur.execute("TRUNCATE TABLE tags CASCADE;")
         cur.execute("DELETE FROM contents;")
         
-        # 3. TSV 파일을 읽어 JSON 컬럼 보정
         output = io.StringIO()
         with open(file_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f, delimiter='\t')
             writer = csv.DictWriter(output, fieldnames=reader.fieldnames, delimiter='\t', quoting=csv.QUOTE_MINIMAL)
             writer.writeheader()
-            
             for row in reader:
                 for col in ['genres', 'keywords']:
                     val = (row[col] or "").strip()
@@ -69,28 +62,72 @@ def import_contents_to_local():
                         try:
                             parsed_list = ast.literal_eval(val)
                             row[col] = json.dumps(parsed_list, ensure_ascii=False)
-                        except (ValueError, SyntaxError):
-                            pass
+                        except: pass
                 writer.writerow(row)
-        
         output.seek(0)
-        
-        # 4. COPY 명령 실행 (명시된 컬럼만 주입)
-        cur.copy_expert("""
-            COPY contents (id, title, description, genres, keywords) 
-            FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', HEADER)
-        """, output)
-        
-        # 5. 후처리: 상태 업데이트 및 타입 기본값 지정 (선택 사항)
+        cur.copy_expert("COPY contents (id, title, description, genres, keywords) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', HEADER)", output)
         cur.execute("UPDATE contents SET tag_status = 'READY' WHERE tag_status IS NULL;")
-        
         conn.commit()
-        print(f"✅ 주입 완료! 이제 main.py를 실행하세요.")
-        
+        print(f"✅ 콘텐츠 주입 완료!")
     except Exception as e:
         conn.rollback()
-        print(f"❌ 주입 실패: {e}")
-        print("💡 팁: 만약 'tmdb_id' 외에 다른 컬럼에서 오류가 난다면 해당 컬럼도 DROP NOT NULL 처리가 필요할 수 있습니다.")
+        print(f"❌ 실패: {e}")
+    finally:
+        cur.close()
+        conn.close()
+
+def import_books_to_local():
+    """로컬 DB에 books 테이블 생성 및 데이터 주입 (books_data.tsv)"""
+    conn = get_conn()
+    if not conn: return
+    cur = conn.cursor()
+    file_path = current_dir / "books_data.tsv"
+    
+    if not file_path.exists():
+        print(f"❌ 파일을 찾을 수 없습니다: {file_path}")
+        return
+
+    print(f"🏗️ 로컬 DB 스키마 생성 및 {file_path.name} 주입 시작...")
+    try:
+        # 1. pgvector 확장 활성화
+        cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+        
+        # 2. books 테이블 생성 (EC2와 동일한 구조)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS books (
+                id BIGINT PRIMARY KEY,
+                title VARCHAR(255),
+                author VARCHAR(255),
+                description TEXT,
+                page_count INTEGER,
+                isbn VARCHAR(20),
+                published_date DATE,
+                cover_image_url TEXT,
+                average_rating NUMERIC(2,1),
+                created_at TIMESTAMP,
+                embedding_vector vector(1024),
+                slug VARCHAR(255)
+            );
+        """)
+        
+        # 3. 기존 데이터 초기화
+        cur.execute("TRUNCATE TABLE books CASCADE;")
+        
+        # 4. COPY 명령어 실행
+        with open(file_path, 'r', encoding='utf-8') as f:
+            cur.copy_expert("""
+                COPY books (
+                    id, title, author, description, page_count, isbn, 
+                    published_date, cover_image_url, average_rating, 
+                    created_at, embedding_vector, slug
+                ) FROM STDIN WITH (FORMAT CSV, DELIMITER E'\t', HEADER)
+            """, f)
+            
+        conn.commit()
+        print(f"✅ 도서 테이블 생성 및 데이터 주입 완료!")
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ 도서 주입 실패: {e}")
     finally:
         cur.close()
         conn.close()
@@ -104,10 +141,7 @@ def export_tags_from_local():
     print(f"📤 데이터를 {output_file.name}로 추출 중...")
     try:
         with open(output_file, 'w', encoding='utf-8') as f:
-            cur.copy_expert("""
-                COPY (SELECT content_id, tag_name, embedding_vector FROM tags) 
-                TO STDIN WITH (FORMAT CSV, DELIMITER E'\t')
-            """, f)
+            cur.copy_expert("COPY (SELECT content_id, tag_name, embedding_vector FROM tags) TO STDIN WITH (FORMAT CSV, DELIMITER E'\t')", f)
         print(f"✅ 추출 완료!")
     except Exception as e:
         print(f"❌ 추출 실패: {e}")
@@ -116,10 +150,13 @@ def export_tags_from_local():
         conn.close()
 
 if __name__ == "__main__":
-    print(f"\n--- 🛠️ 알맹 로컬 DB 헬퍼 (제약 조건 완화 모드) ---")
-    print("1. [Import] TSV 원본 -> 로컬 DB 주입")
-    print("2. [Export] 로컬 DB 결과 -> TSV 추출")
+    print(f"\n--- 🛠️ 알맹 로컬 DB 헬퍼 (초기화 및 통합 관리) ---")
+    print("1. [Import Contents] contents_for_tagging.tsv -> contents")
+    print("2. [Export Tags] 로컬 가공 결과 -> tags_to_import.tsv")
+    print("3. [Import Books] books_data.tsv -> books (테이블 생성 포함)")
     print("--------------------------------------------------")
-    choice = input("작업 번호를 선택하세요 (1/2): ").strip()
+    choice = input("작업 번호를 선택하세요 (1/2/3): ").strip()
+    
     if choice == '1': import_contents_to_local()
     elif choice == '2': export_tags_from_local()
+    elif choice == '3': import_books_to_local()
