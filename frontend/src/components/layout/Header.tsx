@@ -7,11 +7,12 @@ import { clsx } from "clsx";
 import { User, LogOut, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
+import { logout as logoutApi } from "@/api/auth";
 
 /** 메인 네비게이션 항목 정의 */
 const NAV_ITEMS = [
   { id: "home", label: "홈", href: "/" },
-  { id: "wizard", label: "취향 찾기", href: "/wizard" },
+  { id: "wizard", label: "취향 찾기", href: "/discover" },
   { id: "tickets", label: "나의 티켓", href: "/tickets" },
 ] as const;
 
@@ -46,9 +47,17 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    logout();
-    setIsDropdownOpen(false);
+  const handleLogout = async () => {
+    try {
+      // 1. 백엔드 로그아웃 API 호출 (성공/실패 여부와 상관없이 진행)
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout API failed:", err);
+    } finally {
+      // 2. 프론트엔드 상태 및 로컬 스토리지 비우기
+      logout();
+      setIsDropdownOpen(false);
+    }
   };
 
   /** 로고 클릭: 검색 오버레이가 열려 있으면 닫아주는 이벤트 발행 */

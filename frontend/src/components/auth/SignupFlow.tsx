@@ -6,7 +6,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronRight, Check, Camera, User, X } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, LoginResponse } from "@/api/auth";
+import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
 
@@ -106,12 +106,12 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     },
     onSuccess: (res) => {
       // 진짜 토큰 저장 
-      // FIXME: 현재 SignupResponse 에 message만 정의되어 있습니다. 
-      // 만약 백엔드에서 갱신된 토큰을 줄 경우 아래처럼 처리, 주지 않을 경우 기존 토큰 유지
-      const newToken = (res as any)?.accessToken;
-      if (newToken) {
+      const newToken = res.accessToken;
+      const newRefToken = res.refreshToken;
+      
+      if (newToken && newRefToken) {
          // Zustand (및 localStorage) 업데이트
-         login(user || { id: 0, email: "", nickname: formData.nickname }, newToken);
+         login(user || { id: 0, email: "", nickname: formData.nickname }, newToken, newRefToken);
       }
       
       if (onComplete) {
@@ -144,12 +144,34 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   const handleSocialLoginSuccess = (data: LoginResponse) => {
     if (data.isRegistered) {
       // 기존 회원
-      login(user || { id: 0, email: "", nickname: "" }, data.accessToken);
+      login(user || { id: 0, email: "", nickname: "" }, data.accessToken, data.refreshToken);
       router.push("/");
     } else {
       // 신규 회원
       localStorage.setItem("accessToken", data.accessToken);
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
       setStep(2);
+    }
+  };
+
+  const handleNextStep2 = async () => {
+    if (!formData.nickname) {
+      alert("닉네임을 입력해주세요.");
+      return;
+    }
+    
+    try {
+      const res = await checkNickname(formData.nickname);
+      if (res.isAvailable) {
+        setStep(3);
+      } else {
+        alert("이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.");
+      }
+    } catch (err: any) {
+      console.error("Nickname check failed:", err);
+      alert("닉네임 확인 중 오류가 발생했습니다.");
     }
   };
 
@@ -374,7 +396,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
 
                 <button
                   disabled={!formData.nickname || !formData.birthYear || !formData.gender}
-                  onClick={() => setStep(3)}
+                  onClick={handleNextStep2}
                   className="w-full h-14 bg-black text-white rounded-xl font-bold mt-8 flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed transition-opacity"
                 >
                   다음 단계 <ChevronRight size={20} />

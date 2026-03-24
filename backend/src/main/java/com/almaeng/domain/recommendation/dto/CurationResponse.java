@@ -21,6 +21,7 @@ public class CurationResponse {
         private String title;
         private String author;
         private String coverImageUrl;
+        private String slug;
 
         public static BookInfo from(TagBookRecommendation reco) {
             return BookInfo.builder()
@@ -28,6 +29,7 @@ public class CurationResponse {
                     .title(reco.getBook().getTitle())
                     .author(reco.getBook().getAuthor())
                     .coverImageUrl(reco.getBook().getCoverImageUrl())
+                    .slug(reco.getBook().getSlug())
                     .build();
         }
     }

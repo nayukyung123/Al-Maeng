@@ -22,13 +22,27 @@ export interface LoginResponse {
 
 export interface SignupResponse {
   message: string;
-  accessToken?: string;
+  accessToken: string;
+  refreshToken: string;
   user?: {
     id: number;
     email: string;
     nickname: string;
     profileImageUrl?: string;
   };
+}
+
+export interface NicknameCheckResponse {
+  isAvailable: boolean;
+}
+
+export interface ReissueRequest {
+  refreshToken: string;
+}
+
+export interface TokenResponse {
+  accessToken: string;
+  refreshToken: string;
 }
 
 export async function loginWithProvider(provider: string, accessToken: string) {
@@ -60,4 +74,21 @@ export async function uploadImageToS3(presignedUrl: string, file: File) {
       "Content-Type": file.type,
     },
   });
+}
+
+export async function checkNickname(nickname: string) {
+  const response = await apiClient.get<ApiResponse<NicknameCheckResponse>>("/api/auth/check-nickname", {
+    params: { nickname }
+  });
+  return response.data.data;
+}
+
+export async function reissue(refreshToken: string) {
+  const response = await apiClient.post<ApiResponse<TokenResponse>>("/api/auth/reissue", { refreshToken });
+  return response.data.data;
+}
+
+export async function logout() {
+  const response = await apiClient.post<ApiResponse<void>>("/api/auth/logout");
+  return response.data;
 }

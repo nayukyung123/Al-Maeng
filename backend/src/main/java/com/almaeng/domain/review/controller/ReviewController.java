@@ -22,7 +22,7 @@ public class ReviewController {
 
     private final ReviewService reviewService;
 
-    @PostMapping("/books/{slug}/revies")
+    @PostMapping("/books/{slug}/reviews")
     public ResponseEntity<ApiResponse<Long>> createReview(
             @RequestParam Long userId,
             @PathVariable String slug,
