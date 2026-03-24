@@ -51,6 +51,7 @@ public class SecurityConfig {
                                                                 "/api/books/*/reviews", // 리뷰 조회
                                                                 "/api/banners", // 상단 배너 조회
                                                                 "/api/books/suggestions", // 도서 검색어 자동완성
+                                                                "/api/contents/suggestions", // 컨텐츠 검색어 자동완성
                                                                 "/api/keywords/rankings", // 실시간 검색 랭킹
                                                                 "/api/books", // 도서 검색 결과
                                                                 "/api/books/rankings", // 인기 도서 랭킹
