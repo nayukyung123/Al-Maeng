@@ -39,6 +39,16 @@ apiClient.interceptors.response.use(
       if (originalRequest) originalRequest._retry = true;
 
       if (typeof window !== "undefined") {
+        const accessToken = localStorage.getItem("accessToken");
+
+        // ── 케이스 A: 애초에 로그인한 적 없는 비로그인 사용자 ──
+        // 토큰이 없으므로 조용히 에러만 전파 (alert/redirect 없음)
+        // UI 레벨의 AuthGate 또는 isLoggedIn 가드가 처리
+        if (!accessToken) {
+          return Promise.reject(error);
+        }
+
+        // ── 케이스 B: 로그인 사용자의 토큰 갱신 시도 ──
         try {
           const refreshToken = localStorage.getItem("refreshToken");
           if (!refreshToken) throw new Error("No refresh token");
@@ -62,12 +72,12 @@ apiClient.interceptors.response.use(
             return apiClient(originalRequest);
           }
         } catch (refreshError) {
-          // 토큰 갱신 실패 시 강제 로그아웃
+          // 토큰 갱신 실패 = 진짜 세션 만료 → 로그아웃 + 서비스 토스트 알림
           useAuthStore.getState().logout();
           localStorage.removeItem("accessToken");
           localStorage.removeItem("refreshToken");
-          alert("세션이 만료되었습니다. 다시 로그인해주세요.");
-          window.location.href = "/login";
+          // alert() 대신 CustomEvent를 dispatch → 전역 토스트 컴포넌트가 처리
+          window.dispatchEvent(new CustomEvent("auth:session-expired"));
           return Promise.reject(refreshError);
         }
       }
