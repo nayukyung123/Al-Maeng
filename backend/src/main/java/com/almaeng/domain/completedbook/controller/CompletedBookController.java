@@ -7,6 +7,7 @@ import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,7 +20,7 @@ public class CompletedBookController {
 
     // 완독 도서 추가
     @PostMapping
-    public ApiResponse<Void> addCompletedBook(@RequestParam Long userId,
+    public ApiResponse<Void> addCompletedBook(@AuthenticationPrincipal Long userId,
                                               @Valid @RequestBody CompletedBookAddRequest request) {
         completedBookService.addCompletedBook(userId, request);
 
@@ -28,7 +29,7 @@ public class CompletedBookController {
 
     // 완독 도서 목록 조회
     @GetMapping
-    public ApiResponse<List<CompletedBookResponse>> getCompletedBooks(@RequestParam Long userId,
+    public ApiResponse<List<CompletedBookResponse>> getCompletedBooks(@AuthenticationPrincipal Long userId,
                                                                       @RequestParam(defaultValue = "completedAt") String sortBy,
                                                                       @RequestParam(defaultValue = "desc") String sortOrder) {
         Sort.Direction sortDirection = sortOrder.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
@@ -41,7 +42,7 @@ public class CompletedBookController {
 
     // 완독 도서 삭제
     @DeleteMapping("/{bookId}")
-    public ApiResponse<Void> deleteCompletedBook(@RequestParam Long userId,
+    public ApiResponse<Void> deleteCompletedBook(@AuthenticationPrincipal Long userId,
                                                  @PathVariable Long bookId) {
         completedBookService.deleteCompletedBook(userId, bookId);
 

@@ -2,10 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AxiosError } from "axios";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Star, ExternalLink, Heart, BookmarkPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import type { BookDetail } from "@/types/book";
+import type { ApiResponse } from "@/types/api";
+import type { CompletedBook } from "@/types/completedBook";
+import {
+  addCompletedBook,
+  deleteCompletedBook,
+  fetchCompletedBooks,
+} from "@/api/completedBooks";
 
 interface BookDetailHeroProps {
   book: BookDetail;
@@ -15,6 +24,100 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: completedBooks = [] } = useQuery<CompletedBook[]>({
+    queryKey: ["completed-books"],
+    queryFn: fetchCompletedBooks,
+    enabled: isLoggedIn,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const isCompleted = completedBooks.some((completedBook) => completedBook.bookId === book.id);
+
+  const handleCompletedError = (error: unknown) => {
+    const axiosError = error as AxiosError<ApiResponse<unknown>>;
+    const code = axiosError.response?.data?.code;
+
+    if (code === "COMPLETED_BOOK_HAS_TICKET") {
+      alert("티켓이 발행된 도서는 완독 리스트에서 제거할 수 없습니다.");
+      return;
+    }
+    if (code === "ALREADY_COMPLETED_BOOK") {
+      alert("이미 완독 리스트에 추가된 도서입니다.");
+      return;
+    }
+    if (code === "COMPLETED_BOOK_NOT_FOUND") {
+      alert("이미 완독 리스트에서 제거된 도서입니다.");
+      return;
+    }
+    alert("완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+  };
+
+  const addCompletedMutation = useMutation({
+    mutationFn: () =>
+      addCompletedBook({
+        bookId: book.id,
+        readDate: new Date().toISOString().slice(0, 10),
+      }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["completed-books"] });
+      const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
+
+      queryClient.setQueryData<CompletedBook[]>(["completed-books"], (old = []) => {
+        if (old.some((item) => item.bookId === book.id)) return old;
+        return [
+          {
+            completedBookId: -book.id,
+            bookId: book.id,
+            title: book.title,
+            author: book.author,
+            coverImageUrl: book.coverImageUrl ?? "",
+            completedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          },
+          ...old,
+        ];
+      });
+
+      return { previous };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["completed-books"], context.previous);
+      }
+      handleCompletedError(error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+    },
+  });
+
+  const deleteCompletedMutation = useMutation({
+    mutationFn: () => deleteCompletedBook(book.id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["completed-books"] });
+      const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
+
+      queryClient.setQueryData<CompletedBook[]>(
+        ["completed-books"],
+        (old = []) => old.filter((item) => item.bookId !== book.id)
+      );
+
+      return { previous };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["completed-books"], context.previous);
+      }
+      handleCompletedError(error);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+    },
+  });
 
   /** 로그인 필요 동작 — 비로그인 시 로그인 페이지로 이동 */
   const requireAuth = (action: () => void) => {
@@ -110,14 +213,22 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
           <button
             onClick={() =>
               requireAuth(() => {
-                // TODO: 완독 리스트 API 연동
-                console.log("완독 리스트에 추가:", book.id);
+                if (isCompleted) {
+                  deleteCompletedMutation.mutate();
+                  return;
+                }
+                addCompletedMutation.mutate();
               })
             }
-            className="flex-1 bg-[#4D41FF] text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-[#3D31EF] transition-all shadow-lg shadow-[#4D41FF]/20"
+            className={cn(
+              "flex-1 text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg",
+              isCompleted
+                ? "bg-gray-700 hover:bg-gray-800 shadow-gray-700/20"
+                : "bg-[#4D41FF] hover:bg-[#3D31EF] shadow-[#4D41FF]/20"
+            )}
           >
             <BookmarkPlus size={20} />
-            완독 리스트에 추가
+            {isCompleted ? "완독 리스트에서 제거" : "완독 리스트에 추가"}
           </button>
         </div>
       </div>
