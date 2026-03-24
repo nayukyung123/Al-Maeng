@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
-import { Search, X, ArrowLeft, Loader2, BookOpen } from "lucide-react";
+import { Search, X, ArrowLeft, Loader2, BookOpen, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchBooks } from "@/api/books";
 import type { Book } from "@/types/home";
@@ -88,6 +88,17 @@ export default function BookSearchResult({
   const [inputValue, setInputValue] = useState(initialQuery);
   // 실제로 API에 날리는 쿼리 (제출 시에만 변경)
   const [committedQuery, setCommittedQuery] = useState(initialQuery);
+
+  // ── 스크롤 감지 → TOP 버튼 표시 여부 ───────────────────
+  const [showTopBtn, setShowTopBtn] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowTopBtn(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = () =>
+    window.scrollTo({ top: 0, behavior: "smooth" });
   const inputRef = useRef<HTMLInputElement>(null);
 
   // URL이 바뀌면 committedQuery도 동기화 (뒤로가기 등)
@@ -309,6 +320,31 @@ export default function BookSearchResult({
           </>
         )}
       </div>
+
+      {/* ── TOP 버튼 ── */}
+      <AnimatePresence>
+        {showTopBtn && (
+          <motion.button
+            key="top-btn"
+            type="button"
+            onClick={scrollToTop}
+            aria-label="맨 위로 이동"
+            initial={{ opacity: 0, scale: 0.7, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.7, y: 20 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.92 }}
+            className="fixed bottom-8 right-6 md:right-10 z-50 w-13 h-13 rounded-full bg-black text-white flex flex-col items-center justify-center gap-0.5 shadow-xl hover:bg-[#0033FF] transition-colors"
+            style={{ width: 52, height: 52 }}
+          >
+            <ArrowUp size={18} strokeWidth={2.5} aria-hidden="true" />
+            <span className="text-[9px] font-black tracking-widest leading-none">
+              TOP
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
