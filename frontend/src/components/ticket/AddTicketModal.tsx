@@ -43,6 +43,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
 
   const { data: completedBooks = [] } = useQuery({
@@ -93,19 +94,31 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const handleIssueTicket = async () => {
     if (!selectedBook) return;
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       let uploadedImageUrl = ticketData.customImage;
       if (customImageFile) {
-        const fileExtension = customImageFile.name.split(".").pop()?.toLowerCase() || "jpg";
-        const { presignedUrl, imageUrl } = await fetchTicketImagePresignedUrl(fileExtension);
-        await fetch(presignedUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": customImageFile.type || "image/jpeg",
-          },
-          body: customImageFile,
-        });
-        uploadedImageUrl = imageUrl;
+        try {
+          const ext = (customImageFile.name.split(".").pop()?.toLowerCase() || "jpg");
+          const mimeType = customImageFile.type || (ext === "jpg" ? "image/jpeg" : `image/${ext}`);
+          const { presignedUrl, imageUrl } = await fetchTicketImagePresignedUrl(ext);
+          const s3Response = await fetch(presignedUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type": mimeType,
+            },
+            body: customImageFile,
+          });
+          if (!s3Response.ok) {
+            throw new Error(`이미지 업로드 실패 (${s3Response.status})`);
+          }
+          uploadedImageUrl = imageUrl;
+        } catch (uploadErr) {
+          // S3 업로드 실패 시 이미지 없이 티켓 생성 진행 (경고만 표시)
+          console.warn("S3 이미지 업로드 실패, 이미지 없이 티켓을 생성합니다:", uploadErr);
+          setSubmitError("이미지 업로드에 실패했습니다. 이미지 없이 티켓을 생성합니다.");
+          uploadedImageUrl = "";
+        }
       }
       const completedAtIso = `${ticketData.dateRead}T00:00:00`;
       const styleData: TicketStyleDataDto = {
@@ -144,6 +157,8 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
       resetState();
     } catch (e) {
       console.error(e);
+      const message = e instanceof Error ? e.message : "티켓 생성에 실패했습니다.";
+      setSubmitError((prev) => prev ?? message); // 이미 이미지 경고가 있으면 덮어쓰지 않음
     } finally {
       setIsSubmitting(false);
     }
@@ -152,6 +167,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const resetState = () => {
     setStep(1);
     setSearchQuery("");
+    setSubmitError(null);
     setTicketData({
       dateRead: new Date().toISOString().split("T")[0],
       startDate: "",
@@ -311,6 +327,9 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                   </div>
                 </div>
 
+                {submitError && (
+                  <p className="text-xs text-red-500 font-medium mb-2 px-1">{submitError}</p>
+                )}
                 <button onClick={handleIssueTicket} disabled={isSubmitting} className="w-full border-b border-black pb-4 flex items-center justify-between group hover:border-[#0033FF] transition-colors pt-4 disabled:opacity-50">
                   <span className={cn("text-3xl font-black transition-colors", isSubmitting ? "text-gray-400" : "group-hover:text-[#0033FF]")}>
                     {isSubmitting ? "ISSUING TICKET..." : "ISSUE TICKET"}

@@ -80,7 +80,11 @@ export const TicketsClient = () => {
   };
 
   const handleDeleteTicket = async (ticketId: number) => {
-    await deleteTicketApi(ticketId);
+    try {
+      await deleteTicketApi(ticketId);
+    } catch {
+      // 500이어도 DB에서 이미 삭제됐을 수 있으므로 쿼리를 무조건 갱신
+    }
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
       queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),

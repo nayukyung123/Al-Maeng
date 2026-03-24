@@ -46,9 +46,11 @@ export const TicketDetailModal = ({ ticket, onClose, onDelete }: TicketDetailMod
     setIsDeleting(true);
     try {
       await onDelete(ticket.id);
-      onClose();
+    } catch {
+      // 에러가 나도 모달은 닫는다 (쿼리 갱신으로 실제 상태 반영)
     } finally {
       setIsDeleting(false);
+      onClose();
     }
   };
 
