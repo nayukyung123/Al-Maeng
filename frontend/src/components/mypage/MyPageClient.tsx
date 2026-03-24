@@ -1,12 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useQuery } from "@tanstack/react-query";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
 import { Book, UserData } from '@/types/mypage';
-import { FINISHED_BOOKS, WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
+import { fetchCompletedBooks } from "@/api/completedBooks";
+import useAuthStore from "@/store/useAuthStore";
+import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 
 export default function MyPageClient() {
+  const { isLoggedIn } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
   const [wishlistPage, setWishlistPage] = useState(1);
   const [finishedPage, setFinishedPage] = useState(1);
@@ -14,6 +18,15 @@ export default function MyPageClient() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [issuedTickets, setIssuedTickets] = useState<Set<number>>(new Set());
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const { data: completedBooks = [] } = useQuery({
+    queryKey: ["completed-books"],
+    queryFn: fetchCompletedBooks,
+    enabled: isLoggedIn,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
 
   const [editFormData, setEditFormData] = useState<UserData>({
     nickname: '',
@@ -99,8 +112,16 @@ export default function MyPageClient() {
     wishlistPage * itemsPerPage
   );
 
-  const finishedTotalPages = Math.ceil(FINISHED_BOOKS.length / itemsPerPage);
-  const currentFinishedBooks = FINISHED_BOOKS.slice(
+  const finishedBooks: Book[] = completedBooks.map((book) => ({
+    bookId: book.bookId,
+    title: book.title,
+    author: book.author,
+    coverImageUrl: book.coverImageUrl,
+    dateRead: book.completedAt,
+  }));
+
+  const finishedTotalPages = Math.ceil(finishedBooks.length / itemsPerPage);
+  const currentFinishedBooks = finishedBooks.slice(
     (finishedPage - 1) * itemsPerPage,
     finishedPage * itemsPerPage
   );
@@ -157,7 +178,7 @@ export default function MyPageClient() {
             >
               <p className="text-white/60 font-mono text-[10px] uppercase tracking-widest">완독 권수</p>
               <p className="text-3xl md:text-5xl font-black">
-                {FINISHED_BOOKS.length}<span className="text-lg font-medium ml-1">권</span>
+                {finishedBooks.length}<span className="text-lg font-medium ml-1">권</span>
               </p>
             </button>
           </section>
