@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -47,12 +46,13 @@ public class BookSearchController {
             @RequestParam("keyword")
             @NotBlank(message = "검색어를 입력해주세요.")
             @Size(min = 1, max = 50, message = "검색어는 1자 이상 50자 이하로 입력해주세요.") String keyword,
-            @ParameterObject @PageableDefault(size=10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable){
+            @RequestParam(value = "sortType", defaultValue = "accuracy") String sortType,
+            @ParameterObject @PageableDefault(size = 10) Pageable pageable){
         
         // 실시간 검색어 제공을 위한 Redis 업데이트
         searchRankingService.incrementSearchKeyword(keyword);
 
-        return ResponseEntity.ok(ApiResponse.success(booksearchService.searchBooks(keyword, pageable)));
+        return ResponseEntity.ok(ApiResponse.success(booksearchService.searchBooks(keyword, sortType, pageable)));
     }
 
 }
