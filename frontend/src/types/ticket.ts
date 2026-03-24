@@ -5,6 +5,7 @@ export interface CardStyle {
   background: string;
   textColor: string;
   font: 'serif' | 'sans' | 'mono';
+  orientation?: 'horizontal' | 'vertical';
 }
 
 export interface GalleryTicket {

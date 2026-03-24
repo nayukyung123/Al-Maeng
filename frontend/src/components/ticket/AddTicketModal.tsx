@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Search, Plus, Check, Loader2, ChevronRight } from "lucide-react";
+import { X, Search, Plus, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
+import { PhotoCard } from "./PhotoCard"; // 🔥 미리보기를 위해 PhotoCard 불러오기
 
-// Mock API: 완독했지만 티켓이 없는 도서 목록 (hasTicket=false)
+// Mock API
 const mockSearchCompletedBooks = async (query: string): Promise<any[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
@@ -16,11 +17,9 @@ const mockSearchCompletedBooks = async (query: string): Promise<any[]> => {
         { id: '103', title: '데미안', author: '헤르만 헤세', genre: '소설' },
       ];
       resolve(
-        searchPool.filter(
-          (b) => b.title.includes(query) || b.author.includes(query)
-        )
+        searchPool.filter((b) => b.title.includes(query) || b.author.includes(query))
       );
-    }, 500); // 0.5s network delay sim
+    }, 500);
   });
 };
 
@@ -29,6 +28,15 @@ interface AddTicketModalProps {
   onClose: () => void;
   onSuccess: (newTicket: GalleryTicket) => void;
 }
+
+// 🔥 텍스트 힙 무드에 맞는 저채도 컬러 팔레트
+const COLOR_PALETTE = [
+  { id: 'bg-white', name: 'WHITE', hex: '#ffffff' },
+  { id: 'bg-stone-100', name: 'STONE', hex: '#f5f5f4' },
+  { id: 'bg-slate-100', name: 'SLATE', hex: '#f1f5f9' },
+  { id: 'bg-zinc-200', name: 'ZINC', hex: '#e4e4e7' },
+  { id: 'bg-[#e2e8f0]', name: 'MUTED BLUE', hex: '#e2e8f0' }, // 회색기 도는 하늘색
+];
 
 export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalProps) => {
   const [step, setStep] = useState<1 | 2>(1);
@@ -44,6 +52,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
     review: "",
     customImage: "",
     templateId: "classic",
+    background: "bg-white", // 🔥 컬러 상태 추가
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -69,12 +78,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
     setIsSubmitting(true);
 
     try {
-      // API Flow Simulation:
-      // 1. POST /api/tickets/image-url (S3 Presigned URL 획득)
-      // 2. PUT to S3 (캔버스 또는 이미지 바이너리 업로드, Content-Type: image/png 지정)
-      // 3. POST /api/tickets (최종 발행)
-      
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 2초 시뮬레이션
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       const newTicket: GalleryTicket = {
         id: `t-${Date.now()}`,
@@ -85,13 +89,12 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
         completedAt: ticketData.dateRead,
         comment: ticketData.review,
         templateId: ticketData.templateId,
-        style: { font: 'sans', background: 'bg-white', textColor: 'text-stone-900' },
+        style: { font: 'serif', background: ticketData.background, textColor: 'text-stone-900' },
         ticketImageUrl: ticketData.customImage || `https://picsum.photos/seed/${selectedBook.id}/400/600`,
       };
 
       onSuccess(newTicket);
       
-      // Reset Modal State
       setStep(1);
       setSearchQuery("");
       setTicketData({
@@ -100,6 +103,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
         review: "",
         customImage: "",
         templateId: "classic",
+        background: "bg-white",
       });
       setSelectedBook(null);
       onClose();
@@ -110,6 +114,24 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
     }
   };
 
+  // 🔥 실시간 미리보기를 위한 가짜(Pseudo) 티켓 데이터 생성
+  const previewTicket: GalleryTicket = {
+    id: 'preview',
+    bookId: parseInt(selectedBook?.id || '0'),
+    title: selectedBook?.title || 'TITLE',
+    author: selectedBook?.author || 'AUTHOR',
+    genre: selectedBook?.genre || 'GENRE',
+    completedAt: ticketData.dateRead,
+    comment: ticketData.review || '이 책이 남긴 여운을 미리보기로 확인하세요.',
+    templateId: ticketData.templateId,
+    style: { 
+      font: ticketData.templateId === 'classic' ? 'serif' : 'sans', 
+      background: ticketData.background, 
+      textColor: 'text-stone-900' 
+    },
+    ticketImageUrl: ticketData.customImage || `https://picsum.photos/seed/${selectedBook?.id}/400/600`,
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -118,17 +140,17 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center bg-white"
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-white/95 backdrop-blur-sm"
       >
         <button 
           onClick={onClose}
           disabled={isSubmitting}
-          className="absolute top-8 right-8 text-black hover:opacity-50 transition-opacity disabled:opacity-20"
+          className="absolute top-8 right-8 text-black hover:opacity-50 transition-opacity disabled:opacity-20 z-50"
         >
           <X size={32} />
         </button>
 
-        <div className="w-full max-w-4xl px-6">
+        <div className="w-full max-w-6xl px-6 h-[90vh] flex flex-col justify-center">
           {step === 1 ? (
             <div className="flex flex-col items-center">
               <h2 className="text-4xl font-black mb-12">기록할 도서를 검색하세요.</h2>
@@ -139,7 +161,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="이미 완독한 도서명 또는 작가명을 입력하세요"
-                    className="w-full text-2xl font-bold outline-none placeholder:text-gray-200"
+                    className="w-full text-2xl font-bold outline-none bg-transparent placeholder:text-gray-300"
                     autoFocus
                   />
                   {isSearching ? (
@@ -178,58 +200,21 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
               </div>
             </div>
           ) : (
-            <div className="flex flex-col md:flex-row items-start justify-center gap-12 max-h-[80vh] overflow-y-auto pr-4 hide-scrollbar">
-              {/* Image & Detail Area */}
-              <div className="flex flex-col items-center w-full md:w-64 shrink-0">
-                <div className={cn(
-                  "w-full aspect-[2/3] bg-gray-100 shadow-2xl mb-6 overflow-hidden relative group cursor-pointer",
-                  ticketData.templateId === 'modern' ? 'rounded-2xl' : ''
-                )}>
-                  <img 
-                    crossOrigin="anonymous"
-                    src={ticketData.customImage || `https://picsum.photos/seed/${selectedBook?.id}/600/900`} 
-                    alt="Cover" 
-                    className={cn(
-                      "w-full h-full object-cover",
-                      ticketData.templateId === 'classic' && !ticketData.customImage ? 'grayscale' : ''
-                    )}
-                  />
-                  <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer">
-                    <Plus size={32} className="mb-2" />
-                    <span className="text-xs font-bold uppercase tracking-widest">Change Image</span>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setTicketData({ ...ticketData, customImage: reader.result as string });
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </label>
-                </div>
-                <div className="text-center">
-                  <h3 className="text-2xl font-black mb-1">{selectedBook?.title}</h3>
+            // 🔥 STEP 2: 좌측 폼, 우측 실시간 미리보기 레이아웃
+            <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-12 lg:gap-24 h-full overflow-y-auto hide-scrollbar py-10">
+              
+              {/* Left: Input Form */}
+              <div className="flex-1 w-full max-w-md space-y-8 shrink-0">
+                <div className="text-left mb-8 border-b border-black/10 pb-6">
+                  <h3 className="text-3xl font-black mb-1">{selectedBook?.title}</h3>
                   <p className="text-sm text-gray-400 font-bold uppercase tracking-widest">{selectedBook?.author}</p>
                 </div>
-              </div>
 
-              {/* Form Area */}
-              <div className="flex-1 max-w-md w-full space-y-8">
+                {/* Template Selection */}
                 <div className="space-y-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">SELECT TEMPLATE</p>
                   <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: 'classic', name: 'CLASSIC' },
-                      { id: 'modern', name: 'MODERN' },
-                      { id: 'minimal', name: 'MINIMAL' },
-                    ].map(template => (
+                    {[{ id: 'classic', name: 'CLASSIC' }, { id: 'modern', name: 'MODERN' }, { id: 'minimal', name: 'MINIMAL' }].map(template => (
                       <button
                         key={template.id}
                         disabled={isSubmitting}
@@ -247,6 +232,52 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                   </div>
                 </div>
 
+                {/* Color Selection */}
+                <div className="space-y-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">BACKGROUND COLOR</p>
+                  <div className="flex gap-4">
+                    {COLOR_PALETTE.map(color => (
+                      <button
+                        key={color.id}
+                        disabled={isSubmitting}
+                        onClick={() => setTicketData({ ...ticketData, background: color.id })}
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 transition-transform",
+                          ticketData.background === color.id ? "border-black scale-110" : "border-transparent hover:scale-105"
+                        )}
+                        style={{ backgroundColor: color.hex }}
+                        title={color.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom Image Upload */}
+                <div className="space-y-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">CUSTOM COVER (OPTIONAL)</p>
+                  <label className="flex items-center justify-center w-full h-14 border border-dashed border-gray-300 hover:border-black hover:bg-stone-50 transition-colors cursor-pointer rounded-sm group disabled:opacity-50">
+                    <ImageIcon className="text-gray-400 group-hover:text-black mr-2" size={20} />
+                    <span className="text-xs font-bold text-gray-500 group-hover:text-black tracking-widest">UPLOAD IMAGE</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      disabled={isSubmitting}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setTicketData({ ...ticketData, customImage: reader.result as string });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Dates */}
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">START DATE</p>
@@ -256,7 +287,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                         disabled={isSubmitting}
                         value={ticketData.startDate}
                         onChange={(e) => setTicketData({ ...ticketData, startDate: e.target.value })}
-                        className="w-full text-lg font-bold outline-none bg-transparent disabled:opacity-50"
+                        className="w-full text-base font-bold outline-none bg-transparent disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -268,12 +299,13 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                         disabled={isSubmitting}
                         value={ticketData.dateRead}
                         onChange={(e) => setTicketData({ ...ticketData, dateRead: e.target.value })}
-                        className="w-full text-lg font-bold outline-none bg-transparent disabled:opacity-50"
+                        className="w-full text-base font-bold outline-none bg-transparent disabled:opacity-50"
                       />
                     </div>
                   </div>
                 </div>
 
+                {/* Review */}
                 <div className="space-y-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">ONE-LINE REVIEW</p>
                   <div className="relative border-b border-black pb-2">
@@ -282,7 +314,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                       value={ticketData.review}
                       onChange={(e) => setTicketData({ ...ticketData, review: e.target.value })}
                       placeholder="이 책이 남긴 여운을 한 줄로 적어주세요."
-                      className="w-full text-xl font-medium outline-none placeholder:text-gray-200 resize-none h-24 bg-transparent disabled:opacity-50"
+                      className="w-full text-lg font-medium outline-none placeholder:text-gray-300 resize-none h-20 bg-transparent disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -302,6 +334,16 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess }: AddTicketModalPro
                   )}
                 </button>
               </div>
+
+              {/* Right: Live Preview */}
+              <div className="flex-1 w-full hidden lg:flex flex-col items-center justify-center sticky top-20">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em] mb-12">LIVE TICKET PREVIEW</p>
+                {/* PhotoCard가 480x240 규격이므로 화면에 맞게 스케일링 */}
+                <div className="scale-100 xl:scale-125 origin-center drop-shadow-2xl">
+                  <PhotoCard ticket={previewTicket} />
+                </div>
+              </div>
+
             </div>
           )}
         </div>
