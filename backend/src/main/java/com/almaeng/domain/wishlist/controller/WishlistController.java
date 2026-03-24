@@ -36,4 +36,13 @@ public class WishlistController {
         wishlistService.addWishlist(userId, request);
         return ApiResponse.success();
     }
+
+    @DeleteMapping("/{bookId}")
+    public ApiResponse<Void> deleteWishlist(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookId
+    ) {
+        wishlistService.deleteWishlist(userId, bookId);
+        return ApiResponse.success();
+    }
 }
