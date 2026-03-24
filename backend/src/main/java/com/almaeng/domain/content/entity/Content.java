@@ -6,6 +6,8 @@ import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
+
 @Entity
 @Table(name = "contents")
 @DynamicUpdate
@@ -47,5 +49,8 @@ public class Content {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "genres", columnDefinition = "jsonb")
     private String genres;
+
+    @Column(name = "release_date")
+    private LocalDate releaseDate;
 
 }

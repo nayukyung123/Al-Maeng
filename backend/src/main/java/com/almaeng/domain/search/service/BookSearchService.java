@@ -7,6 +7,7 @@ import com.almaeng.domain.book.repository.BookRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -22,11 +23,15 @@ public class BookSearchService {
 
     // 도서 검색 자동완성
     public List<BookSuggestionResponse> getSuggestions(String keyword) {
-        if(keyword == null || keyword.trim().isEmpty()) {
+
+        if (keyword == null || keyword.trim().isEmpty()) {
             return List.of();
         }
 
-        List<Book> books = bookRepository.findTop5ByTitleContainingOrAuthorContaining(keyword, keyword);
+        // 띄어쓰기 무시 및 대소문자 무시를 위한 전처리
+        String processedKeyword = keyword.replaceAll("\\s+", "").toLowerCase();
+
+        List<Book> books = bookRepository.findSuggestionsByKeyword(processedKeyword, PageRequest.of(0, 5));
 
         return books.stream()
                 .map(BookSuggestionResponse::from)
@@ -36,14 +41,14 @@ public class BookSearchService {
 
 
     // 도서 검색 결과
-    public Slice<BookResponse> searchBooks(String keyword, Pageable pageable){
-        String trimmedKeyword = (keyword != null) ? keyword.trim() : "";
-
-        if(trimmedKeyword.isEmpty()) {
+    public Slice<BookResponse> searchBooks(String keyword, String sort, Pageable pageable){
+        if (keyword == null || keyword.trim().isEmpty()) {
             return Page.empty();
         }
 
-        return bookRepository.findByTitleContainingOrAuthorContaining(trimmedKeyword, trimmedKeyword, pageable)
+        String processedKeyword = keyword.replaceAll("\\s+", "").toLowerCase();
+
+        return bookRepository.searchBooksByKeyword(processedKeyword, sort, pageable)
                 .map(BookResponse::from);
     }
 

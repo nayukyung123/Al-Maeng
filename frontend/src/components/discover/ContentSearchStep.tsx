@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
-import { ArrowRight, X, Search, Loader2 } from "lucide-react";
+import { ArrowRight, X, Search, Loader2, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
@@ -30,9 +30,28 @@ import AuthGate from "./AuthGate";
  *              └ last === false  →  getNextPageParam: number + 1
  * [무한 스크롤] react-intersection-observer useInView → 센티널 진입 시 fetchNextPage
  */
+// ─────────────────────────────────────────────────────────────
+// 정렬 옵션
+// ─────────────────────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { label: "정확도순", value: "accuracy" },
+  { label: "최신순",   value: "latest"   },
+] as const;
+type SortType = (typeof SORT_OPTIONS)[number]["value"];
+
 export default function ContentSearchStep() {
   const [keyword, setKeyword] = useState("");
   const [committedSearch, setCommittedSearch] = useState("");
+  const [sortType, setSortType] = useState<SortType>("accuracy");
+  const [showTopBtn, setShowTopBtn] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setShowTopBtn(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -63,9 +82,9 @@ export default function ContentSearchStep() {
     isFetchingNextPage,
     isLoading: isSearchLoading,
   } = useInfiniteQuery({
-    queryKey: ["contents-search", committedSearch],
+    queryKey: ["contents-search", committedSearch, sortType],
     queryFn: ({ pageParam }) =>
-      searchContents(committedSearch, pageParam as number),
+      searchContents(committedSearch, pageParam as number, 10, sortType),
     initialPageParam: 0,
     /**
      * Spring Slice 스펙:
@@ -313,6 +332,31 @@ export default function ContentSearchStep() {
               </div>
             ) : allResults.length > 0 ? (
               <>
+                {/* 정렬 탭 */}
+                <div className="flex items-center justify-between mb-6">
+                  <p className="text-xs text-gray-400 font-medium">
+                    &ldquo;{committedSearch}&rdquo; 검색 결과
+                  </p>
+                  <div className="flex gap-2" role="tablist" aria-label="검색 결과 정렬">
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={sortType === opt.value}
+                        onClick={() => setSortType(opt.value)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                          sortType === opt.value
+                            ? "bg-black text-white"
+                            : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
                   {allResults.map((item) => (
                     <div
@@ -376,6 +420,31 @@ export default function ContentSearchStep() {
           </div>
         )}
       </div>
+
+      {/* ── TOP 버튼 ── */}
+      <AnimatePresence>
+        {showTopBtn && (
+          <motion.button
+            key="top-btn"
+            type="button"
+            onClick={scrollToTop}
+            aria-label="맨 위로 이동"
+            initial={{ opacity: 0, scale: 0.7, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.7, y: 20 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.92 }}
+            className="fixed bottom-8 right-6 md:right-10 z-50 flex flex-col items-center justify-center gap-0.5 rounded-full bg-black text-white shadow-xl hover:bg-[#0033FF] transition-colors"
+            style={{ width: 52, height: 52 }}
+          >
+            <ArrowUp size={18} strokeWidth={2.5} aria-hidden="true" />
+            <span className="text-[9px] font-black tracking-widest leading-none">
+              TOP
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </>
   );
 }

@@ -75,6 +75,16 @@ function SkeletonGrid({ count = 15 }: { count?: number }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 정렬 옵션
+// ─────────────────────────────────────────────────────────────
+const SORT_OPTIONS = [
+  { label: "정확도순", value: "accuracy" },
+  { label: "최신순",   value: "latest"   },
+  { label: "평점순",   value: "rating"   },
+] as const;
+type SortValue = (typeof SORT_OPTIONS)[number]["value"];
+
+// ─────────────────────────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
 interface BookSearchResultProps {
@@ -88,6 +98,7 @@ export default function BookSearchResult({
   const [inputValue, setInputValue] = useState(initialQuery);
   // 실제로 API에 날리는 쿼리 (제출 시에만 변경)
   const [committedQuery, setCommittedQuery] = useState(initialQuery);
+  const [sortType, setSortType] = useState<SortValue>("accuracy");
 
   // ── 스크롤 감지 → TOP 버튼 표시 여부 ───────────────────
   const [showTopBtn, setShowTopBtn] = useState(false);
@@ -116,9 +127,9 @@ export default function BookSearchResult({
     isLoading,
     isError,
   } = useInfiniteQuery({
-    queryKey: ["book-search", committedQuery],
+    queryKey: ["book-search", committedQuery, sortType],
     queryFn: ({ pageParam }) =>
-      fetchBooks(committedQuery, pageParam as number, 20),
+      fetchBooks(committedQuery, pageParam as number, 20, sortType),
     initialPageParam: 0,
     getNextPageParam: (lastPage) =>
       !lastPage.last ? lastPage.number + 1 : undefined,
@@ -225,15 +236,37 @@ export default function BookSearchResult({
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 flex items-baseline gap-3"
+            className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
           >
-            <h1 className="text-xs font-black uppercase tracking-[0.3em] text-[#0033FF]">
-              Search Results
-            </h1>
-            <p className="text-xs text-gray-400 font-medium">
-              &ldquo;{committedQuery}&rdquo;
-              {allBooks.length > 0 && ` · ${allBooks.length}권 이상`}
-            </p>
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-xs font-black uppercase tracking-[0.3em] text-[#0033FF]">
+                Search Results
+              </h1>
+              <p className="text-xs text-gray-400 font-medium">
+                &ldquo;{committedQuery}&rdquo;
+                {allBooks.length > 0 && ` · ${allBooks.length}권 이상`}
+              </p>
+            </div>
+
+            {/* 정렬 탭 */}
+            <div className="flex gap-2" role="tablist" aria-label="검색 결과 정렬">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={sortType === opt.value}
+                  onClick={() => setSortType(opt.value)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                    sortType === opt.value
+                      ? "bg-black text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </motion.div>
         )}
 
