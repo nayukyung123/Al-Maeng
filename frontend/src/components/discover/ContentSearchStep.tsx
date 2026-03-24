@@ -44,12 +44,12 @@ export default function ContentSearchStep() {
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   // ── 자동완성: GET /api/contents/suggestions ───────────────
-  // 비로그인 사용자는 API 호출 자체를 막아 401 에러 방지
+  // 비로그인 사용자도 허용 (백엔드 SecurityConfig에서 공개 처리)
   const { data: suggestions = [], isFetching: isSuggestionFetching } =
     useQuery({
       queryKey: ["content-suggestions", debouncedKeyword],
       queryFn: () => fetchContentSuggestions(debouncedKeyword),
-      enabled: isLoggedIn && debouncedKeyword.trim().length > 0,
+      enabled: debouncedKeyword.trim().length > 0,
       staleTime: 1000 * 60 * 3,
     });
 
