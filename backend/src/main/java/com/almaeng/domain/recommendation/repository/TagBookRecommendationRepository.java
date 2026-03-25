@@ -10,11 +10,12 @@ import java.util.List;
 
 public interface TagBookRecommendationRepository extends JpaRepository<TagBookRecommendation, Long> {
 
-    // 인기 컨텐츠
+    // 인기 컨텐츠 — 태그별 rank=1 & MEDIUM 도서 1권씩 (컨텐츠당 총 3권)
     @Query("SELECT tbr FROM TagBookRecommendation tbr " +
             "JOIN FETCH tbr.book " +
             "WHERE tbr.tag.content.id = :contentId " +
-            "ORDER BY tbr.score DESC")
+            "AND tbr.rank = 1 " +
+            "AND tbr.lengthType = com.almaeng.domain.recommendation.type.LengthType.MEDIUM")
     List<TagBookRecommendation> findTopByContentId(@Param("contentId") Long contentId);
 
     // 태그와 분량 기준 상위 3건
