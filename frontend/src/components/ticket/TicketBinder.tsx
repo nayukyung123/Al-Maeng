@@ -5,6 +5,8 @@ import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 import { PhotoCard } from "./PhotoCard";
+import { useQuery } from "@tanstack/react-query";
+import { fetchTopLevelGenres } from "@/api/genres";
 
 interface TicketBinderProps {
   onOpenBook: (ticket: GalleryTicket) => void;
@@ -21,7 +23,7 @@ const fetchDummyBinderTickets = async (): Promise<GalleryTicket[]> => {
           const orientation = i % 3 === 2 ? 'vertical' : 'horizontal';
           
           return {
-            id: `b${i}`,
+            id: 200 + i,
             bookId: 200 + i,
             title: `Binder Book Title ${i + 1}`,
             author: `Author ${i + 1}`,
@@ -102,7 +104,12 @@ export const TicketBinder = ({ onOpenBook, onAddTicket, tickets, isLoadingExtern
     return filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
   }, [books, pendingGenre]);
 
-  const genres = ['소설', '에세이', '자기계발', '인문학', '경제경영', '과학', '예술', '만화'];
+  const { data: topGenres = [] } = useQuery({
+    queryKey: ["top-level-genres"],
+    queryFn: fetchTopLevelGenres,
+    staleTime: Infinity,
+  });
+  const genres = topGenres.map((g) => g.genreName);
 
   const handleGenreChange = (genre: string | null) => {
     if (selectedGenre === genre || flipState !== 'idle') return;
