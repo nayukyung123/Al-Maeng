@@ -49,7 +49,7 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
   /* ── 리뷰 수정 Mutation ── */
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: number; body: { content: string; rating: number; spoiler: boolean } }) =>
-      updateReview(id, body),
+      updateReview(slug, id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
       closeEditModal();
@@ -58,7 +58,7 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
 
   /* ── 리뷰 삭제 Mutation ── */
   const deleteMutation = useMutation({
-    mutationFn: (reviewId: number) => deleteReview(reviewId),
+    mutationFn: (reviewId: number) => deleteReview(slug, reviewId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
       setDeletingId(null);
