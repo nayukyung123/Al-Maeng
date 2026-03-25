@@ -89,10 +89,12 @@ type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 // ─────────────────────────────────────────────────────────────
 interface BookSearchResultProps {
   initialQuery: string;
+  initialAutoFocus?: boolean;
 }
 
 export default function BookSearchResult({
   initialQuery,
+  initialAutoFocus = false,
 }: BookSearchResultProps) {
   const router = useRouter();
   const [inputValue, setInputValue] = useState(initialQuery);
@@ -111,6 +113,12 @@ export default function BookSearchResult({
   const scrollToTop = () =>
     window.scrollTo({ top: 0, behavior: "smooth" });
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!initialAutoFocus) return;
+    const t = window.setTimeout(() => inputRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [initialAutoFocus]);
 
   // URL이 바뀌면 committedQuery도 동기화 (뒤로가기 등)
   useEffect(() => {
