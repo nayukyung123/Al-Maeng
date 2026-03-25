@@ -33,7 +33,7 @@ export interface CurationBook {
   slug: string;
 }
 
-/** 히어로 슬라이더 / 컨텐츠 큐레이션 배너 */
+/** 히어로 슬라이더 / 컨텐츠 큐레이션 배너 (Mock용) */
 export interface Banner {
   id: number;
   movie: string;
@@ -41,6 +41,33 @@ export interface Banner {
   /** dangerouslySetInnerHTML 용 HTML 문자열 */
   quote: string;
   books: CurationBook[];
+}
+
+/**
+ * GET /api/recommendations/contents 응답 DTO
+ * 백엔드 ContentRecommendationResponse 1:1 매핑
+ */
+export interface ContentRecommendationItem {
+  content: {
+    id: number;
+    title: string;
+    /** 영상 포스터 이미지 URL */
+    posterUrl: string;
+    /** 영상 소개 설명 (plain text) */
+    description: string;
+    /** "MOVIE" | "TV" 등 콘텐츠 유형 */
+    type: string;
+  };
+  recommendedBooks: {
+    id: number;
+    title: string;
+    author: string;
+    slug: string;
+    coverImageUrl: string;
+    pageCount: number | null;
+    lengthType: "SHORT" | "MEDIUM" | "LONG";
+    score: number;
+  }[];
 }
 
 /**
