@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Shuffle } from "lucide-react";
+import { RotateCcw, Shuffle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -25,6 +25,11 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
 
   // 이 컴포넌트가 마운트된 시각을 기록 — 캐시 데이터와 실제 fetch 구분에 사용
   const mountedAtRef = useRef(Date.now());
+
+  // 슬라이드 스크롤 컨테이너 ref
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const { data, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["todayRecommendations"],
@@ -53,6 +58,31 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
 
   const refreshCount = data?.refreshCount ?? 0;
   const isFallback = data?.isFallback ?? false;
+
+  // 스크롤 위치에 따라 화살표 표시 여부 갱신
+  const updateArrows = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  };
+
+  // 스크롤 이벤트 구독 + 도서 목록 바뀔 때마다 화살표 재계산
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateArrows();
+    el.addEventListener("scroll", updateArrows, { passive: true });
+    return () => el.removeEventListener("scroll", updateArrows);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayBooks]);
+
+  const slideScroll = (dir: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // 컨테이너 너비의 70%씩 이동 — 카드 폭과 무관하게 자연스럽게 넘김
+    el.scrollBy({ left: dir === "left" ? -(el.clientWidth * 0.7) : el.clientWidth * 0.7, behavior: "smooth" });
+  };
 
   const handleRefreshClick = async () => {
     if (!isLoggedIn) {
@@ -113,40 +143,82 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
 
       {/* 도서 목록 */}
       <div className="relative">
+        {/*
+          lg+ : 카드들이 컨테이너 전체 너비를 균등하게 채움 (w-full + flex-1)
+          lg미만 : 카드 고정 너비 유지, 컨테이너가 가로 스크롤
+        */}
         <div
-          className={`flex gap-6 overflow-x-auto pb-4 snap-x transition-all duration-700 ${
+          ref={scrollRef}
+          className={`overflow-x-auto snap-x snap-mandatory transition-all duration-700 ${
             !isLoggedIn ? "blur-md pointer-events-none select-none" : ""
           }`}
           style={{ scrollbarWidth: "none" }}
         >
-          {displayBooks.map((book, i) => (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              key={`${book.id}-${refreshCount}`}
-              className="snap-start shrink-0 w-[160px] md:w-[200px] group cursor-pointer"
-              onClick={() => handleBookClick(book)}
-            >
-              <div className="w-full aspect-[2/3] bg-gray-100 mb-4 overflow-hidden border border-black/5 relative">
-                <img
-                  src={
-                    book.coverImageUrl ||
-                    `https://picsum.photos/seed/${book.seed || book.id}/400/600`
-                  }
-                  alt={book.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              </div>
-              <h3 className="font-bold text-lg leading-tight mb-1 line-clamp-1 group-hover:text-[#0033FF] transition-colors">
-                {book.title}
-              </h3>
-              <p className="text-sm text-gray-500">{book.author}</p>
-            </motion.div>
-          ))}
+          <div className="flex gap-4 lg:gap-6 pb-3 w-max lg:w-full">
+            {displayBooks.map((book, i) => (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                key={`${book.id}-${refreshCount}`}
+                // 소형~중형: 고정 너비(스크롤) / lg+: flex-1(균등 배분)
+                className="snap-start shrink-0 w-[52vw] sm:w-56 md:w-52 lg:flex-1 lg:shrink lg:w-auto lg:min-w-0 group cursor-pointer"
+                onClick={() => handleBookClick(book)}
+              >
+                <div className="w-full aspect-[2/3] bg-gray-100 mb-3 overflow-hidden border border-black/5 relative">
+                  <img
+                    src={
+                      book.coverImageUrl ||
+                      `https://picsum.photos/seed/${book.seed || book.id}/400/600`
+                    }
+                    alt={book.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </div>
+                <h3 className="font-bold text-base leading-tight mb-1 line-clamp-1 group-hover:text-[#0033FF] transition-colors">
+                  {book.title}
+                </h3>
+                <p className="text-sm text-gray-500 line-clamp-1">{book.author}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
+
+        {/* 좌측 화살표: lg 미만 + 왼쪽으로 더 스크롤 가능할 때 */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            aria-label="이전 도서 보기"
+            onClick={() => slideScroll("left")}
+            className="absolute left-0 top-0 bottom-3 z-10 lg:hidden
+                       flex items-center pl-1 pr-6
+                       bg-gradient-to-r from-white via-white/70 to-transparent
+                       hover:from-white/90 transition-opacity"
+          >
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white border border-black/10 shadow-md hover:bg-black hover:text-white transition-colors">
+              <ChevronLeft size={18} aria-hidden="true" />
+            </span>
+          </button>
+        )}
+
+        {/* 우측 화살표: lg 미만 + 오른쪽으로 더 스크롤 가능할 때 */}
+        {canScrollRight && (
+          <button
+            type="button"
+            aria-label="다음 도서 보기"
+            onClick={() => slideScroll("right")}
+            className="absolute right-0 top-0 bottom-3 z-10 lg:hidden
+                       flex items-center pr-1 pl-6
+                       bg-gradient-to-l from-white via-white/70 to-transparent
+                       hover:from-white/90 transition-opacity"
+          >
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white border border-black/10 shadow-md hover:bg-black hover:text-white transition-colors">
+              <ChevronRight size={18} aria-hidden="true" />
+            </span>
+          </button>
+        )}
 
         {/* 비로그인 블러 오버레이 */}
         {!isLoggedIn && (
