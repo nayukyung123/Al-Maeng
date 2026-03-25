@@ -108,6 +108,9 @@ public class User {
         if (nickname != null) this.nickname = nickname;
         if (birthYear != null) this.birthYear = birthYear;
         if (gender != null) this.gender = gender;
-        if (profileImageUrl != null) this.profileImageUrl = profileImageUrl;
+        // 프론트가 빈 문자열("")을 보내면 null로 처리해 이미지 삭제
+        if (profileImageUrl != null) {
+            this.profileImageUrl = profileImageUrl.isBlank() ? null : profileImageUrl;
+        }
     }
 }
