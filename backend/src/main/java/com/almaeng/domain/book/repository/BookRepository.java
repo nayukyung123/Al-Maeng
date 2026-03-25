@@ -3,6 +3,7 @@ package com.almaeng.domain.book.repository;
 import com.almaeng.domain.book.entity.Book;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +16,7 @@ import java.util.Optional;
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
 
+    @EntityGraph(attributePaths = {"bookGenres"})
     Optional<Book> findBySlug(String slug); // URL 식별자인 slug로 조회
     
     // 전체 인기 도서 - 완독순
