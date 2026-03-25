@@ -4,13 +4,15 @@ import com.almaeng.domain.auth.dto.LoginResponse;
 import com.almaeng.domain.auth.dto.SignupRequest;
 import com.almaeng.domain.auth.dto.SignupResponse;
 import com.almaeng.domain.auth.dto.TokenResponse;
+import com.almaeng.domain.genre.entity.Genre;
+import com.almaeng.domain.genre.repository.GenreRepository;
 import com.almaeng.domain.user.entity.SocialAccount;
 import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
-import com.almaeng.domain.user.entity.UserTasteReportGenre;
+import com.almaeng.domain.user.entity.UserGenre;
 import com.almaeng.domain.user.repository.TierRepository;
+import com.almaeng.domain.user.repository.UserGenreRepository;
 import com.almaeng.domain.user.repository.UserRepository;
-import com.almaeng.domain.user.repository.UserTasteReportGenreRepository;
 import com.almaeng.global.auth.JwtTokenProvider;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
@@ -24,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -38,7 +41,8 @@ public class AuthService {
     private final StringRedisTemplate redisTemplate;
     private final TierRepository tierRepository;
 
-    private final UserTasteReportGenreRepository tasteRepository;
+    private final UserGenreRepository userGenreRepository;
+    private final GenreRepository genreRepository;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
@@ -143,12 +147,18 @@ public class AuthService {
 
         // 취향 정보
         if (request.genreIds() != null && !request.genreIds().isEmpty()) {
-            for (Long genreId : request.genreIds()) {
-                UserTasteReportGenre taste = new UserTasteReportGenre();
-                taste.setUser(user);
-                taste.setGenreId(genreId);
-                tasteRepository.save(taste);
-            }
+            List<UserGenre> userGenres = request.genreIds().stream()
+                    .map(genreId -> {
+                        // DB 조회를 최소화하기 위해 프록시 객체 활용
+                        Genre genre = genreRepository.getReferenceById(genreId);
+                        return UserGenre.builder()
+                                .user(user)
+                                .genre(genre)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            userGenreRepository.saveAll(userGenres);
         }
 
         //온보딩 완료 후 정식 토큰 발급
