@@ -75,6 +75,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
             title: book.title,
             author: book.author,
             coverImageUrl: book.coverImageUrl ?? "",
+            genreName: "미분류",
             completedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
           },

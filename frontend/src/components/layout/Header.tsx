@@ -13,7 +13,7 @@ import { logout as logoutApi } from "@/api/auth";
 const NAV_ITEMS = [
   { id: "home", label: "홈", href: "/" },
   { id: "wizard", label: "취향 찾기", href: "/discover" },
-  { id: "library", label: "갤러리", href: "/library" },
+  { id: "tickets", label: "나의 티켓", href: "/tickets" },
 ] as const;
 
 /** 현재 pathname → 활성 navItem id 반환 */
@@ -66,7 +66,7 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md z-40 border-b border-black/10">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-black/10">
       <div className="max-w-7xl mx-auto w-full h-full flex justify-between items-center px-6 md:px-12">
 
         {/* ── 로고 (텍스트 로고: 최상위 페이지에서는 h1, 나머지는 strong) ── */}
