@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,7 +21,7 @@ public class TicketController {
     // 완독 티켓 생성
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<TicketCreateResponse> createTicket(@RequestParam Long userId,
+    public ApiResponse<TicketCreateResponse> createTicket(@AuthenticationPrincipal Long userId,
                                                           @Valid @RequestBody TicketCreateRequest request) {
         Long savedTicketId = ticketService.createTicket(userId, request);
         TicketCreateResponse response = new TicketCreateResponse(savedTicketId);
@@ -30,7 +31,7 @@ public class TicketController {
 
     // 완독 티켓 삭제
     @DeleteMapping("/{ticketId}")
-    public ApiResponse<Void> deleteTicket(@RequestParam Long userId,
+    public ApiResponse<Void> deleteTicket(@AuthenticationPrincipal Long userId,
                                           @PathVariable Long ticketId) {
         ticketService.deleteTicket(userId, ticketId);
 
@@ -39,7 +40,7 @@ public class TicketController {
 
     // 완독 티켓 상세 조회
     @GetMapping("/{ticketId}")
-    public ApiResponse<TicketResponse> getTicketDetail(@RequestParam Long userId,
+    public ApiResponse<TicketResponse> getTicketDetail(@AuthenticationPrincipal Long userId,
                                                        @PathVariable Long ticketId) {
         TicketResponse response = ticketService.getTicketDetail(userId, ticketId);
 
@@ -48,14 +49,14 @@ public class TicketController {
 
     // 완독 티켓 갤러리 조회
     @GetMapping("/gallery")
-    public ApiResponse<List<TicketResponse>> getGalleryTickets(@RequestParam Long userId) {
+    public ApiResponse<List<TicketResponse>> getGalleryTickets(@AuthenticationPrincipal Long userId) {
         List<TicketResponse> response = ticketService.getGalleryTickets(userId);
 
         return ApiResponse.success(response);
     }
 
     @GetMapping
-    public ApiResponse<Page<TicketResponse>> getBinderTickets(@RequestParam Long userId,
+    public ApiResponse<Page<TicketResponse>> getBinderTickets(@AuthenticationPrincipal Long userId,
                                                               @RequestParam(required = false) String genre,
                                                               @RequestParam(defaultValue = "0") int page) {
         Page<TicketResponse> response = ticketService.getBinderTickets(userId, genre, page);
@@ -65,7 +66,7 @@ public class TicketController {
 
     // S3 이미지 저장용 링크 발급
     @PostMapping("/image-url")
-    public ApiResponse<PresignedUrlResponse> getPresignedUrl(@RequestParam Long userId,
+    public ApiResponse<PresignedUrlResponse> getPresignedUrl(@AuthenticationPrincipal Long userId,
                                                              @RequestBody PresignedUrlRequest reqeust) {
         PresignedUrlResponse response = ticketService.getPresignedUrl(userId, reqeust.fileExtension());
 
