@@ -227,12 +227,19 @@ public class AuthService {
             redisTemplate.delete("RT:" + userId);
         }
 
-        Long expiration = jwtTokenProvider.getExpiration(accessToken);
-        redisTemplate.opsForValue().set(
-                "BL:" + accessToken,
-                "logout",
-                Duration.ofMillis(expiration)
-        );
+        // 토큰 만료 시점/파싱 이슈로 인해 getExpiration()에서 예외가 나도 로그아웃/탈퇴가 500으로 터지지 않게 방어
+        try {
+            Long expiration = jwtTokenProvider.getExpiration(accessToken);
+            if (expiration != null && expiration > 0) {
+                redisTemplate.opsForValue().set(
+                        "BL:" + accessToken,
+                        "logout",
+                        Duration.ofMillis(expiration)
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Failed to invalidate access session. userId={}, accessTokenPresent={}", userId, accessToken != null, e);
+        }
     }
 
     // 로그아웃

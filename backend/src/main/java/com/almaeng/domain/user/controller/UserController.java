@@ -1,11 +1,15 @@
 package com.almaeng.domain.user.controller;
 
+import com.almaeng.global.error.ApiException;
+import com.almaeng.global.error.ErrorCode;
 import com.almaeng.domain.user.dto.UserProfileResponse;
 import com.almaeng.domain.user.dto.UserProfileUpdateRequest;
 import com.almaeng.domain.user.service.UserService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,9 +29,9 @@ public class UserController {
 
     // 프로필 수정
     @PatchMapping("/me")
-    public ApiResponse<String> updateMyProfile(
+    public ApiResponse<Void> updateMyProfile(
             @AuthenticationPrincipal Long userId,
-            @RequestBody UserProfileUpdateRequest request) {
+            @Valid @RequestBody UserProfileUpdateRequest request) {
         userService.updateUserProfile(userId, request);
 
         return ApiResponse.success();
@@ -35,12 +39,26 @@ public class UserController {
 
     // 회원 탈퇴
     @DeleteMapping("/me")
-    public ApiResponse<String> deleteMyAccount(
+    public ApiResponse<Void> deleteMyAccount(
             @AuthenticationPrincipal Long userId,
             @RequestHeader("Authorization") String authorization) {
-        String accessToken = authorization.substring(7);
-        userService.deleteUser(userId, accessToken);
+        try {
+            if (!StringUtils.hasText(authorization) || !authorization.startsWith("Bearer ")) {
+                throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+            }
 
-        return ApiResponse.success();
+            String accessToken = authorization.substring(7);
+            if (!StringUtils.hasText(accessToken)) {
+                throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+            }
+
+            userService.deleteUser(userId, accessToken);
+            return ApiResponse.success();
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
     }
 }
