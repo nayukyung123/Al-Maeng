@@ -1,11 +1,12 @@
 package com.almaeng.domain.user.repository;
 
 import com.almaeng.domain.user.entity.UserGenre;
+import com.almaeng.domain.user.entity.UserGenreId;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface UserGenreRepository extends JpaRepository<UserGenre, Long> {
+public interface UserGenreRepository extends JpaRepository<UserGenre, UserGenreId> {
 
     // 기존 매핑 데이터 일괄 삭제
     void deleteAllByUserId(Long userId);

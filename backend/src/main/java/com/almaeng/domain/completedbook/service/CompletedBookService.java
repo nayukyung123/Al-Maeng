@@ -52,7 +52,7 @@ public class CompletedBookService {
 
     // 완독 도서 조회
     public List<CompletedBookResponse> getCompletedBooks(Long userId, Sort sort) {
-        List<CompletedBook> completedBooks = completedBookRepository.findAllByUserId(userId, sort);
+        List<CompletedBook> completedBooks = completedBookRepository.findAllByUserIdWithDetails(userId, sort);
 
         return completedBooks.stream()
                 .map(CompletedBookResponse::from)

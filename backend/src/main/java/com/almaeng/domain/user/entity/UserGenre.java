@@ -2,32 +2,24 @@ package com.almaeng.domain.user.entity;
 
 import com.almaeng.domain.genre.entity.Genre;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "users_genres")
+@IdClass(UserGenreId.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class UserGenre {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
 
+    @Id
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "genre_id", nullable = false)
+    @JoinColumn(name = "genre_id")
     private Genre genre;
-
-    @Builder
-    public UserGenre(User user, Genre genre) {
-        this.user = user;
-        this.genre = genre;
-    }
 }

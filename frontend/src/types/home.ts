@@ -44,6 +44,22 @@ export interface Banner {
 }
 
 /**
+ * GET /api/recommendations/today 응답 DTO
+ */
+export interface TodayCurationResponse {
+  /** 추천 도서 5권 목록 */
+  books: Book[];
+  /** 현재 새로고침 횟수 (API 호출마다 백엔드에서 증가) */
+  refreshCount: number;
+  /** true이면 맞춤 추천 데이터가 없어 인기 도서로 대체된 상태 */
+  isFallback: boolean;
+  /** 팝업 노출 여부 (10의 배수 회차마다 true) */
+  showPopup: boolean;
+  /** 팝업에 표시할 다이내믹 메시지 */
+  popupMessage: string | null;
+}
+
+/**
  * 실시간 검색어 랭킹
  * 백엔드 GET /api/keywords/rankings 응답: List<String>
  * → 프론트에서 string[] 로 직접 사용
