@@ -33,7 +33,7 @@ export interface CurationBook {
   slug: string;
 }
 
-/** 히어로 슬라이더 / 컨텐츠 큐레이션 배너 */
+/** 히어로 슬라이더 / 컨텐츠 큐레이션 배너 (Mock용) */
 export interface Banner {
   id: number;
   movie: string;
@@ -68,6 +68,22 @@ export interface ContentRecommendationItem {
     lengthType: "SHORT" | "MEDIUM" | "LONG";
     score: number;
   }[];
+}
+
+/**
+ * GET /api/recommendations/today 응답 DTO
+ */
+export interface TodayCurationResponse {
+  /** 추천 도서 5권 목록 */
+  books: Book[];
+  /** 현재 새로고침 횟수 (API 호출마다 백엔드에서 증가) */
+  refreshCount: number;
+  /** true이면 맞춤 추천 데이터가 없어 인기 도서로 대체된 상태 */
+  isFallback: boolean;
+  /** 팝업 노출 여부 (10의 배수 회차마다 true) */
+  showPopup: boolean;
+  /** 팝업에 표시할 다이내믹 메시지 */
+  popupMessage: string | null;
 }
 
 /**
