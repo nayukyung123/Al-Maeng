@@ -39,10 +39,6 @@ export default function ContentCuration({
     router.push(`/books/${slug}`);
   };
 
-  // 콘텐츠 타입 한글 레이블
-  const typeLabel =
-    current.content.type === "TV" ? "TV 시리즈" : "영화";
-
   return (
     <section id="section3" className="pt-12 border-t border-black">
       <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-12 uppercase italic">
@@ -60,12 +56,12 @@ export default function ContentCuration({
             <ChevronLeft size={24} aria-hidden="true" />
           </button>
 
-          <div className="flex-1 aspect-[2/3] bg-black relative overflow-hidden">
+          <div className="flex-1 aspect-[2/3] bg-black relative overflow-hidden border border-black/5">
             {current.content.posterUrl ? (
               <img
                 src={current.content.posterUrl}
                 alt={current.content.title}
-                className="w-full h-full object-cover opacity-80 transition-opacity duration-500"
+                className="w-full h-full object-cover opacity-90 transition-opacity duration-500"
                 referrerPolicy="no-referrer"
               />
             ) : (
@@ -75,14 +71,6 @@ export default function ContentCuration({
                 </span>
               </div>
             )}
-            <div className="absolute bottom-0 left-0 p-4 md:p-6 text-white z-10 w-full bg-gradient-to-t from-black/80 to-transparent">
-              <p className="text-xs font-mono tracking-widest mb-2 text-[#0033FF]">
-                {typeLabel}
-              </p>
-              <h3 className="text-2xl md:text-3xl font-bold line-clamp-2">
-                {current.content.title}
-              </h3>
-            </div>
           </div>
 
           <button
@@ -95,13 +83,20 @@ export default function ContentCuration({
           </button>
         </div>
 
-        {/* 설명 + 추천 도서 */}
+        {/* 타이틀 멘트 + 추천 도서 */}
         <div className="w-full md:w-2/3 flex flex-col justify-center gap-10">
-          {current.content.description && (
-            <p className="text-xl md:text-2xl font-medium leading-relaxed break-keep text-gray-800">
-              {current.content.description}
+          <div className="flex flex-col gap-4">
+            <h3 className="text-4xl md:text-5xl font-black break-keep">
+              <span className="relative inline-block">
+                <span className="relative z-10">{current.content.title}</span>
+                <span className="absolute bottom-1 left-0 w-full h-3 md:h-4 bg-[#0033FF]/20 z-0" />
+              </span>
+            </h3>
+            <p className="text-lg md:text-xl text-gray-600 font-medium break-keep mt-2">
+              이 작품을 재미있게 보셨다면,{" "}
+              <span className="text-black font-bold">이런 책들은 어떠신가요?</span>
             </p>
-          )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {current.recommendedBooks.map((book) => (

@@ -28,7 +28,7 @@ export interface ContentItem {
 /** 큐레이션 요청 본문 */
 export interface CurationRequest {
   contentId: number;
-  bookLength: "SHORT" | "MEDIUM" | "LONG";
+  bookLength: "LIGHT" | "MEDIUM" | "LONG";
 }
 
 /** 큐레이션 결과 내 개별 도서 */
