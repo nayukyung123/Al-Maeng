@@ -9,5 +9,8 @@ public record UserProfileResponse(
         String profileImageUrl,
         Integer birthYear,
         Gender gender,
-        List<Long> tasteData
+        List<Long> tasteData,
+        Integer completedCount,
+        TierInfo tier
 ) {}
+
