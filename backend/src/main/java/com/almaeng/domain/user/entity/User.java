@@ -104,7 +104,7 @@ public class User {
     }
 
     // 프로필 수정을 위한 메서드
-    public void updateProfile(String nickname, Integer birthYear, Integer gender, String profileImageUrl) {
+    public void updateProfile(String nickname, Integer birthYear, Gender gender, String profileImageUrl) {
         if (nickname != null) this.nickname = nickname;
         if (birthYear != null) this.birthYear = birthYear;
         if (gender != null) this.gender = gender;
