@@ -1,6 +1,7 @@
 package com.almaeng.domain.user.service;
 
 import com.almaeng.domain.auth.service.AuthService;
+import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
 import com.almaeng.domain.genre.entity.Genre;
 import com.almaeng.domain.genre.repository.GenreRepository;
 import com.almaeng.domain.user.dto.TierInfo;
@@ -32,6 +33,7 @@ public class UserService {
     private final GenreRepository genreRepository;
     private final AuthService authService;
     private final TierRepository tierRepository;
+    private final CompletedBookRepository completedBookRepository;
 
     // 프로필 조회
     @Transactional(readOnly = true)
@@ -43,7 +45,7 @@ public class UserService {
                 .map(userGenre -> userGenre.getGenre().getId())
                 .toList();
 
-        int completedCount = user.getCompletedCount() != null ? user.getCompletedCount() : 0;
+        int completedCount = (int) completedBookRepository.countByUserId(userId);
         int exp = completedCount; // 경험치 = 완독 권수 (요구사항에 맞게 조정 가능)
 
         Tier currentTier = tierRepository.findTopByMinExpLessThanEqualOrderByMinExpDesc(exp)
