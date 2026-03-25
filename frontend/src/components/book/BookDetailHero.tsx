@@ -152,10 +152,14 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
       <div className="flex-1 flex flex-col justify-center py-4">
         {/* 장르 · 평점 뱃지 */}
         <div className="flex items-center gap-3 mb-6">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
-            {book.genre}
-          </span>
-          <span className="w-1 h-1 bg-gray-300 rounded-full" />
+          {book.genre && (
+            <>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+                {book.genre}
+              </span>
+              <span className="w-1 h-1 bg-gray-300 rounded-full" />
+            </>
+          )}
           <div className="flex items-center gap-1">
             <Star size={12} fill="#111" className="text-black" />
             <span className="text-xs font-black">{book.averageRating.toFixed(1)}</span>
