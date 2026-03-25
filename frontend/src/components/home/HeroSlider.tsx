@@ -6,8 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchBanners, type BannerResponse } from "@/api/banners";
 
 interface HeroSliderProps {
-  /** 배너 클릭 시 슬라이드 인덱스를 부모로 전달 (ContentCuration 동기화 용) */
-  onBannerClick: (slideIndex: number) => void;
+  /** 배너 클릭 시 해당 배너의 contentId를 부모로 전달 (ContentCuration 동기화 용) */
+  onBannerClick: (contentId: number) => void;
 }
 
 export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
@@ -41,7 +41,10 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
 
   return (
     <div
-      onClick={() => onBannerClick(currentSlide)}
+      onClick={() => {
+        const banner = banners[currentSlide];
+        if (banner) onBannerClick(banner.contentId);
+      }}
       className="cursor-pointer group relative w-full h-[60vh] md:h-[500px] bg-black overflow-hidden"
     >
       {/* 슬라이드 트랙 */}

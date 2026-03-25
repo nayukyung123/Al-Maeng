@@ -16,7 +16,7 @@ import RankingBoard from "./RankingBoard";
  *  - curationSectionRef: TodayCuration 위치 추적
  */
 export default function HomeClient() {
-  const [curationIndex, setCurationIndex] = useState(0);
+  const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
   const [isSearchFixed, setIsSearchFixed] = useState(false);
   const curationSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -32,8 +32,8 @@ export default function HomeClient() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleBannerClick = (slideIndex: number) => {
-    setCurationIndex(slideIndex);
+  const handleBannerClick = (contentId: number) => {
+    setSelectedContentId(contentId);
     document.getElementById("section3")?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -49,10 +49,7 @@ export default function HomeClient() {
       <TodayCuration sectionRef={curationSectionRef} />
 
       {/* 영화 기반 크로스 추천 */}
-      <ContentCuration
-        curationIndex={curationIndex}
-        onCurationChange={setCurationIndex}
-      />
+      <ContentCuration selectedContentId={selectedContentId} />
 
       {/* 인기 도서 랭킹 */}
       <RankingBoard />
