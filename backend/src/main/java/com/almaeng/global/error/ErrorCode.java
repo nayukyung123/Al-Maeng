@@ -25,6 +25,7 @@ public enum ErrorCode {
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "도서 정보를 찾을 수 없습니다."),
     CURATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B002", "추천 도서를 가져오는 데 실패했습니다."),
     GENRE_NOT_FOUND(HttpStatus.NOT_FOUND, "B003", "존재하지 않는 장르입니다."),
+    INVALID_GENRE_ID(HttpStatus.BAD_REQUEST, "B004", "유효하지 않은 장르 ID가 포함되어 있습니다."),
 
     // [티켓 / 완독 기록 에러]
     ALREADY_COMPLETED_BOOK(HttpStatus.BAD_REQUEST, "T001", "이미 완독 리스트에 추가된 도서입니다."),
@@ -41,7 +42,7 @@ public enum ErrorCode {
     NOT_REVIEW_OWNER(HttpStatus.FORBIDDEN, "R004", "해당 리뷰에 대한 권한이 없습니다."),
 
     // [티어]
-    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 티어 정보를 찾을 수 없습니다."),
+    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "TR001", "해당 티어 정보를 찾을 수 없습니다."),
 
     // [찜 목록]
     ALREADY_WISHED_BOOK(HttpStatus.BAD_REQUEST, "W001", "이미 찜한 도서입니다."),
@@ -50,6 +51,4 @@ public enum ErrorCode {
     private final HttpStatus status;
     private final String code;
     private final String message;
-
-
 }
