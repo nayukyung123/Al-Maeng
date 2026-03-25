@@ -77,4 +77,11 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "  CASE WHEN :sortType = 'rating' THEN b.averageRating END DESC, " +
             "  b.id DESC")
     Slice<Book> searchBooksByKeyword(@Param("keyword") String keyword, @Param("sortType") String sortType, Pageable pageable);
+
+    // 유사 도서 추천 - 유사도 점수순
+    @Query(value = "SELECT b.* FROM books b " +
+            "JOIN book_similarity s ON b.id = s.similar_book_id " +
+            "WHERE s.book_id = :bookId " +
+            "ORDER BY s.similarity_score DESC LIMIT 6", nativeQuery = true)
+    List<Book> findSimilarBooks(@Param("bookId") Long bookId);
 }
