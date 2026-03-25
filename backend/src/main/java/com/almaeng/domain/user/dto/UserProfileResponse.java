@@ -9,5 +9,5 @@ public record UserProfileResponse(
         String profileImageUrl,
         Integer birthYear,
         Gender gender,
-        List<Long> tastData
+        List<Long> tasteData
 ) {}
