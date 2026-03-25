@@ -47,7 +47,7 @@ pipeline {
             agent {
                 docker {
                     image 'gradle:8-jdk17'
-                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock --add-host=host.docker.internal:host-gateway'
+                    args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock -v /var/jenkins_home/cache/gradle:/root/.gradle --add-host=host.docker.internal:host-gateway'
                     reuseNode true
                 }
             }
