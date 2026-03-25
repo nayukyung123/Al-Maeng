@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +14,7 @@ import {
   deleteCompletedBook,
   fetchCompletedBooks,
 } from "@/api/completedBooks";
+import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
 
 interface BookDetailHeroProps {
   book: BookDetail;
@@ -23,8 +23,11 @@ interface BookDetailHeroProps {
 export default function BookDetailHero({ book }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const queryClient = useQueryClient();
+
+  // 찜하기 상태 및 뮤테이션
+  const { data: isWishlisted = false } = useWishlistStatus(book.id, isLoggedIn);
+  const { addWishlist, removeWishlist } = useWishlistMutation(book.id);
 
   const { data: completedBooks = [] } = useQuery<CompletedBook[]>({
     queryKey: ["completed-books"],
@@ -72,6 +75,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
           {
             completedBookId: -book.id,
             bookId: book.id,
+            slug: book.slug,
             title: book.title,
             author: book.author,
             coverImageUrl: book.coverImageUrl ?? "",
@@ -202,7 +206,15 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
         <div className="flex gap-3">
           {/* 찜하기 (Heart) */}
           <button
-            onClick={() => requireAuth(() => setIsWishlisted((prev) => !prev))}
+            onClick={() =>
+              requireAuth(() => {
+                if (isWishlisted) {
+                  removeWishlist();
+                } else {
+                  addWishlist();
+                }
+              })
+            }
             aria-label={isWishlisted ? "찜 해제" : "찜하기"}
             className={cn(
               "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all",
