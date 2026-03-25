@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchBanners } from "@/api/banners";
-import type { Banner } from "@/types/home";
+import { fetchBanners, type BannerResponse } from "@/api/banners";
 
 interface HeroSliderProps {
   /** 배너 클릭 시 슬라이드 인덱스를 부모로 전달 (ContentCuration 동기화 용) */
@@ -14,7 +13,7 @@ interface HeroSliderProps {
 export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
-  const { data: banners = [] } = useQuery<Banner[]>({
+  const { data: banners = [], isLoading } = useQuery<BannerResponse[]>({
     queryKey: ["banners"],
     queryFn: fetchBanners,
     staleTime: 10 * 60 * 1000,
@@ -28,6 +27,15 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
     }, 3000);
     return () => clearInterval(timer);
   }, [banners.length]);
+
+  // 화면 밀림(CLS) 방지를 위한 동사이즈 스켈레톤 UI
+  if (isLoading) {
+    return (
+      <div className="w-full h-[60vh] md:h-[500px] bg-gray-900 animate-pulse flex items-center justify-center">
+        <span className="sr-only">배너 로딩 중...</span>
+      </div>
+    );
+  }
 
   if (banners.length === 0) return null;
 
@@ -45,21 +53,29 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
       >
         {banners.map((slide, index) => (
           <div
-            key={slide.id}
+            key={slide.contentId}
             className={`w-[88%] h-full shrink-0 relative text-white flex flex-col justify-end p-8 md:p-16 transition-all duration-700 ${
               currentSlide === index ? "scale-100" : "scale-[0.98]"
             }`}
           >
-            <img
-              src={`https://picsum.photos/seed/${slide.movieSeed}/1920/1080`}
-              alt={slide.movie}
-              className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 mix-blend-luminosity ${
-                currentSlide === index
-                  ? "opacity-40"
-                  : "opacity-10 brightness-[0.3]"
-              }`}
-              referrerPolicy="no-referrer"
-            />
+            {slide.bannerPosterUrl ? (
+              <img
+                src={slide.bannerPosterUrl}
+                alt={slide.title}
+                className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 mix-blend-luminosity ${
+                  currentSlide === index
+                    ? "opacity-40"
+                    : "opacity-10 brightness-[0.3]"
+                }`}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div
+                className={`absolute inset-0 w-full h-full transition-all duration-700 ${
+                  currentSlide === index ? "bg-black opacity-40" : "bg-black opacity-10"
+                }`}
+              />
+            )}
             {/* 비활성 슬라이드 어둡게 */}
             <div
               className={`absolute inset-0 bg-black/40 transition-opacity duration-700 ${
@@ -78,8 +94,8 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
                 Curation of the Day
               </p>
               <h2 className="text-4xl md:text-6xl font-black leading-[1.1] tracking-tight mb-6 break-keep">
-                <span className="italic font-serif font-light">{slide.movie}</span>를 보셨다면,
-                <br />이 책은 어떠신가요?
+                <span className="italic font-serif font-light">{slide.title}</span>,
+                <br />이 작품은 어떠신가요?
               </h2>
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest group-hover:text-[#0033FF] transition-colors">
                 Discover <ArrowRight size={16} aria-hidden="true" />
