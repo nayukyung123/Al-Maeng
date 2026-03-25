@@ -195,7 +195,7 @@ export default function Header() {
                         {/* 회원정보 수정 */}
                         <li role="none">
                           <Link
-                            href="/mypage/edit"
+                            href="/mypage?edit=true"
                             role="menuitem"
                             onClick={() => setIsDropdownOpen(false)}
                             className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors group"

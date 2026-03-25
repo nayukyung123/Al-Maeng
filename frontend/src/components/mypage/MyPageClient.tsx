@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
@@ -14,8 +14,9 @@ import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 export default function MyPageClient() {
-  const { isLoggedIn, user, logout } = useAuthStore();
+  const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [wishlistPage, setWishlistPage] = useState(1);
   const [finishedPage, setFinishedPage] = useState(1);
@@ -82,6 +83,14 @@ export default function MyPageClient() {
     setProfileImageFile(null);
   }, [myProfile]);
 
+  // URL 기반으로 수정 모달 오픈 제어: /mypage?edit=true
+  useEffect(() => {
+    const shouldOpen = searchParams.get("edit") === "true";
+    if (!shouldOpen) return;
+    if (!userData) return; // 프로필 로딩 전에는 오픈하지 않음
+    setIsEditModalOpen(true);
+  }, [searchParams, userData]);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -124,7 +133,7 @@ export default function MyPageClient() {
   }
 
   const saveProfileMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<{ nickname: string; profileImageUrl: string }> => {
       const uniqueTasteData = Array.from(new Set(editFormData.preferences));
       const birthYearNum = Number(editFormData.birthday);
 
@@ -132,6 +141,7 @@ export default function MyPageClient() {
       if (!editFormData.nickname.trim()) throw new Error("Invalid nickname");
       if (!editFormData.gender) throw new Error("Gender is required");
 
+      const finalNickname = editFormData.nickname.trim();
       let finalProfileImageUrl = editFormData.profileImage;
 
       if (profileImageFile) {
@@ -142,17 +152,23 @@ export default function MyPageClient() {
       }
 
       await updateMyProfile({
-        nickname: editFormData.nickname.trim(),
+        nickname: finalNickname,
         profileImageUrl: finalProfileImageUrl,
         birthYear: birthYearNum,
         gender: editFormData.gender as Gender,
         tasteData: uniqueTasteData,
       });
+
+      return { nickname: finalNickname, profileImageUrl: finalProfileImageUrl };
     },
-    onSuccess: () => {
+    onSuccess: ({ nickname, profileImageUrl }) => {
+      // 헤더 즉시 반영 (zustand store 갱신)
+      updateUser({ nickname, profileImageUrl });
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
       setProfileImageFile(null);
       setIsEditModalOpen(false);
+      // edit=true로 다시 열리는 현상 방지
+      router.replace("/mypage", { scroll: false });
     },
     onError: (err) => {
       console.error(err);
@@ -180,6 +196,8 @@ export default function MyPageClient() {
     setIsEditModalOpen(false);
     setProfileImageFile(null);
     if (userData) setEditFormData(userData);
+    // URL에서 edit 파라미터 제거 (뒤로가기/딥링크 상태 정리)
+    router.replace("/mypage", { scroll: false });
   };
 
   const handleDeleteAccount = async () => {
@@ -223,11 +241,7 @@ export default function MyPageClient() {
           {/* Profile Section */}
           <section className="flex flex-col md:flex-row items-center md:items-start gap-8">
             <div
-              className="relative group cursor-pointer"
-              onClick={() => {
-                if (!userData) return;
-                setIsEditModalOpen(true);
-              }}
+              className="relative"
             >
               <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-black shrink-0 bg-gray-50 flex items-center justify-center">
                 {userData?.profileImage ? (
@@ -236,19 +250,40 @@ export default function MyPageClient() {
                   <User size={48} className="text-gray-300" />
                 )}
               </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Camera size={24} className="text-white" />
-              </div>
             </div>
             <div className="flex-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-3 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <span className="bg-black text-white px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest shrink-0">LV.1 새싹독서가</span>
+                <span className="bg-black text-white px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest shrink-0">
+                  {myProfile?.tier
+                    ? (myProfile.tier.tierName ?? (myProfile.tier.id ? `LV.${myProfile.tier.id}` : "LV"))
+                    : "티어 로딩중"}
+                </span>
               </div>
               <div className="w-full max-w-sm bg-gray-100 h-2 rounded-full overflow-hidden mb-2 mx-auto md:mx-0">
-                <div className="bg-[#0033FF] h-full" style={{ width: '10%' }} />
+                {(() => {
+                  if (!myProfile?.tier) return <div className="bg-[#0033FF] h-full" style={{ width: "0%" }} />;
+
+                  const exp = myProfile.tier.exp ?? 0;
+                  const min = myProfile.tier.minExp ?? 0;
+                  const next = myProfile.tier.nextMinExp ?? null;
+                  const pct = next !== null
+                    ? Math.max(0, Math.min(100, ((exp - min) / Math.max(1, next - min)) * 100))
+                    : 100;
+                  return <div className="bg-[#0033FF] h-full" style={{ width: `${pct}%` }} />;
+                })()}
               </div>
-              <p className="text-[10px] md:text-xs text-gray-400 font-medium">다음 티어까지 5권 남았습니다.</p>
+              <p className="text-[10px] md:text-xs text-gray-400 font-medium">
+                {(() => {
+                  if (!myProfile?.tier) return "티어 정보를 불러오는 중입니다.";
+
+                  const exp = myProfile.tier.exp ?? 0;
+                  const next = myProfile.tier.nextMinExp ?? null;
+                  if (next === null) return "최고 티어입니다.";
+                  const remaining = Math.max(0, next - exp);
+                  return `다음 티어까지 ${remaining}권 남았습니다.`;
+                })()}
+              </p>
             </div>
           </section>
 

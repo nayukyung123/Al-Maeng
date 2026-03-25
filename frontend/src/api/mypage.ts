@@ -8,6 +8,14 @@ export interface UserProfileResponse {
   birthYear: number | null;
   gender: Gender;
   tasteData: number[];
+  completedCount: number;
+  tier: {
+    id: number | null;
+    tierName: string | null;
+    minExp: number;
+    nextMinExp: number | null;
+    exp: number;
+  };
 }
 
 export interface UserProfileUpdateRequest {
