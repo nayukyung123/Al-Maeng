@@ -3,7 +3,7 @@
 
 export interface Book {
   bookId: number;        // BIGINT 기반
-  slug: string;
+  slug?: string;
   title: string;         // VARCHAR
   author: string;
   coverImageUrl: string; // TEXT (DB 컬럼: cover_image_url) -> Java DTO: coverImageUrl
