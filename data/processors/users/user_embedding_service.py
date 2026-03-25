@@ -1,149 +1,285 @@
+import os
 import numpy as np
 import psycopg2
+import schedule
+import time
+import threading
+import logging
 from datetime import datetime
+from psycopg2 import pool
+from dotenv import load_dotenv
+
+# 1. 환경 변수 및 로깅 설정
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler("recommendation_engine.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class UserEmbeddingService:
     def __init__(self, db_config):
-        self.conn = psycopg2.connect(**db_config)
-        self.cur = self.conn.cursor()
+        self.db_config = db_config
+        self.dim = 1024
+        self.db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, **db_config)
         
-        # 주연님의 시뮬레이션 가중치 설정 (W_s, W_a)
-        self.source_weights = {'search': 1.5, 'curation': 0.4, 'trend': 0.7}
-        self.action_weights = {'view': 0.3, 'wish': 1.2, 'complete': 1.5, 'cancel_complete': 0.0}
+        # 가중치 설정
+        self.source_weights = {'search': 1.5, 'content': 1.2, 'curation': 1.1, 'book': 1.0, 'ranking': 0.8, 'trend': 0.7, 'none': 0.6}
+        self.action_weights = {'view': 0.3, 'wish': 1.2, 'complete': 1.5, 'wish_cancel': 0.0, 'complete_cancel': 0.0, 'cancel_complete': 0.0}
+
+    def _get_conn(self):
+        return self.db_pool.getconn()
+
+    def _put_conn(self, conn):
+        self.db_pool.putconn(conn)
 
     def _parse_vector(self, raw_val):
-        """pgvector 문자열 또는 리스트를 numpy float 배열로 변환"""
-        if raw_val is None:
-            return np.zeros(1536)
+        if raw_val is None: return np.zeros(self.dim)
         if isinstance(raw_val, str):
-            clean_val = raw_val.strip('[]').split(',')
-            return np.array(clean_val, dtype=float)
+            return np.array(raw_val.strip('[]').split(','), dtype=float)
         return np.array(raw_val, dtype=float)
 
-    def get_genre_vector(self, user_id):
-        """Case 1: 선호 장르 기반 평균 벡터 계산"""
+    def get_genre_vector(self, user_id, cur):
         query = """
-            SELECT b.embedding_vector
-            FROM users_genres ug
-            JOIN book_genres bg ON ug.genre_id = bg.genre_id
+            WITH RECURSIVE genre_tree AS (
+                SELECT id FROM genres WHERE id IN (SELECT genre_id FROM users_genres WHERE user_id = %s)
+                UNION ALL
+                SELECT g.id FROM genres g JOIN genre_tree gt ON g.parent_id = gt.id
+            )
+            SELECT b.embedding_vector FROM genre_tree gt
+            JOIN book_genres bg ON gt.id = bg.genre_id
             JOIN books b ON bg.book_id = b.id
-            WHERE ug.user_id = %s
         """
-        self.cur.execute(query, (user_id,))
-        embeddings = self.cur.fetchall()
-        
-        if not embeddings:
-            return np.zeros(1536)
-        
+        cur.execute(query, (user_id,))
+        embeddings = cur.fetchall()
+        if not embeddings: return np.zeros(self.dim)
         vec_list = [self._parse_vector(e[0]) for e in embeddings]
         avg_vec = np.mean(vec_list, axis=0)
-        
         norm = np.linalg.norm(avg_vec)
         return avg_vec / norm if norm > 0 else avg_vec
 
-    def get_action_vector(self, user_id):
-        """Case 2, 3, 4: 활동 로그 기반 가중치 및 지수 감쇠 적용"""
-        # Case 4: 완독 취소된 도서 ID 목록 확보 (제외용)
-        self.cur.execute("SELECT book_id FROM click_log WHERE user_id = %s AND action = 'cancel_complete'", (user_id,))
-        cancelled_books = {r[0] for r in self.cur.fetchall()}
-
+    def get_action_vector(self, user_id, cur):
         query = """
-            SELECT l.book_id, l.source, l.action, l.created_at, b.embedding_vector
-            FROM click_log l
-            JOIN books b ON l.book_id = b.id
-            WHERE l.user_id = %s AND l.action != 'cancel_complete'
+            SELECT b.id, b.embedding_vector, l.source, l.action, l.created_at
+            FROM click_log l JOIN books b ON l.book_id = b.id
+            WHERE l.user_id = %s
+            ORDER BY l.book_id, l.created_at DESC
         """
-        self.cur.execute(query, (user_id,))
-        logs = self.cur.fetchall()
+        cur.execute(query, (user_id,))
+        logs = cur.fetchall()
+        if not logs: return np.zeros(self.dim)
         
-        if not logs:
-            return np.zeros(1536)
-
-        total_vec = np.zeros(1536)
+        book_scores = {}
+        book_vectors = {}
         now = datetime.now()
 
-        for bid, src, act, dt, emb in logs:
-            if bid in cancelled_books: continue # 완독 취소 건 제외
-            
-            # 지수 감쇠 계산 (7일 주기)
+        for b_id, emb, src, act, dt in logs:
+            if b_id not in book_scores:
+                if act in ['wish_cancel', 'complete_cancel', 'cancel_complete']:
+                    book_scores[b_id] = 0.0
+                    book_vectors[b_id] = self._parse_vector(emb)
+                    continue 
+
             days_diff = (now - dt).days
             decay = 0.5 ** (max(0, days_diff) / 7)
+            current_score = (self.source_weights.get(src, 1.0) * self.action_weights.get(act, 1.0)) * decay
             
-            # (유입 가중치 * 행동 가중치) * 시간 감쇠
-            score = (self.source_weights.get(src, 1.0) * self.action_weights.get(act, 1.0)) * decay
-            total_vec += self._parse_vector(emb) * score
-
+            if b_id not in book_scores:
+                book_scores[b_id] = current_score
+                book_vectors[b_id] = self._parse_vector(emb)
+            else:
+                if book_scores[b_id] > 0:
+                    book_scores[b_id] = max(book_scores[b_id], current_score)
+            
+        total_vec = np.zeros(self.dim)
+        for b_id, score in book_scores.items():
+            if score > 0:
+                total_vec += book_vectors[b_id] * score
+                
         norm = np.linalg.norm(total_vec)
         return total_vec / norm if norm > 0 else total_vec
 
-    def get_final_user_vector(self, user_id, n_logs):
-        """최종 비중 적용 (N에 따른 단계별 로직)"""
-        v_genre = self.get_genre_vector(user_id)
-        v_action = self.get_action_vector(user_id)
-        
-        # 주연님의 시뮬레이션 비중 적용
-        if n_logs == 0:    w_g, w_a = 0.5, 0.0 # Case 1
-        elif n_logs <= 3:  w_g, w_a = 0.5, 0.2 # Case 2
-        else:              w_g, w_a = 0.3, 0.7 # Case 3, 4
-            
-        final_v = (v_genre * w_g) + (v_action * w_a)
-        norm = np.linalg.norm(final_v)
-        return final_v / norm if norm > 0 else final_v
+    def run_recommendation(self, user_id):
+        conn = self._get_conn()
+        cur = conn.cursor()
+        try:
+            # 📍 [추가] 기존 추천 풀 삭제 (갱신을 위해 비우기)
+            cur.execute("DELETE FROM user_recommendation_pool WHERE user_id = %s", (user_id,))
 
-    def close(self):
-        self.cur.close()
-        self.conn.close()
+            # 1. 유효 로그 카운트
+            cur.execute("""
+                SELECT count(DISTINCT book_id) FROM click_log 
+                WHERE user_id = %s 
+                  AND book_id NOT IN (
+                      SELECT book_id FROM click_log 
+                      WHERE user_id = %s AND action IN ('wish_cancel', 'complete_cancel', 'cancel_complete')
+                  )
+            """, (user_id, user_id))
+            n_logs = cur.fetchone()[0]
+
+            # 2. 단계 판별 및 벡터 계산
+            v_genre = self.get_genre_vector(user_id, cur)
+            v_action = self.get_action_vector(user_id, cur)
+            
+            if n_logs == 0:    w_g, w_a = 0.5, 0.0
+            elif n_logs <= 4:  w_g, w_a = 0.5, 0.2
+            else:              w_g, w_a = 0.3, 0.7
+                
+            final_v = (v_genre * w_g) + (v_action * w_a)
+            norm = np.linalg.norm(final_v)
+            final_v = final_v / norm if norm > 0 else final_v
+            final_v_list = final_v.tolist()
+
+            # 유저 임베딩 업데이트
+            cur.execute("UPDATE users SET embedding_vector = %s::vector WHERE id = %s", (final_v_list, user_id))
+
+            # 3. 추천 풀 생성 로직
+            if n_logs == 0:
+                cur.execute("SELECT genre_id FROM users_genres WHERE user_id = %s", (user_id,))
+                user_genres = [g[0] for g in cur.fetchall()]
+                
+                if user_genres:
+                    limit_per_genre = 25 // len(user_genres)
+                    extra = 25 % len(user_genres)
+                    for i, g_id in enumerate(user_genres):
+                        current_limit = limit_per_genre + (extra if i == 0 else 0)
+                        cur.execute(f"""
+                            WITH RECURSIVE sub_genres AS (
+                                SELECT id FROM genres WHERE id = %s
+                                UNION ALL
+                                SELECT g.id FROM genres g JOIN sub_genres sg ON g.parent_id = sg.id
+                            )
+                            INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
+                            SELECT %s, b.id, (1 - (b.embedding_vector <=> %s::vector)), 'VECTOR'
+                            FROM books b JOIN book_genres bg ON b.id = bg.book_id
+                            WHERE bg.genre_id IN (SELECT id FROM sub_genres)
+                              AND b.id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
+                            ORDER BY b.embedding_vector <=> %s::vector LIMIT %s
+                        """, (g_id, user_id, final_v_list, user_id, final_v_list, current_limit))
+                
+                cur.execute("SELECT count(*) FROM user_recommendation_pool WHERE user_id = %s", (user_id,))
+                vec_filled = cur.fetchone()[0]
+                counts = [('VECTOR', max(0, 25 - vec_filled)), ('RANDOM', 25)]
+            
+            elif n_logs <= 4:
+                counts = [('VECTOR', 35), ('RANDOM', 15)]
+            else:
+                counts = [('VECTOR', 50)]
+
+            # 공통 적재 루프
+            for r_type, limit in counts:
+                if limit <= 0: continue
+                if r_type == 'VECTOR':
+                    cur.execute(f"""
+                        INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
+                        SELECT %s, id, (1 - (embedding_vector <=> %s::vector)), 'VECTOR'
+                        FROM books 
+                        WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
+                          AND id NOT IN (SELECT book_id FROM click_log WHERE user_id = %s AND action = 'complete')
+                        ORDER BY embedding_vector <=> %s::vector LIMIT %s
+                    """, (user_id, final_v_list, user_id, user_id, final_v_list, limit))
+                elif r_type == 'RANDOM':
+                    cur.execute("""
+                        INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
+                        SELECT %s, id, 0.0, 'RANDOM' FROM books
+                        WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
+                          AND id NOT IN (SELECT book_id FROM click_log WHERE user_id = %s AND action = 'complete')
+                        ORDER BY RANDOM() LIMIT %s
+                    """, (user_id, user_id, user_id, limit))
+            
+            conn.commit()
+            logger.info(f"User {user_id} updated successfully.")
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Error updating user {user_id}: {e}")
+        finally:
+            cur.close()
+            self._put_conn(conn)
+
+    def run_all_users_batch(self):
+        logger.info("Daily batch process started.")
+        conn = self._get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM users")
+        user_ids = [r[0] for r in cur.fetchall()]
+        cur.close()
+        self._put_conn(conn)
+
+        for idx, uid in enumerate(user_ids):
+            self.run_recommendation(uid)
+            if idx % 10 == 0:
+                time.sleep(0.5) 
+        
+        logger.info(f"Daily batch completed. Total users: {len(user_ids)}")
+
+# --- 스케줄러 관리 ---
+class RecommendationManager:
+    def __init__(self, service):
+        self.service = service
+
+    def check_new_users_and_run(self):
+        """📍 [추가] 10초마다 신규 유저(추천 풀 없는 유저)를 감지하여 생성"""
+        conn = self.service._get_conn()
+        cur = conn.cursor()
+        try:
+            # 추천 풀이 아예 없는 유저 5명씩 선별 (과부하 방지)
+            cur.execute("""
+                SELECT u.id FROM users u
+                LEFT JOIN user_recommendation_pool p ON u.id = p.user_id
+                WHERE p.user_id IS NULL
+                LIMIT 5
+            """)
+            new_users = [r[0] for r in cur.fetchall()]
+            
+            if new_users:
+                logger.info(f"New users detected: {new_users}. Generating recommendations...")
+                for uid in new_users:
+                    self.service.run_recommendation(uid)
+        finally:
+            cur.close()
+            self.service._put_conn(conn)
+
+    def start_batch_scheduler(self):
+        # 1. 0시 전체 업데이트
+        schedule.every().day.at("00:00").do(self.service.run_all_users_batch)
+        
+        # 2. 📍 [추가] 10초마다 신규 유저 체크
+        schedule.every(10).seconds.do(self.check_new_users_and_run)
+        
+        def run_loop():
+            while True:
+                try:
+                    schedule.run_pending()
+                except Exception as e:
+                    logger.error(f"Scheduler loop error: {e}")
+                time.sleep(1) # 주기적 체크를 위해 1초 대기
+        
+        threading.Thread(target=run_loop, daemon=True).start()
+        logger.info("Background scheduler (Daily Batch & 10s New User Check) is running.")
 
 if __name__ == "__main__":
-    conf = { "host": "localhost", "port": 5433, "user": "almaeng", "password": "almaeng", "database": "almaeng" }
-    service = UserEmbeddingService(conf)
+    db_conf = {
+        "host": os.getenv("DB_HOST"),
+        "port": os.getenv("DB_PORT", "5432"),
+        "user": os.getenv("DB_USERNAME"),
+        "password": os.getenv("DB_PASSWORD"),
+        "database": os.getenv("DB_NAME")
+    }
+
+    service = UserEmbeddingService(db_conf)
+    manager = RecommendationManager(service)
+
+    manager.start_batch_scheduler()
     
-    try:
-        user_id = 1
-        final_v = service.get_final_user_vector(user_id, n_logs=0) # N=0 (Cold Start)
-        final_v_list = final_v.tolist()
-
-        # 기존 데이터 삭제
-        service.cur.execute("DELETE FROM user_recommendation_pool WHERE user_id = %s", (user_id,))
-
-        # 1. 벡터 유사도 기반 추천 (2권)
-        vector_query = """
-            INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
-            SELECT %s, id, (1 - (embedding_vector <=> %s::vector)), 'VECTOR'
-            FROM books
-            ORDER BY embedding_vector <=> %s::vector
-            LIMIT 2;
-        """
-        service.cur.execute(vector_query, (user_id, final_v_list, final_v_list))
-
-        # 2. 무작위 추천 (2권)
-        random_query = """
-            INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
-            SELECT %s, id, 0.0, 'RANDOM'
-            FROM books
-            WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
-            ORDER BY RANDOM()
-            LIMIT 2;
-        """
-        service.cur.execute(random_query, (user_id, user_id))
-        
-        service.conn.commit()
-        print("\n✅ [Case 1] 장르 기반(VECTOR) + 무작위(RANDOM) 믹스 완료!")
-
-        # 3. 결과 확인 (DB에서 방금 넣은 데이터 다시 읽어오기)
-        service.cur.execute("""
-            SELECT book_id, score, reason_type 
-            FROM user_recommendation_pool 
-            WHERE user_id = %s 
-            ORDER BY reason_type DESC, score DESC
-        """, (user_id,))
-        results = service.cur.fetchall() # 여기서 results를 정의해줍니다!
-
-        for bid, score, reason in results:
-            print(f"[{reason}] 도서 ID: {bid} | 점수: {score:.4f}")
-
-    except Exception as e:
-        print(f"❌ 오류 발생: {e}")
-        service.conn.rollback()
-    finally:
-        service.close()
+    # 프로세스 유지
+    while True:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Service stopping...")
+            break
