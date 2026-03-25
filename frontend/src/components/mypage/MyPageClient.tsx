@@ -41,7 +41,10 @@ export default function MyPageClient() {
     queryKey: ["my-profile"],
     queryFn: fetchMyProfile,
     enabled: isLoggedIn,
-    staleTime: 10 * 60 * 1000,
+    // 완독 권수/티어는 자주 바뀔 수 있어 캐시로 고정되면 UX가 나빠짐
+    // (특히 백엔드 수정 직후엔 기존 캐시가 남아있을 수 있음)
+    staleTime: 0,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
   });
 
@@ -225,6 +228,12 @@ export default function MyPageClient() {
     finishedPage * itemsPerPage
   );
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
+    queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+  }, [isLoggedIn, finishedBooks.length, queryClient]);
+
   return (
     <div className="pt-8 pb-32 px-6 md:px-12 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-16 items-start mb-24">
@@ -243,8 +252,8 @@ export default function MyPageClient() {
                 )}
               </div>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row items-center gap-4 mb-3 justify-center md:justify-start">
+            <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
+              <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
                 <MyPageTierSection part="badge" tier={myProfile?.tier} />
               </div>

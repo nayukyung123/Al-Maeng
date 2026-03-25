@@ -177,7 +177,7 @@ export default function Header() {
                             onClick={() => setIsDropdownOpen(false)}
                             className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors group"
                           >
-                            <Settings
+                            <User
                               size={16}
                               aria-hidden="true"
                               className="text-gray-400 group-hover:text-[#0033FF]"
@@ -200,7 +200,7 @@ export default function Header() {
                             onClick={() => setIsDropdownOpen(false)}
                             className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors group"
                           >
-                            <User
+                            <Settings
                               size={16}
                               aria-hidden="true"
                               className="text-gray-400 group-hover:text-[#0033FF]"
