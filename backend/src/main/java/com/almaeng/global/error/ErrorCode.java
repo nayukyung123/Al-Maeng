@@ -41,9 +41,15 @@ public enum ErrorCode {
     NOT_REVIEW_OWNER(HttpStatus.FORBIDDEN, "R004", "해당 리뷰에 대한 권한이 없습니다."),
 
     // [티어]
-    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 티어 정보를 찾을 수 없습니다.");
+    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "해당 티어 정보를 찾을 수 없습니다."),
+
+    // [찜 목록]
+    ALREADY_WISHED_BOOK(HttpStatus.BAD_REQUEST, "W001", "이미 찜한 도서입니다."),
+    WISHLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "W002", "찜 목록에 존재하지 않는 도서입니다.");
 
     private final HttpStatus status;
     private final String code;
     private final String message;
+
+
 }

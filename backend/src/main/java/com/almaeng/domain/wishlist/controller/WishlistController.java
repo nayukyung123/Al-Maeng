@@ -1,8 +1,10 @@
 package com.almaeng.domain.wishlist.controller;
 
+import com.almaeng.domain.wishlist.dto.WishlistAddRequest;
 import com.almaeng.domain.wishlist.dto.WishlistResponse;
 import com.almaeng.domain.wishlist.service.WishlistService;
 import com.almaeng.global.common.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,5 +26,23 @@ public class WishlistController {
         PageRequest pageRequest = PageRequest.of(page, size);
         WishlistResponse.PageData result = wishlistService.getMyWishlists(userId, pageRequest);
         return ApiResponse.success(result);
+    }
+
+    @PostMapping
+    public ApiResponse<Void> addWishlist(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody WishlistAddRequest request
+    ) {
+        wishlistService.addWishlist(userId, request);
+        return ApiResponse.success();
+    }
+
+    @DeleteMapping("/{bookId}")
+    public ApiResponse<Void> deleteWishlist(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookId
+    ) {
+        wishlistService.deleteWishlist(userId, bookId);
+        return ApiResponse.success();
     }
 }

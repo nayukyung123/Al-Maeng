@@ -7,6 +7,7 @@ import com.almaeng.domain.content.repository.ContentRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,11 @@ public class ContentSearchService {
             return List.of();
         }
 
-        List<Content> contents = contentRepository.findTop5ByTitleContaining(keyword);
+        // 검색어 전처리
+        String processedKeyword = keyword.replaceAll("\\s+", "").toLowerCase();
+        
+        // 자동완성 5개 제한
+        List<Content> contents = contentRepository.findSuggestionsByKeyword(processedKeyword, PageRequest.of(0, 5));
 
         return contents.stream()
                 .map(ContentSuggestionResponse::from)
@@ -34,14 +39,18 @@ public class ContentSearchService {
     }
 
     // 영상 검색 결과
-    public Slice<ContentResponse> searchContents(String keyword, Pageable pageable) {
-        String trimmedKeyword = (keyword != null) ? keyword.trim() : "";
-
-        if (trimmedKeyword.isEmpty()) {
+    public Slice<ContentResponse> searchContents(String keyword, String sortType, Pageable pageable) {
+        if (keyword == null || keyword.trim().isEmpty()) {
             return Page.empty();
         }
 
-        return contentRepository.findByTitleContaining(trimmedKeyword, pageable)
+        // 검색어 전처리
+        String processedKeyword = keyword.replaceAll("\\s+", "").toLowerCase();
+
+        // 정렬 충돌방지
+        Pageable cleanPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        return contentRepository.searchContentsByKeyword(processedKeyword, sortType, cleanPageable)
                 .map(ContentResponse::from);
     }
 }
