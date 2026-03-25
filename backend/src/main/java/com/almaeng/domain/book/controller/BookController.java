@@ -1,5 +1,6 @@
 package com.almaeng.domain.book.controller;
 
+import com.almaeng.domain.book.dto.BookDetailResponse;
 import com.almaeng.domain.book.dto.BookResponse;
 import com.almaeng.domain.book.service.BookRankingService;
 import com.almaeng.domain.book.service.BookService;
@@ -32,5 +33,10 @@ public class BookController {
     @GetMapping("/{slug}/recommendations")
     public ResponseEntity<ApiResponse<List<BookResponse>>> getSimilarBooks(@PathVariable String slug) {
         return ResponseEntity.ok(ApiResponse.success(bookService.getSimilarBooks(slug)));
+    }
+
+    @GetMapping("/{slug}")
+    public ResponseEntity<ApiResponse<BookDetailResponse>> getBookDetail(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(bookService.getBookDetail(slug)));
     }
 }
