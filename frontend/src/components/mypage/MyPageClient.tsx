@@ -1,18 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
-import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, ArrowLeft } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, updateMyProfile } from "@/api/mypage";
-import { fetchTopLevelGenres } from "@/api/genres";
+import { fetchGenres } from "@/api/genres";
 import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
+import MyPageTierSection from "@/components/mypage/MyPageTierSection";
+import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const router = useRouter();
@@ -44,16 +46,22 @@ export default function MyPageClient() {
   });
 
   const {
-    data: mainGenres = [],
+    data: genres = [],
     isLoading: isGenresLoading,
     isError: isGenresError,
   } = useQuery({
-    queryKey: ["genres-top-level"],
-    queryFn: fetchTopLevelGenres,
+    queryKey: ["genres"],
+    queryFn: fetchGenres,
     enabled: isLoggedIn,
     staleTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
   });
+
+  const mainGenres = React.useMemo(() => genres.filter((g) => g.parentId === null), [genres]);
+  const novelSubGenres = React.useMemo(
+    () => genres.filter((g) => g.parentId === 27594),
+    [genres]
+  );
 
   const [editFormData, setEditFormData] = useState<UserData>({
     nickname: '',
@@ -64,8 +72,6 @@ export default function MyPageClient() {
   });
 
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!myProfile) return;
@@ -90,20 +96,6 @@ export default function MyPageClient() {
     if (!userData) return; // 프로필 로딩 전에는 오픈하지 않음
     setIsEditModalOpen(true);
   }, [searchParams, userData]);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setProfileImageFile(file);
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      // UI 프리뷰용 base64 URL (업로드 후 실제 URL은 save 시점에 교체)
-      setEditFormData((prev) => ({ ...prev, profileImage: reader.result as string }));
-    };
-    reader.readAsDataURL(file);
-  };
 
   const togglePreference = (genreId: number) => {
     setEditFormData((prev) => ({
@@ -254,36 +246,10 @@ export default function MyPageClient() {
             <div className="flex-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-3 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <span className="bg-black text-white px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest shrink-0">
-                  {myProfile?.tier
-                    ? (myProfile.tier.tierName ?? (myProfile.tier.id ? `LV.${myProfile.tier.id}` : "LV"))
-                    : "티어 로딩중"}
-                </span>
+                <MyPageTierSection part="badge" tier={myProfile?.tier} />
               </div>
-              <div className="w-full max-w-sm bg-gray-100 h-2 rounded-full overflow-hidden mb-2 mx-auto md:mx-0">
-                {(() => {
-                  if (!myProfile?.tier) return <div className="bg-[#0033FF] h-full" style={{ width: "0%" }} />;
-
-                  const exp = myProfile.tier.exp ?? 0;
-                  const min = myProfile.tier.minExp ?? 0;
-                  const next = myProfile.tier.nextMinExp ?? null;
-                  const pct = next !== null
-                    ? Math.max(0, Math.min(100, ((exp - min) / Math.max(1, next - min)) * 100))
-                    : 100;
-                  return <div className="bg-[#0033FF] h-full" style={{ width: `${pct}%` }} />;
-                })()}
-              </div>
-              <p className="text-[10px] md:text-xs text-gray-400 font-medium">
-                {(() => {
-                  if (!myProfile?.tier) return "티어 정보를 불러오는 중입니다.";
-
-                  const exp = myProfile.tier.exp ?? 0;
-                  const next = myProfile.tier.nextMinExp ?? null;
-                  if (next === null) return "최고 티어입니다.";
-                  const remaining = Math.max(0, next - exp);
-                  return `다음 티어까지 ${remaining}권 남았습니다.`;
-                })()}
-              </p>
+              <MyPageTierSection part="progress" tier={myProfile?.tier} />
+              <MyPageTierSection part="message" tier={myProfile?.tier} />
             </div>
           </section>
 
@@ -444,140 +410,23 @@ export default function MyPageClient() {
       </section>
 
       {/* Edit Profile Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleCancelEdit} />
-          <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-black uppercase tracking-tight">Edit Profile</h3>
-              <button onClick={handleCancelEdit} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-8 overflow-y-auto space-y-8">
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative group">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-black bg-gray-50 flex items-center justify-center">
-                    {editFormData.profileImage ? (
-                      <img src={editFormData.profileImage} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <User size={40} className="text-gray-300" />
-                    )}
-                  </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 p-2 bg-black text-white rounded-full shadow-lg hover:bg-[#4D41FF] transition-colors"
-                  >
-                    <Camera size={14} />
-                  </button>
-                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">닉네임</label>
-                  <input
-                    type="text"
-                    value={editFormData.nickname}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, nickname: e.target.value }))}
-                    className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all"
-                    placeholder="닉네임을 입력하세요"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">성별</label>
-                    <select
-                      value={editFormData.gender}
-                      onChange={(e) => setEditFormData((prev) => ({ ...prev, gender: e.target.value as Gender }))}
-                      className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all appearance-none"
-                    >
-                      <option value="">선택 안함</option>
-                      <option value="MALE">남성</option>
-                      <option value="FEMALE">여성</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">생일</label>
-                    <select
-                      value={editFormData.birthday}
-                      onChange={(e) => setEditFormData((prev) => ({ ...prev, birthday: e.target.value }))}
-                      className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all appearance-none"
-                    >
-                      <option value="">출생년도 선택</option>
-                      {Array.from({ length: 201 }, (_, idx) => 2100 - idx).map((year) => (
-                        <option key={year} value={String(year)}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">선호 장르 (다중 선택)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {isGenresLoading ? (
-                      <div className="text-[11px] text-gray-400 font-bold">장르 로딩 중...</div>
-                    ) : isGenresError ? (
-                      <div className="text-[11px] text-red-500 font-bold">장르 정보를 불러오지 못했습니다.</div>
-                    ) : (
-                      mainGenres.map((genre) => (
-                        <button
-                          key={genre.id}
-                          onClick={() => togglePreference(genre.id)}
-                          className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                            editFormData.preferences.includes(genre.id)
-                              ? "bg-black text-white"
-                              : "bg-gray-100 text-gray-400 hover:bg-gray-200"
-                          }`}
-                        >
-                          {genre.genreName}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={handleCancelEdit}
-                disabled={saveProfileMutation.isPending || deleteAccountMutation.isPending}
-                className="flex-1 py-4 bg-gray-100 text-gray-500 font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                취소
-              </button>
-              <button
-                onClick={saveProfile}
-                disabled={
-                  saveProfileMutation.isPending ||
-                  !editFormData.nickname.trim() ||
-                  !editFormData.birthday ||
-                  !editFormData.gender
-                }
-                className="flex-1 py-4 bg-black text-white font-black uppercase tracking-widest rounded-xl hover:bg-[#4D41FF] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {saveProfileMutation.isPending ? "저장 중..." : "저장하기"}
-              </button>
-            </div>
-
-            <div className="px-6 pb-6">
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleteAccountMutation.isPending}
-                className="w-full py-4 bg-red-600 text-white font-black uppercase tracking-widest rounded-xl hover:bg-red-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                {deleteAccountMutation.isPending ? "탈퇴 중..." : "회원 탈퇴"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MyPageEditModal
+        isOpen={isEditModalOpen}
+        onClose={handleCancelEdit}
+        onSave={saveProfile}
+        onDeleteAccount={handleDeleteAccount}
+        isSavePending={saveProfileMutation.isPending}
+        isDeletePending={deleteAccountMutation.isPending}
+        editFormData={editFormData}
+        setEditFormData={setEditFormData}
+        profileImageFile={profileImageFile}
+        setProfileImageFile={setProfileImageFile}
+        togglePreference={togglePreference}
+        isGenresLoading={isGenresLoading}
+        isGenresError={isGenresError}
+        mainGenres={mainGenres}
+        novelSubGenres={novelSubGenres}
+      />
     </div>
   );
 }
