@@ -28,7 +28,6 @@ class UserEmbeddingService:
         self.dim = 1024
         self.db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, **db_config)
         
-        # 가중치 설정
         self.source_weights = {'search': 1.5, 'content': 1.2, 'curation': 1.1, 'book': 1.0, 'ranking': 0.8, 'trend': 0.7, 'none': 0.6}
         self.action_weights = {'view': 0.3, 'wish': 1.2, 'complete': 1.5, 'wish_cancel': 0.0, 'complete_cancel': 0.0, 'cancel_complete': 0.0}
 
@@ -108,10 +107,8 @@ class UserEmbeddingService:
         conn = self._get_conn()
         cur = conn.cursor()
         try:
-            # 📍 [추가] 기존 추천 풀 삭제 (갱신을 위해 비우기)
             cur.execute("DELETE FROM user_recommendation_pool WHERE user_id = %s", (user_id,))
 
-            # 1. 유효 로그 카운트
             cur.execute("""
                 SELECT count(DISTINCT book_id) FROM click_log 
                 WHERE user_id = %s 
@@ -122,7 +119,6 @@ class UserEmbeddingService:
             """, (user_id, user_id))
             n_logs = cur.fetchone()[0]
 
-            # 2. 단계 판별 및 벡터 계산
             v_genre = self.get_genre_vector(user_id, cur)
             v_action = self.get_action_vector(user_id, cur)
             
@@ -135,10 +131,8 @@ class UserEmbeddingService:
             final_v = final_v / norm if norm > 0 else final_v
             final_v_list = final_v.tolist()
 
-            # 유저 임베딩 업데이트
             cur.execute("UPDATE users SET embedding_vector = %s::vector WHERE id = %s", (final_v_list, user_id))
 
-            # 3. 추천 풀 생성 로직
             if n_logs == 0:
                 cur.execute("SELECT genre_id FROM users_genres WHERE user_id = %s", (user_id,))
                 user_genres = [g[0] for g in cur.fetchall()]
@@ -148,6 +142,7 @@ class UserEmbeddingService:
                     extra = 25 % len(user_genres)
                     for i, g_id in enumerate(user_genres):
                         current_limit = limit_per_genre + (extra if i == 0 else 0)
+                        # 중복 제거(DISTINCT) 후 밖에서 정렬(ORDER BY)
                         cur.execute(f"""
                             WITH RECURSIVE sub_genres AS (
                                 SELECT id FROM genres WHERE id = %s
@@ -155,11 +150,14 @@ class UserEmbeddingService:
                                 SELECT g.id FROM genres g JOIN sub_genres sg ON g.parent_id = sg.id
                             )
                             INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
-                            SELECT %s, b.id, (1 - (b.embedding_vector <=> %s::vector)), 'VECTOR'
-                            FROM books b JOIN book_genres bg ON b.id = bg.book_id
-                            WHERE bg.genre_id IN (SELECT id FROM sub_genres)
-                              AND b.id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
-                            ORDER BY b.embedding_vector <=> %s::vector LIMIT %s
+                            SELECT %s, sub.id, (1 - (sub.embedding_vector <=> %s::vector)), 'VECTOR'
+                            FROM (
+                                SELECT DISTINCT b.id, b.embedding_vector
+                                FROM books b JOIN book_genres bg ON b.id = bg.book_id
+                                WHERE bg.genre_id IN (SELECT id FROM sub_genres)
+                                  AND b.id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
+                            ) sub
+                            ORDER BY sub.embedding_vector <=> %s::vector LIMIT %s
                         """, (g_id, user_id, final_v_list, user_id, final_v_list, current_limit))
                 
                 cur.execute("SELECT count(*) FROM user_recommendation_pool WHERE user_id = %s", (user_id,))
@@ -171,24 +169,29 @@ class UserEmbeddingService:
             else:
                 counts = [('VECTOR', 50)]
 
-            # 공통 적재 루프
             for r_type, limit in counts:
                 if limit <= 0: continue
                 if r_type == 'VECTOR':
                     cur.execute(f"""
                         INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
-                        SELECT %s, id, (1 - (embedding_vector <=> %s::vector)), 'VECTOR'
-                        FROM books 
-                        WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
-                          AND id NOT IN (SELECT book_id FROM click_log WHERE user_id = %s AND action = 'complete')
-                        ORDER BY embedding_vector <=> %s::vector LIMIT %s
+                        SELECT %s, sub.id, (1 - (sub.embedding_vector <=> %s::vector)), 'VECTOR'
+                        FROM (
+                            SELECT DISTINCT id, embedding_vector FROM books
+                            WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
+                              AND id NOT IN (SELECT book_id FROM click_log WHERE user_id = %s AND action = 'complete')
+                        ) sub
+                        ORDER BY sub.embedding_vector <=> %s::vector LIMIT %s
                     """, (user_id, final_v_list, user_id, user_id, final_v_list, limit))
                 elif r_type == 'RANDOM':
+                    # RANDOM() 오류 해결 핵심: DISTINCT 결과를 서브쿼리로 감싸고 밖에서 정렬
                     cur.execute("""
                         INSERT INTO user_recommendation_pool (user_id, book_id, score, reason_type)
-                        SELECT %s, id, 0.0, 'RANDOM' FROM books
-                        WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
-                          AND id NOT IN (SELECT book_id FROM click_log WHERE user_id = %s AND action = 'complete')
+                        SELECT %s, sub.id, 0.0, 'RANDOM'
+                        FROM (
+                            SELECT DISTINCT id FROM books
+                            WHERE id NOT IN (SELECT book_id FROM user_recommendation_pool WHERE user_id = %s)
+                              AND id NOT IN (SELECT book_id FROM click_log WHERE user_id = %s AND action = 'complete')
+                        ) sub
                         ORDER BY RANDOM() LIMIT %s
                     """, (user_id, user_id, user_id, limit))
             
@@ -217,17 +220,14 @@ class UserEmbeddingService:
         
         logger.info(f"Daily batch completed. Total users: {len(user_ids)}")
 
-# --- 스케줄러 관리 ---
 class RecommendationManager:
     def __init__(self, service):
         self.service = service
 
     def check_new_users_and_run(self):
-        """📍 [추가] 10초마다 신규 유저(추천 풀 없는 유저)를 감지하여 생성"""
         conn = self.service._get_conn()
         cur = conn.cursor()
         try:
-            # 추천 풀이 아예 없는 유저 5명씩 선별 (과부하 방지)
             cur.execute("""
                 SELECT u.id FROM users u
                 LEFT JOIN user_recommendation_pool p ON u.id = p.user_id
@@ -245,10 +245,7 @@ class RecommendationManager:
             self.service._put_conn(conn)
 
     def start_batch_scheduler(self):
-        # 1. 0시 전체 업데이트
         schedule.every().day.at("00:00").do(self.service.run_all_users_batch)
-        
-        # 2. 📍 [추가] 10초마다 신규 유저 체크
         schedule.every(10).seconds.do(self.check_new_users_and_run)
         
         def run_loop():
@@ -257,10 +254,10 @@ class RecommendationManager:
                     schedule.run_pending()
                 except Exception as e:
                     logger.error(f"Scheduler loop error: {e}")
-                time.sleep(1) # 주기적 체크를 위해 1초 대기
+                time.sleep(1)
         
         threading.Thread(target=run_loop, daemon=True).start()
-        logger.info("Background scheduler (Daily Batch & 10s New User Check) is running.")
+        logger.info("Background scheduler is running.")
 
 if __name__ == "__main__":
     db_conf = {
@@ -276,7 +273,6 @@ if __name__ == "__main__":
 
     manager.start_batch_scheduler()
     
-    # 프로세스 유지
     while True:
         try:
             time.sleep(1)
