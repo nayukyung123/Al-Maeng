@@ -9,10 +9,16 @@ export interface Book {
   dateRead?: string;     // 프론트 목업용 추가 데이터
 }
 
+export type Gender = "MALE" | "FEMALE";
+
 export interface UserData {
   nickname: string;
-  gender: string;
-  preferences: string[];
+  gender: Gender | "";
+  preferences: number[];
+  /**
+   * 백엔드 요청/응답의 birthYear(Integer) 값.
+   * UI에서는 문자열로 관리해서 input/select에 바로 바인딩합니다.
+   */
   birthday: string;
   profileImage: string;
 }
