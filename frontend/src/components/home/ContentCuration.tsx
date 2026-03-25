@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchContentRecommendations } from "@/api/recommendations";
-import type { Banner, CurationBook } from "@/types/home";
+import type { ContentRecommendationItem } from "@/types/home";
 
 interface ContentCurationProps {
   /** HomeClient가 관리 — 배너 클릭과 동기화 */
@@ -18,8 +18,7 @@ export default function ContentCuration({
 }: ContentCurationProps) {
   const router = useRouter();
 
-  // 🟡 Mock API — GET /api/recommendations/contents
-  const { data: curations = [] } = useQuery<Banner[]>({
+  const { data: curations = [] } = useQuery<ContentRecommendationItem[]>({
     queryKey: ["contentRecommendations"],
     queryFn: fetchContentRecommendations,
     staleTime: 10 * 60 * 1000,
@@ -36,9 +35,13 @@ export default function ContentCuration({
   const nextCuration = () =>
     onCurationChange((curationIndex + 1) % curations.length);
 
-  const handleBookClick = (book: CurationBook) => {
-    router.push(`/books/${book.slug}`);
+  const handleBookClick = (slug: string) => {
+    router.push(`/books/${slug}`);
   };
+
+  // 콘텐츠 타입 한글 레이블
+  const typeLabel =
+    current.content.type === "TV" ? "TV 시리즈" : "영화";
 
   return (
     <section id="section3" className="pt-12 border-t border-black">
@@ -46,7 +49,7 @@ export default function ContentCuration({
         Extended Universe
       </h2>
       <div className="flex flex-col md:flex-row gap-12 md:gap-24">
-        {/* 영화 포스터 + 네비게이션 */}
+        {/* 영상 포스터 + 네비게이션 */}
         <div className="w-full md:w-1/3 shrink-0 flex items-center gap-4">
           <button
             type="button"
@@ -56,18 +59,32 @@ export default function ContentCuration({
           >
             <ChevronLeft size={24} aria-hidden="true" />
           </button>
+
           <div className="flex-1 aspect-[2/3] bg-black relative overflow-hidden">
-            <img
-              src={`https://picsum.photos/seed/${current.movieSeed}/800/1200`}
-              alt={current.movie}
-              className="w-full h-full object-cover opacity-80 transition-opacity duration-500"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute bottom-0 left-0 p-4 md:p-6 text-white z-10">
-              <p className="text-xs font-mono tracking-widest mb-2 text-[#0033FF]">MOVIE</p>
-              <h3 className="text-2xl md:text-3xl font-bold">{current.movie}</h3>
+            {current.content.posterUrl ? (
+              <img
+                src={current.content.posterUrl}
+                alt={current.content.title}
+                className="w-full h-full object-cover opacity-80 transition-opacity duration-500"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                <span className="text-white/40 text-sm font-medium px-4 text-center">
+                  {current.content.title}
+                </span>
+              </div>
+            )}
+            <div className="absolute bottom-0 left-0 p-4 md:p-6 text-white z-10 w-full bg-gradient-to-t from-black/80 to-transparent">
+              <p className="text-xs font-mono tracking-widest mb-2 text-[#0033FF]">
+                {typeLabel}
+              </p>
+              <h3 className="text-2xl md:text-3xl font-bold line-clamp-2">
+                {current.content.title}
+              </h3>
             </div>
           </div>
+
           <button
             type="button"
             onClick={nextCuration}
@@ -78,31 +95,41 @@ export default function ContentCuration({
           </button>
         </div>
 
-        {/* 인용구 + 추천 도서 */}
+        {/* 설명 + 추천 도서 */}
         <div className="w-full md:w-2/3 flex flex-col justify-center gap-10">
-          <div>
-            <p
-              className="text-xl md:text-2xl font-medium leading-relaxed break-keep"
-              dangerouslySetInnerHTML={{ __html: current.quote }}
-            />
-          </div>
+          {current.content.description && (
+            <p className="text-xl md:text-2xl font-medium leading-relaxed break-keep text-gray-800">
+              {current.content.description}
+            </p>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            {current.books.map((book, i) => (
+            {current.recommendedBooks.map((book) => (
               <div
-                key={i}
+                key={book.id}
                 className="group cursor-pointer"
-                onClick={() => handleBookClick(book)}
+                onClick={() => handleBookClick(book.slug)}
               >
                 <div className="aspect-[2/3] bg-gray-100 mb-4 overflow-hidden">
-                  <img
-                    src={`https://picsum.photos/seed/${book.seed}/400/600`}
-                    alt={book.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
-                    referrerPolicy="no-referrer"
-                  />
+                  {book.coverImageUrl ? (
+                    <img
+                      src={book.coverImageUrl}
+                      alt={book.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200 flex items-center justify-center p-3">
+                      <span className="text-xs text-gray-400 text-center line-clamp-4">
+                        {book.title}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <h4 className="font-bold text-lg mb-2">{book.title}</h4>
-                <p className="text-sm text-gray-600 leading-snug">{book.copy}</p>
+                <h4 className="font-bold text-base mb-1 line-clamp-2 group-hover:text-[#0033FF] transition-colors">
+                  {book.title}
+                </h4>
+                <p className="text-sm text-gray-500">{book.author}</p>
               </div>
             ))}
           </div>
