@@ -44,6 +44,33 @@ export interface Banner {
 }
 
 /**
+ * GET /api/recommendations/contents 응답 DTO
+ * 백엔드 ContentRecommendationResponse 1:1 매핑
+ */
+export interface ContentRecommendationItem {
+  content: {
+    id: number;
+    title: string;
+    /** 영상 포스터 이미지 URL */
+    posterUrl: string;
+    /** 영상 소개 설명 (plain text) */
+    description: string;
+    /** "MOVIE" | "TV" 등 콘텐츠 유형 */
+    type: string;
+  };
+  recommendedBooks: {
+    id: number;
+    title: string;
+    author: string;
+    slug: string;
+    coverImageUrl: string;
+    pageCount: number | null;
+    lengthType: "SHORT" | "MEDIUM" | "LONG";
+    score: number;
+  }[];
+}
+
+/**
  * 실시간 검색어 랭킹
  * 백엔드 GET /api/keywords/rankings 응답: List<String>
  * → 프론트에서 string[] 로 직접 사용
