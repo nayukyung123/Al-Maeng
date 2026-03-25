@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
 import { Book, UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import useAuthStore from "@/store/useAuthStore";
 import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
-
 export default function MyPageClient() {
   const { isLoggedIn } = useAuthStore();
   const [isMounted, setIsMounted] = useState(false);
@@ -16,7 +16,6 @@ export default function MyPageClient() {
   const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [issuedTickets, setIssuedTickets] = useState<Set<number>>(new Set());
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data: completedBooks = [] } = useQuery({
@@ -54,27 +53,12 @@ export default function MyPageClient() {
       });
     }
 
-    const savedTickets = localStorage.getItem('issuedTickets');
-    if (savedTickets) {
-      setIssuedTickets(new Set(JSON.parse(savedTickets)));
-    }
   }, []);
 
   // SSR 단계이거나 하이드레이션 이전이면 스켈레톤만 렌더링
   if (!isMounted) {
     return <div className="pt-24 pb-32 px-6 min-h-screen animate-pulse bg-gray-50" />;
   }
-
-  const toggleTicket = (bookId: number) => {
-    const newTickets = new Set(issuedTickets);
-    if (newTickets.has(bookId)) {
-      newTickets.delete(bookId);
-    } else {
-      newTickets.add(bookId);
-    }
-    setIssuedTickets(newTickets);
-    localStorage.setItem('issuedTickets', JSON.stringify(Array.from(newTickets)));
-  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -291,38 +275,24 @@ export default function MyPageClient() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
           {currentFinishedBooks.map((book) => (
-            <div key={book.bookId} className="group relative cursor-pointer">
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1 relative">
+            <Link
+              key={book.bookId}
+              href={`/books/${book.bookId}`}
+              className="group block"
+            >
+              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
                 <img
                   src={book.coverImageUrl}
                   alt={book.title}
                   className="w-full h-full object-cover transition-all duration-500"
                   referrerPolicy="no-referrer"
                 />
-
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-4 z-10">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleTicket(book.bookId);
-                    }}
-                    className="w-full py-2.5 bg-transparent border border-white text-white text-[10px] font-black uppercase tracking-widest rounded-sm hover:bg-white hover:text-black transition-colors"
-                  >
-                    {issuedTickets.has(book.bookId) ? '티켓 삭제하기' : '티켓 발행하기'}
-                  </button>
-                </div>
-
-                {issuedTickets.has(book.bookId) && (
-                  <div className="absolute top-2 right-2 bg-[#4D41FF] text-white text-[8px] font-black px-2 py-1 rounded-full shadow-lg z-20 animate-in zoom-in duration-300">
-                    TICKET ISSUED
-                  </div>
-                )}
               </div>
               <div className="space-y-1">
                 <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{book.title}</h4>
                 <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
