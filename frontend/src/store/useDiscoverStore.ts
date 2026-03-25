@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { ContentSuggestion, CurationSection } from "@/api/curation";
 
 /** 독서 분량 타입 */
-export type BookLength = "SHORT" | "MEDIUM" | "LONG";
+export type BookLength = "LIGHT" | "MEDIUM" | "LONG";
 
 /** 취향 발견 플로우 단계 */
 export type DiscoverStep = 1 | 2 | 3;

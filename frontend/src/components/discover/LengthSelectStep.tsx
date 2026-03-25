@@ -6,7 +6,7 @@ import { createCuration } from "@/api/curation";
 import useDiscoverStore, { type BookLength } from "@/store/useDiscoverStore";
 
 const LENGTH_OPTIONS: { id: BookLength; label: string; desc: string }[] = [
-  { id: "SHORT", label: "짧은 분량", desc: "단숨에 읽기 좋은" },
+  { id: "LIGHT", label: "짧은 분량", desc: "단숨에 읽기 좋은" },
   { id: "MEDIUM", label: "중간 분량", desc: "반나절 정도 집중하는" },
   { id: "LONG", label: "긴 분량", desc: "며칠간 두고 읽는 대작" },
 ];
