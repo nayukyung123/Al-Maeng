@@ -65,7 +65,7 @@ export interface ContentRecommendationItem {
     slug: string;
     coverImageUrl: string;
     pageCount: number | null;
-    lengthType: "SHORT" | "MEDIUM" | "LONG";
+    lengthType: "LIGHT" | "MEDIUM" | "LONG";
     score: number;
   }[];
 }
