@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { TicketsClient } from '@/components/ticket/TicketsClient';
 
 export const metadata = {
@@ -7,5 +7,9 @@ export const metadata = {
 };
 
 export default function TicketsPage() {
-  return <TicketsClient />;
+  return (
+    <Suspense fallback={<div className="pt-24 pb-32 px-6 min-h-screen bg-stone-50" />}>
+      <TicketsClient />
+    </Suspense>
+  );
 }

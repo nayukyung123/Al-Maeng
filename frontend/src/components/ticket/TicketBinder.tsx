@@ -9,8 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchTopLevelGenres } from "@/api/genres";
 
 interface TicketBinderProps {
-  onOpenBook: (ticket: GalleryTicket) => void;
-  onAddTicket: () => void;
+  onOpenBook?: (ticket: GalleryTicket) => void;
+  onAddTicket?: () => void;
   tickets?: GalleryTicket[];
   isLoadingExternal?: boolean;
 }
@@ -71,7 +71,12 @@ const TicketSkeleton = ({ idx }: { idx: number }) => {
   );
 };
 
-export const TicketBinder = ({ onOpenBook, onAddTicket, tickets, isLoadingExternal = false }: TicketBinderProps) => {
+export const TicketBinder = ({
+  onOpenBook = () => {},
+  onAddTicket = () => {},
+  tickets,
+  isLoadingExternal = false
+}: TicketBinderProps) => {
   const [books, setBooks] = useState<GalleryTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
