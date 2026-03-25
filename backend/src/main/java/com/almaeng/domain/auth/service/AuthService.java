@@ -5,11 +5,14 @@ import com.almaeng.domain.auth.dto.SignupRequest;
 import com.almaeng.domain.auth.dto.SignupResponse;
 import com.almaeng.domain.auth.dto.TokenResponse;
 import com.almaeng.domain.genre.entity.Genre;
-import com.almaeng.domain.user.entity.*;
+import com.almaeng.domain.genre.repository.GenreRepository;
+import com.almaeng.domain.user.entity.SocialAccount;
+import com.almaeng.domain.user.entity.Tier;
+import com.almaeng.domain.user.entity.User;
+import com.almaeng.domain.user.entity.UserGenre;
 import com.almaeng.domain.user.repository.TierRepository;
 import com.almaeng.domain.user.repository.UserGenreRepository;
 import com.almaeng.domain.user.repository.UserRepository;
-import com.almaeng.domain.user.repository.UserTasteReportGenreRepository;
 import com.almaeng.global.auth.JwtTokenProvider;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
@@ -39,6 +42,7 @@ public class AuthService {
     private final TierRepository tierRepository;
 
     private final UserGenreRepository userGenreRepository;
+    private final GenreRepository genreRepository;
 
     @Value("${jwt.refresh-expiration}")
     private long refreshExpiration;
