@@ -1,5 +1,6 @@
 package com.almaeng.domain.user.service;
 
+import com.almaeng.domain.auth.service.AuthService;
 import com.almaeng.domain.genre.entity.Genre;
 import com.almaeng.domain.genre.repository.GenreRepository;
 import com.almaeng.domain.user.dto.UserProfileResponse;
@@ -22,6 +23,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserGenreRepository userGenreRepository;
     private final GenreRepository genreRepository;
+    private final AuthService authService;
 
     // 프로필 조회
     @Transactional(readOnly = true)
@@ -47,6 +49,8 @@ public class UserService {
     public void updateUserProfile(Long userId, UserProfileUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
+
+        authService.validateNicknameForProfileUpdate(userId, request.nickname(), user.getNickname());
 
         // 1. 기본 프로필 정보 업데이트
         user.updateProfile(
@@ -81,10 +85,11 @@ public class UserService {
 
     //회원 탈퇴
     @Transactional
-    public void deleteUser(Long userId) {
+    public void deleteUser(Long userId, String accessToken) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND));
 
+        authService.invalidateSession(accessToken, userId);
         userRepository.delete(user);
     }
 }

@@ -36,8 +36,10 @@ public class UserController {
     // 회원 탈퇴
     @DeleteMapping("/me")
     public ApiResponse<String> deleteMyAccount(
-            @AuthenticationPrincipal Long userId) {
-        userService.deleteUser(userId);
+            @AuthenticationPrincipal Long userId,
+            @RequestHeader("Authorization") String authorization) {
+        String accessToken = authorization.substring(7);
+        userService.deleteUser(userId, accessToken);
 
         return ApiResponse.success();
     }
