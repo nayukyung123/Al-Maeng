@@ -56,16 +56,28 @@ services:
         condition: service_started
     networks:
       - almaeng-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+        - NEXT_PUBLIC_KAKAO_CLIENT_ID=${NEXT_PUBLIC_KAKAO_CLIENT_ID}
+        - NEXT_PUBLIC_NAVER_CLIENT_ID=${NEXT_PUBLIC_NAVER_CLIENT_ID}
     container_name: almaeng-frontend-prod
     restart: always
     environment:
       - NEXT_PUBLIC_API_URL=/api            
       - INTERNAL_API_URL=http://backend:8080
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - almaeng-network
 

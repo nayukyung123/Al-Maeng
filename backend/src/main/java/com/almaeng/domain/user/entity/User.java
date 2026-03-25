@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -41,8 +42,9 @@ public class User {
     @Column(name = "birth_year")
     private Integer birthYear;
 
+    @Enumerated(EnumType.ORDINAL)
     @Column(name = "gender")
-    private Integer gender;
+    private Gender gender;
 
     @Column(name = "completed_count")
     private Integer completedCount = 0; // 완독 권수 기본값 세팅
@@ -69,8 +71,11 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserTasteReportGenre> tasteReports = new ArrayList<>();
+
     @Builder
-    public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Integer gender) {
+    public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.tier = tier;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
@@ -88,6 +93,14 @@ public class User {
                 .tier(defaultTier) // 임시 유저도 기본 티어는 있어야 함
                 .nickname(tempNickname)
                 .build();
+    }
+
+    // 온보딩 완료를 위한 비즈니스 메서드
+    public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
+        this.nickname = nickname;
+        this.profileImageUrl = profileImageUrl;
+        this.birthYear = birthYear;
+        this.gender = gender;
     }
 
     // 프로필 수정을 위한 메서드

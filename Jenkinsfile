@@ -15,15 +15,28 @@ pipeline {
         }
 
         // 2. 기존 컨테이너 중지 및 새 이미지로 배포
-        stage('Deploy') {
+        stage('Deploy & Health Check') {
             steps {
                 echo "Starting Deployment..."
-                withCredentials([file(credentialsId: 'almaeng-env', variable: 'ENV_FILE')]) {
+                withCredentials([
+                    file(credentialsId: 'almaeng-env', variable: 'ENV_FILE'),
+                    file(credentialsId: 'frontend-env', variable: 'FRONT_ENV_FILE')
+                    ]) {
                     sh 'cp $ENV_FILE .env'
-                    sh "docker compose -f ${COMPOSE_FILE} up -d --build"
+
+                    sh 'cat $FRONT_ENV_FILE >> .env'
+
+                    sh 'cp .env ./frontend/.env'
+
+                    echo "Deploying and waiting for health checks to pass..."
+                    sh "docker compose -f ${COMPOSE_FILE} up -d --wait --build"
+                    
+                    echo "✅ All containers are up and healthy!"
                 }
+                
             }
         }
+
 
         // 3. 미사용 이미지 정리
         stage('Cleanup') {

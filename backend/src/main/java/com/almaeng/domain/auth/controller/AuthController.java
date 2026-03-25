@@ -1,8 +1,6 @@
 package com.almaeng.domain.auth.controller;
 
-import com.almaeng.domain.auth.dto.LoginRequest;
-import com.almaeng.domain.auth.dto.LoginResponse;
-import com.almaeng.domain.auth.dto.NicknameCheckResponse;
+import com.almaeng.domain.auth.dto.*;
 import com.almaeng.domain.auth.service.AuthService;
 import com.almaeng.global.common.ApiResponse;
 import jakarta.validation.Valid;
@@ -11,6 +9,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -40,5 +39,33 @@ public class AuthController {
 
         NicknameCheckResponse responseDto = new NicknameCheckResponse(isAvailable);
         return ResponseEntity.ok(ApiResponse.success(responseDto));
+    }
+
+    @PostMapping("/signup")
+    public ResponseEntity<ApiResponse<SignupResponse>> signup(
+            @AuthenticationPrincipal Long userId,
+            @Valid @RequestBody SignupRequest request
+    ) {
+        SignupResponse response = authService.signup(userId, request);
+
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/reissue")
+    public ResponseEntity<ApiResponse<TokenResponse>> reissue(
+            @Valid @RequestBody ReissueRequest request
+    ) {
+        TokenResponse response = authService.reissue(request.refreshToken());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader("Authorization") String bearerToken,
+            @AuthenticationPrincipal Long userId
+    ) {
+        String accessToken = bearerToken.substring(7);
+        authService.logout(accessToken, userId);
+        return ResponseEntity.ok(ApiResponse.success());
     }
 }

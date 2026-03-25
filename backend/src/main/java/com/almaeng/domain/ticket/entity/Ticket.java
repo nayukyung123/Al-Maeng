@@ -1,11 +1,14 @@
 package com.almaeng.domain.ticket.entity;
 
 import com.almaeng.domain.completedbook.entity.CompletedBook;
+import com.almaeng.domain.ticket.vo.StyleData;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -35,10 +38,15 @@ public class Ticket {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "style_data", columnDefinition = "jsonb", nullable = false)
+    private StyleData styleData;
+
     @Builder
-    public Ticket(CompletedBook completedBook, String comment, String ticketImageUrl) {
+    public Ticket(CompletedBook completedBook, String comment, String ticketImageUrl, StyleData styleData) {
         this.completedBook = completedBook;
         this.comment = comment;
         this.ticketImageUrl = ticketImageUrl;
+        this.styleData = styleData;
     }
 }

@@ -15,6 +15,8 @@ public enum ErrorCode {
     // [유저 / 인증 에러]
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "존재하지 않는 사용자입니다."),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "U002", "이미 사용 중인 닉네임입니다."),
+    INVALID_GENDER_VALUE(HttpStatus.BAD_REQUEST, "U003", "유효하지 않은 성별 값입니다."),
+    TASTE_DATA_REQUIRED(HttpStatus.BAD_REQUEST, "U004", "최소 하나 이상의 취향 데이터를 선택해야 합니다."),
     UNAUTHORIZED_ACCESS(HttpStatus.UNAUTHORIZED, "A001", "인증되지 않은 접근입니다."),
     INVALID_PROVIDER_OR_TOKEN(HttpStatus.BAD_REQUEST, "A002", "지원하지 않는 소셜 로그인 제공자이거나 토큰이 누락되었습니다."),
     INVALID_SOCIAL_TOKEN(HttpStatus.UNAUTHORIZED, "A003", "유효하지 않거나 만료된 소셜 토큰입니다."),
@@ -40,7 +42,11 @@ public enum ErrorCode {
     NOT_REVIEW_OWNER(HttpStatus.FORBIDDEN, "R004", "해당 리뷰에 대한 권한이 없습니다."),
 
     // [티어]
-    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "TR001", "해당 티어 정보를 찾을 수 없습니다.");
+    TIER_NOT_FOUND(HttpStatus.NOT_FOUND, "TR001", "해당 티어 정보를 찾을 수 없습니다."),
+
+    // [찜 목록]
+    ALREADY_WISHED_BOOK(HttpStatus.BAD_REQUEST, "W001", "이미 찜한 도서입니다."),
+    WISHLIST_NOT_FOUND(HttpStatus.NOT_FOUND, "W002", "찜 목록에 존재하지 않는 도서입니다.");
 
     private final HttpStatus status;
     private final String code;
