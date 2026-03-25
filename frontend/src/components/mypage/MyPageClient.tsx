@@ -81,7 +81,14 @@ export default function MyPageClient() {
   };
 
   const saveProfile = () => {
-    const updatedData = { ...userData, ...editFormData } as UserData;
+    // 취향 리스트 중복 제거 (서버 검증에서 중복 개수 문제를 피하기 위함)
+    const uniquePreferences = Array.from(new Set(editFormData.preferences));
+
+    const updatedData = {
+      ...userData,
+      ...editFormData,
+      preferences: uniquePreferences,
+    } as UserData;
     setUserData(updatedData);
     localStorage.setItem('userData', JSON.stringify(updatedData));
     setIsEditModalOpen(false);

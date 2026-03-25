@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.util.StringUtils;
+import com.almaeng.global.error.ApiException;
+import com.almaeng.global.error.ErrorCode;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -64,8 +67,22 @@ public class AuthController {
             @RequestHeader("Authorization") String bearerToken,
             @AuthenticationPrincipal Long userId
     ) {
-        String accessToken = bearerToken.substring(7);
-        authService.logout(accessToken, userId);
-        return ResponseEntity.ok(ApiResponse.success());
+        try {
+            if (!StringUtils.hasText(bearerToken) || !bearerToken.startsWith("Bearer ")) {
+                throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+            }
+
+            String accessToken = bearerToken.substring(7);
+            if (!StringUtils.hasText(accessToken)) {
+                throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+            }
+
+            authService.logout(accessToken, userId);
+            return ResponseEntity.ok(ApiResponse.success());
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
     }
 }
