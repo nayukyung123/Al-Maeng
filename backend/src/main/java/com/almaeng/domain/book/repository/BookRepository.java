@@ -16,7 +16,7 @@ import java.util.Optional;
 @Repository
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    @EntityGraph(attributePaths = {"bookGenres"})
+    @EntityGraph(attributePaths = {"bookGenres", "bookGenres.genre"})
     Optional<Book> findBySlug(String slug); // URL 식별자인 slug로 조회
     
     // 전체 인기 도서 - 완독순

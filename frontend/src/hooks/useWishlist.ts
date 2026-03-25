@@ -1,6 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addWishlist, removeWishlist, getMyWishlists } from "@/api/wishlist";
+import { addWishlist, removeWishlist, getMyWishlists, checkWishlistStatus } from "@/api/wishlist";
 import type { WishlistPageData } from "@/types/wishlist";
+
+/**
+ * 특정 도서의 찜 여부를 확인하는 쿼리 훅
+ */
+export function useWishlistStatus(bookId: number, enabled: boolean) {
+  return useQuery<boolean>({
+    queryKey: ["wishlistStatus", bookId],
+    queryFn: () => checkWishlistStatus(bookId),
+    enabled: enabled && !!bookId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 /**
  * 찜하기 상태 추가/취소를 낙관적 업데이트(Optimistic Update)로 처리하는 커스텀 훅
