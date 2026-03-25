@@ -394,28 +394,45 @@ export default function MyPageClient() {
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">COMPLETED Books</h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {currentFinishedBooks.map((book) => (
+        {finishedBooks.length === 0 ? (
+          <div className="py-16 px-4 bg-white border border-gray-100 rounded-xl text-center">
+            <p className="text-sm font-black tracking-tight">아직 완독한 도서가 없어요.</p>
+            <p className="mt-2 text-xs text-gray-400 font-medium break-keep">
+              완독 도서를 추가하고 나만의 티어를 올려보세요.
+            </p>
             <Link
-              key={book.bookId}
-              href={`/books/${book.bookId}`}
-              className="group block"
+              href="/search?focus=true"
+              className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
             >
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
-                <img
-                  src={book.coverImageUrl}
-                  alt={book.title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{book.title}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
-              </div>
+              완독 도서 추가하러 가기
             </Link>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {currentFinishedBooks.map((book) => (
+              <Link
+                key={book.bookId}
+                href={`/books/${book.bookId}`}
+                className="group block"
+              >
+                <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
+                  <img
+                    src={book.coverImageUrl}
+                    alt={book.title}
+                    className="w-full h-full object-cover transition-all duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">
+                    {book.title}
+                  </h4>
+                  <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Edit Profile Modal */}
