@@ -5,6 +5,7 @@ import com.almaeng.domain.user.dto.UserProfileUpdateRequest;
 import com.almaeng.domain.user.service.UserService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -16,7 +17,7 @@ public class UserController {
     // 프로필 조회
     @GetMapping("/me")
     public ApiResponse<UserProfileResponse> getMyProfile(
-            @RequestParam Long userId) {
+            @AuthenticationPrincipal Long userId) {
         UserProfileResponse response = userService.getUserProfile(userId);
 
         return ApiResponse.success(response);
@@ -25,7 +26,7 @@ public class UserController {
     // 프로필 수정
     @PatchMapping("/me")
     public ApiResponse<String> updateMyProfile(
-            @RequestParam Long userId,
+            @AuthenticationPrincipal Long userId,
             @RequestBody UserProfileUpdateRequest request) {
         userService.updateUserProfile(userId, request);
 
@@ -35,7 +36,7 @@ public class UserController {
     // 회원 탈퇴
     @DeleteMapping("/me")
     public ApiResponse<String> deleteMyAccount(
-            @RequestParam Long userId) {
+            @AuthenticationPrincipal Long userId) {
         userService.deleteUser(userId);
 
         return ApiResponse.success();
