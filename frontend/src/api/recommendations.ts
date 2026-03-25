@@ -1,6 +1,6 @@
-import type { Banner, Book } from "@/types/home";
-import { ALL_BOOKS } from "@/data/books";
-// import apiClient from "@/lib/axios"; // 🔴 백엔드 완성 후 주석 해제
+import apiClient from "@/lib/axios";
+import type { ApiResponse } from "@/types/api";
+import type { Banner, TodayCurationResponse } from "@/types/home";
 
 /**
  * 영화 기반 크로스 추천 목업 데이터.
@@ -66,11 +66,13 @@ export async function fetchContentRecommendations(): Promise<Banner[]> {
 }
 
 /**
- * 🟡 MOCK API — GET /api/recommendations/today (백엔드 미구현, 인증 필요)
- * - 호출 전 useQuery의 enabled: isLoggedIn 옵션으로 제한
- * - 백엔드 완성 후: return apiClient.get<Book[]>('/api/recommendations/today').then(r => r.data)
+ * GET /api/recommendations/today
+ * 인증 필요 — axios interceptor가 Bearer 토큰을 자동 주입
+ * 호출할 때마다 백엔드에서 refreshCount를 증가시켜 응답
  */
-export async function fetchTodayRecommendations(): Promise<Book[]> {
-  const shuffled = [...ALL_BOOKS].sort(() => 0.5 - Math.random());
-  return Promise.resolve(shuffled.slice(0, 5));
+export async function fetchTodayRecommendations(): Promise<TodayCurationResponse> {
+  const res = await apiClient.get<ApiResponse<TodayCurationResponse>>(
+    "/api/recommendations/today"
+  );
+  return res.data.data;
 }

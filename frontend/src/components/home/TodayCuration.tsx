@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Shuffle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -12,8 +12,6 @@ import useAuthStore from "@/store/useAuthStore";
 import LimitPopup from "./LimitPopup";
 import type { Book } from "@/types/home";
 
-const MAX_REFRESH = 10;
-
 interface TodayCurationProps {
   /** HomeClient에서 내려주는 ref — 스크롤 감지용 */
   sectionRef?: React.RefObject<HTMLDivElement | null>;
@@ -22,41 +20,48 @@ interface TodayCurationProps {
 export default function TodayCuration({ sectionRef }: TodayCurationProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
-  const [refreshCount, setRefreshCount] = useState(0);
   const [showLimitPopup, setShowLimitPopup] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 🟡 Mock API (인증 필요, enabled: isLoggedIn)
-  const { data: books = [], refetch } = useQuery<Book[]>({
+  // 이 컴포넌트가 마운트된 시각을 기록 — 캐시 데이터와 실제 fetch 구분에 사용
+  const mountedAtRef = useRef(Date.now());
+
+  const { data, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["todayRecommendations"],
     queryFn: fetchTodayRecommendations,
     enabled: isLoggedIn,
-    staleTime: 0,
+    // staleTime을 Infinity로 설정해 포커스/마운트 시 자동 재호출 방지
+    // (백엔드가 호출마다 refreshCount를 증가시키므로 명시적 refetch만 허용)
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
   });
 
-  // 비로그인 시 블러 뒤에 보여줄 플레이스홀더 (ALL_BOOKS에서 5개 고정 샘플)
-  const placeholderBooks = useMemo(
-    () => ALL_BOOKS.slice(0, 5),
-    []
-  );
-
-  // 화면에 실제 렌더링할 목록: 로그인 시 API 결과, 비로그인 시 플레이스홀더
-  const displayBooks = isLoggedIn ? books : placeholderBooks;
-
-  const handleRefresh = async () => {
-    if (refreshCount >= MAX_REFRESH) {
+  // 팝업은 마운트 이후 실제로 새로 받아온 응답에서만 열기
+  // dataUpdatedAt이 mountedAt보다 이전이면 캐시 데이터이므로 무시
+  useEffect(() => {
+    if (data?.showPopup && dataUpdatedAt > mountedAtRef.current) {
       setShowLimitPopup(true);
-      return;
     }
-    await refetch();
-    setRefreshCount((prev) => prev + 1);
-  };
+  }, [data, dataUpdatedAt]);
 
-  const handleRefreshClick = () => {
+  // 비로그인 시 블러 뒤에 보여줄 플레이스홀더
+  const placeholderBooks = useMemo(() => ALL_BOOKS.slice(0, 5) as Book[], []);
+
+  const displayBooks: Book[] = isLoggedIn
+    ? (data?.books ?? [])
+    : placeholderBooks;
+
+  const refreshCount = data?.refreshCount ?? 0;
+  const isFallback = data?.isFallback ?? false;
+
+  const handleRefreshClick = async () => {
     if (!isLoggedIn) {
       router.push("/login");
       return;
     }
-    handleRefresh();
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
   };
 
   const handleBookClick = (book: Book) => {
@@ -67,28 +72,42 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
     <section ref={sectionRef}>
       {/* 섹션 헤더 */}
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-baseline gap-4">
+        <div className="flex items-baseline gap-4 flex-wrap">
           <h2 className="text-3xl md:text-4xl font-black tracking-tighter uppercase text-black">
             Today&apos;s Curation
           </h2>
-          <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-            THIS IS FOR YOU
-          </span>
+          {isFallback ? (
+            /* 맞춤 추천 데이터 없음 → 인기 도서 폴백 배지 */
+            <span className="flex items-center gap-1 text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-0.5 rounded-full">
+              <Shuffle size={13} aria-hidden="true" />
+              인기 도서
+            </span>
+          ) : (
+            <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+              THIS IS FOR YOU
+            </span>
+          )}
         </div>
+
         <button
           type="button"
           onClick={handleRefreshClick}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-black hover:text-white transition-all rounded-full border border-black/5 text-sm font-bold group"
-          aria-label={`새로고침 (${refreshCount}/${MAX_REFRESH})`}
+          disabled={isRefreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-black hover:text-white transition-all rounded-full border border-black/5 text-sm font-bold group disabled:opacity-50 disabled:pointer-events-none"
+          aria-label={`새로고침 (${refreshCount}회)`}
         >
           <RotateCcw
             size={16}
             aria-hidden="true"
             className={`transition-transform duration-500 ${
-              refreshCount > 0 ? "group-hover:rotate-180" : ""
+              isRefreshing
+                ? "animate-spin"
+                : refreshCount > 0
+                ? "group-hover:rotate-180"
+                : ""
             }`}
           />
-          <span>새로고침 ({refreshCount}/{MAX_REFRESH})</span>
+          <span>새로고침 ({refreshCount}회)</span>
         </button>
       </div>
 
@@ -147,9 +166,11 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
         )}
       </div>
 
+      {/* 팝업: 백엔드 popupMessage를 그대로 전달 */}
       <LimitPopup
         isOpen={showLimitPopup}
         onClose={() => setShowLimitPopup(false)}
+        message={data?.popupMessage}
       />
     </section>
   );
