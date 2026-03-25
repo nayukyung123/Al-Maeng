@@ -27,7 +27,7 @@ export default function ReviewSection({ slug }: ReviewSectionProps) {
       <h3 className="text-3xl font-black mb-12 flex items-center gap-3">
         Readers&apos; Notes{" "}
         <span className="text-[#4D41FF] font-mono">
-          {reviews.length.toLocaleString()}
+          {(reviews?.length ?? 0).toLocaleString()}
         </span>
       </h3>
 

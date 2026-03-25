@@ -1,6 +1,7 @@
 export interface WishlistItem {
   wishlistId: number;
   bookId: number;
+  slug: string;
   title: string;
   author: string;
   coverImageUrl: string;
