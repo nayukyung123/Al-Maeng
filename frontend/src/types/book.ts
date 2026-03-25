@@ -4,13 +4,13 @@ export interface BookDetail {
   slug: string;
   title: string;
   author: string;
-  genre: string;
+  genre?: string;
   description: string;
   coverImageUrl?: string;
   /** picsum 플레이스홀더용 시드 (coverImageUrl 없을 때 사용) */
   seed?: string;
   averageRating: number;
-  reviewCount: number;
+  reviewCount?: number;
   purchaseUrl?: string;
 }
 
