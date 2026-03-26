@@ -25,10 +25,10 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
         <h3 className="text-xl font-black uppercase tracking-tight mb-6">
           이런 책은 어떠세요?
         </h3>
-        <div className="flex gap-4 overflow-x-hidden pb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-12">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="min-w-[140px] animate-pulse">
-              <div className="aspect-[2/3] bg-gray-100 mb-4" />
+            <div key={i} className="w-full animate-pulse">
+              <div className="aspect-[2/3] bg-gray-100 mb-4 rounded-sm" />
               <div className="h-3 bg-gray-100 rounded mb-2 w-3/4" />
               <div className="h-2 bg-gray-100 rounded w-1/2" />
             </div>
@@ -46,7 +46,7 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
         </h3>
       </div>
 
-      <div className="flex justify-start gap-6 overflow-x-auto pb-6 hide-scrollbar px-1">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-6 gap-y-10">
         {recommendations.map((rec, i) => {
           const imgSrc = rec.coverImageUrl
             ? rec.coverImageUrl
@@ -56,9 +56,9 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
             <div
               key={rec.id}
               onClick={() => router.push(`/books/${rec.slug}?source=book`)}
-              className="w-[120px] md:w-[140px] shrink-0 group cursor-pointer"
+              className="w-full group cursor-pointer"
             >
-              <div className="aspect-[2/3] w-full bg-gray-50 mb-4 relative overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-500">
+              <div className="aspect-[2/3] w-full bg-gray-50 mb-4 relative overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-500 rounded-sm">
                 <img
                   src={imgSrc}
                   alt={rec.title}
@@ -66,7 +66,7 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <h4 className="text-[11px] font-black uppercase tracking-tight line-clamp-2 mb-1 h-8 leading-tight">
+              <h4 className="text-[11px] font-black uppercase tracking-tight line-clamp-2 mb-1 h-8 leading-tight group-hover:text-[#4D41FF] transition-colors">
                 {formatBookContent(rec.title)}
               </h4>
               <p className="text-[10px] text-gray-400 font-serif italic truncate">
