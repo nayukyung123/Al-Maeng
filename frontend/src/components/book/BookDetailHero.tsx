@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
+import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Star, ExternalLink, Heart, BookmarkPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,19 @@ interface BookDetailHeroProps {
 export default function BookDetailHero({ book }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showDescriptionToggle, setShowDescriptionToggle] = useState(false);
+  const descriptionRef = useRef<HTMLDivElement>(null);
+
+  // 설명글이 3줄을 초과하는지 체크 (더보기 버튼 표시 여부 결정)
+  useEffect(() => {
+    if (descriptionRef.current) {
+      const { scrollHeight, clientHeight } = descriptionRef.current;
+      if (scrollHeight > clientHeight) {
+        setShowDescriptionToggle(true);
+      }
+    }
+  }, [book.description]);
   const queryClient = useQueryClient();
 
   // 찜하기 상태 및 뮤테이션
@@ -179,10 +194,28 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
           {formatBookContent(book.author)}
         </p>
 
-        {/* 책 소개 */}
-        <div className="text-sm leading-relaxed text-gray-600 mb-8 max-w-xl break-keep font-medium">
-          {formatBookContent(book.description)}
-        </div>
+        {/* 상세 설명 (3줄 요약 + 더보기 토글) */}
+        {book.description && (
+          <div className="mb-8 max-w-xl">
+            <div
+              ref={descriptionRef}
+              className={cn(
+                "text-sm leading-relaxed text-gray-600 break-keep font-medium mb-1 transition-all duration-300",
+                !isExpanded && "line-clamp-3"
+              )}
+            >
+              {formatBookContent(book.description)}
+            </div>
+            {showDescriptionToggle && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-wider"
+              >
+                {isExpanded ? "[접기]" : "[더보기]"}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 구매 링크 */}
         <div className="flex flex-wrap gap-2 mb-6">
@@ -218,13 +251,46 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
             }
             aria-label={isWishlisted ? "찜 해제" : "찜하기"}
             className={cn(
-              "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all",
+              "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all relative",
               isWishlisted
                 ? "bg-red-50 border-red-200 text-red-500"
                 : "hover:border-black"
             )}
           >
-            <Heart size={24} fill={isWishlisted ? "currentColor" : "none"} />
+            <motion.div
+              key={isWishlisted ? "active" : "inactive"}
+              initial={{ scale: 1 }}
+              animate={isWishlisted ? { 
+                scale: [1, 1.5, 1],
+                rotate: [0, 10, -10, 0] 
+              } : { scale: 1 }}
+              transition={{ duration: 0.4, ease: "backOut" }}
+            >
+              <Heart size={24} fill={isWishlisted ? "currentColor" : "none"} />
+            </motion.div>
+            
+            {/* 뾰로롱 스파클링 효과 (찜했을 때만) */}
+            <AnimatePresence>
+              {isWishlisted && (
+                <>
+                  {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+                    <motion.div
+                      key={angle}
+                      initial={{ opacity: 1, scale: 0, x: 0, y: 0 }}
+                      animate={{ 
+                        opacity: 0, 
+                        scale: 1, 
+                        x: Math.cos((angle * Math.PI) / 180) * 20,
+                        y: Math.sin((angle * Math.PI) / 180) * 20 
+                      }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute w-1 h-1 bg-red-400 rounded-full"
+                    />
+                  ))}
+                </>
+              )}
+            </AnimatePresence>
           </button>
 
           {/* 완독 리스트에 추가 */}

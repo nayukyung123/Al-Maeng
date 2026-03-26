@@ -4,6 +4,7 @@ import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import ToastContainer from "@/components/layout/ToastContainer";
 import SessionExpiredToast from "@/components/layout/SessionExpiredToast";
 
 const geistSans = Geist({
@@ -35,6 +36,7 @@ export default function RootLayout({
           <Header />
           <main className="pt-16">{children}</main>
           <Footer />
+          <ToastContainer />
           <SessionExpiredToast />
         </QueryProvider>
       </body>

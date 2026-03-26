@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import { User, LogOut, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
+import useToastStore from "@/store/useToastStore";
 import { logout as logoutApi } from "@/api/auth";
 
 /** 메인 네비게이션 항목 정의 */
@@ -32,6 +33,7 @@ export default function Header() {
   const activeId = getActiveId(pathname);
 
   const { isLoggedIn, user, logout } = useAuthStore();
+  const { addToast } = useToastStore();
 
   /* 드롭다운 외부 클릭 시 닫기 */
   useEffect(() => {
@@ -57,6 +59,7 @@ export default function Header() {
       // 2. 프론트엔드 상태 및 로컬 스토리지 비우기
       logout();
       setIsDropdownOpen(false);
+      addToast("성공적으로 로그아웃되었습니다.", "success");
     }
   };
 
