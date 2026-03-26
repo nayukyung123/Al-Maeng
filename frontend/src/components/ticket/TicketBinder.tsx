@@ -114,7 +114,15 @@ export const TicketBinder = ({
     queryFn: fetchTopLevelGenres,
     staleTime: Infinity,
   });
-  const genres = topGenres.map((g) => g.genreName);
+  const genres = useMemo(() => {
+    return topGenres
+      .map((g) => g.genreName)
+      .sort((a, b) => {
+        if (a === "소설/시/희곡") return -1;
+        if (b === "소설/시/희곡") return 1;
+        return a.localeCompare(b, "ko");
+      });
+  }, [topGenres]);
 
   const handleGenreChange = (genre: string | null) => {
     if (selectedGenre === genre || flipState !== 'idle') return;
