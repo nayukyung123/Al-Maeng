@@ -15,6 +15,7 @@ import {
   fetchCompletedBooks,
 } from "@/api/completedBooks";
 import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
+import { formatBookContent } from "@/utils/decode";
 
 interface BookDetailHeroProps {
   book: BookDetail;
@@ -172,15 +173,15 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
 
         {/* 제목 · 저자 */}
         <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-3 leading-[1.1] break-keep">
-          {book.title}
+          {formatBookContent(book.title)}
         </h2>
         <p className="text-lg text-gray-400 font-serif italic mb-6">
-          {book.author}
+          {formatBookContent(book.author)}
         </p>
 
         {/* 책 소개 */}
         <div className="text-sm leading-relaxed text-gray-600 mb-8 max-w-xl break-keep font-medium">
-          {book.description}
+          {formatBookContent(book.description)}
         </div>
 
         {/* 구매 링크 */}
