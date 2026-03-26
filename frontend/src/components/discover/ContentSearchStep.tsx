@@ -12,7 +12,7 @@ import {
   type ContentSuggestion,
   type ContentItem,
 } from "@/api/curation";
-import useDiscoverStore from "@/store/useDiscoverStore";
+import useDiscoverStore, { type ContentSortType } from "@/store/useDiscoverStore";
 import useAuthStore from "@/store/useAuthStore";
 import {
   MAX_SEARCH_KEYWORD_LENGTH,
@@ -38,16 +38,18 @@ import AuthGate from "./AuthGate";
 // ─────────────────────────────────────────────────────────────
 // 정렬 옵션
 // ─────────────────────────────────────────────────────────────
-const SORT_OPTIONS = [
+const SORT_OPTIONS: { label: string; value: ContentSortType }[] = [
   { label: "정확도순", value: "accuracy" },
-  { label: "최신순",   value: "latest"   },
-] as const;
-type SortType = (typeof SORT_OPTIONS)[number]["value"];
+  { label: "최신순", value: "latest" },
+];
 
 export default function ContentSearchStep() {
-  const [keyword, setKeyword] = useState("");
-  const [committedSearch, setCommittedSearch] = useState("");
-  const [sortType, setSortType] = useState<SortType>("accuracy");
+  const keyword = useDiscoverStore((s) => s.contentSearchKeyword);
+  const committedSearch = useDiscoverStore((s) => s.contentCommittedSearch);
+  const sortType = useDiscoverStore((s) => s.contentSortType);
+  const setKeyword = useDiscoverStore((s) => s.setContentSearchKeyword);
+  const setCommittedSearch = useDiscoverStore((s) => s.setContentCommittedSearch);
+  const setSortType = useDiscoverStore((s) => s.setContentSortType);
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   useEffect(() => {
@@ -64,7 +66,9 @@ export default function ContentSearchStep() {
   const resultsTopRef = useRef<HTMLDivElement>(null);
 
   const debouncedKeyword = useDebounce(keyword, 400);
-  const { selectedContent, setSelectedContent, nextStep } = useDiscoverStore();
+  const selectedContent = useDiscoverStore((s) => s.selectedContent);
+  const setSelectedContent = useDiscoverStore((s) => s.setSelectedContent);
+  const nextStep = useDiscoverStore((s) => s.nextStep);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   // ── 자동완성: GET /api/contents/suggestions ───────────────
@@ -138,7 +142,7 @@ export default function ContentSearchStep() {
     setTimeout(() => {
       resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-  }, [keyword, isLoggedIn, selectedContent, setSelectedContent]);
+  }, [keyword, isLoggedIn, selectedContent, setSelectedContent, setKeyword, setCommittedSearch]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,31 +152,49 @@ export default function ContentSearchStep() {
         setSelectedContent(null);
       }
     },
-    [selectedContent, setSelectedContent]
+    [selectedContent, setSelectedContent, setKeyword]
   );
 
   const handleClear = useCallback(() => {
     setKeyword("");
     setCommittedSearch("");
     setSelectedContent(null);
-  }, [setSelectedContent]);
+  }, [setSelectedContent, setKeyword, setCommittedSearch]);
 
-  // 자동완성 항목 직접 선택
+  // 자동완성 항목 직접 선택 → 검색 결과와 동일하게 쿼리 유지 후 바로 2단계
   const handleSuggestionSelect = useCallback(
     (item: ContentSuggestion) => {
+      const t = clampSearchKeyword(item.title);
       setSelectedContent(item);
-      setKeyword(clampSearchKeyword(item.title));
+      setKeyword(t);
+      setCommittedSearch(t);
       setIsFocused(false);
+      if (!isLoggedIn) {
+        setShowAuthGate(true);
+        return;
+      }
+      nextStep();
     },
-    [setSelectedContent]
+    [
+      setSelectedContent,
+      setKeyword,
+      setCommittedSearch,
+      isLoggedIn,
+      nextStep,
+    ]
   );
 
-  // 검색 결과 카드 선택
+  // 검색 결과 카드 선택 시 바로 분량 선택 단계로
   const handleResultSelect = useCallback(
     (item: ContentItem) => {
       setSelectedContent({ id: item.id, title: item.title });
+      if (!isLoggedIn) {
+        setShowAuthGate(true);
+        return;
+      }
+      nextStep();
     },
-    [setSelectedContent]
+    [setSelectedContent, isLoggedIn, nextStep]
   );
 
   const handleNext = useCallback(() => {
