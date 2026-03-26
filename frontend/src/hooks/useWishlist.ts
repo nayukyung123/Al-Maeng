@@ -18,12 +18,12 @@ export function useWishlistStatus(bookId: number, enabled: boolean) {
  * 찜하기 상태 추가/취소를 낙관적 업데이트(Optimistic Update)로 처리하는 커스텀 훅
  * 하트 UI를 클릭했을 때 서버 응답을 기다리지 않고 즉각적으로 UI를 변경하여 UX를 향상시킵니다.
  */
-export function useWishlistMutation(bookId: number) {
+export function useWishlistMutation(bookId: number, source: string = "none") {
   const queryClient = useQueryClient();
 
   // 찜하기 추가 Mutation
   const addMutation = useMutation({
-    mutationFn: () => addWishlist(bookId),
+    mutationFn: () => addWishlist(bookId, source),
     onMutate: async () => {
       // 1. 진행 중인 쿼리가 있다면 취소하여 낙관적 업데이트가 덮어씌워지는 것을 방지
       await queryClient.cancelQueries({ queryKey: ["wishlistStatus", bookId] });
@@ -51,7 +51,7 @@ export function useWishlistMutation(bookId: number) {
 
   // 찜하기 취소 Mutation
   const removeMutation = useMutation({
-    mutationFn: () => removeWishlist(bookId),
+    mutationFn: () => removeWishlist(bookId, source),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["wishlistStatus", bookId] });
       const previousStatus = queryClient.getQueryData<boolean>(["wishlistStatus", bookId]);

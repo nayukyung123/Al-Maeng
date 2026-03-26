@@ -14,7 +14,7 @@ import type { Book } from "@/types/home";
 // 개별 도서 카드
 // ─────────────────────────────────────────────────────────────
 function BookCard({ book }: { book: Book }) {
-  const href = `/books/${book.slug ?? book.id}`;
+  const href = `/books/${book.slug ?? book.id}?source=search`;
 
   return (
     <Link href={href} className="group flex flex-col gap-2">

@@ -33,7 +33,7 @@ export default function RankingBoard() {
   });
 
   const handleBookClick = (book: Book) => {
-    router.push(`/books/${book.slug}`);
+    router.push(`/books/${book.slug}?source=ranking`);
   };
 
   const skeleton = Array.from({ length: 5 });
