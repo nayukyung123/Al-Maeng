@@ -1,9 +1,9 @@
-package com.almaeng.domain.completedbook.dto;
+package com.almaeng.domain.log.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record CompletedBookAddRequest(
+public record ClickLogRequest(
         @NotNull(message = "도서 ID는 필수입니다.")
         Long bookId,
 

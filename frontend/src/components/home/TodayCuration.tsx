@@ -95,7 +95,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
   };
 
   const handleBookClick = (book: Book) => {
-    router.push(`/books/${book.slug}`);
+    router.push(`/books/${book.slug}?source=curation`);
   };
 
   return (

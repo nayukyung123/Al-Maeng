@@ -37,7 +37,7 @@ export function CurationResultSkeleton() {
 // ─────────────────────────────────────────────────────────────
 function BookCard({ book }: { book: CurationBook }) {
   // slug가 있으면 slug, 없으면 bookId를 경로로 사용
-  const href = `/books/${book.slug ?? book.bookId}`;
+  const href = `/books/${book.slug ?? book.bookId}?source=content`;
 
   return (
     <Link href={href} className="group cursor-pointer block">

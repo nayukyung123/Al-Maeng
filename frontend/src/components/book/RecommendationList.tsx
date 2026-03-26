@@ -55,7 +55,7 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
           return (
             <div
               key={rec.id}
-              onClick={() => router.push(`/books/${rec.slug}`)}
+              onClick={() => router.push(`/books/${rec.slug}?source=book`)}
               className="w-[120px] md:w-[140px] shrink-0 group cursor-pointer"
             >
               <div className="aspect-[2/3] w-full bg-gray-50 mb-4 relative overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-500">
