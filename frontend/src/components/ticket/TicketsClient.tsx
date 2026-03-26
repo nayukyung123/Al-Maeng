@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteTicket as deleteTicketApi, fetchBinderTickets, fetchGalleryTickets } from "@/api/tickets";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchCompletedBooks } from "@/api/completedBooks";
+import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
 import { EmptyTicketState } from "./EmptyTicketState";
 import { Loader2 } from "lucide-react";
 
@@ -199,7 +200,9 @@ export const TicketsClient = () => {
             primaryLabel={emptyVariant === "newUser" ? "첫 완독 도서 검색하기" : "첫 티켓 발급하기"}
             onPrimaryAction={() => {
               if (emptyVariant === "newUser") {
-                router.push("/search?focus=true");
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+                router.push("/?openSearch=1");
               } else {
                 setIsAddModalOpen(true);
               }

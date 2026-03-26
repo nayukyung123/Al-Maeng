@@ -7,6 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchBookSuggestions, fetchKeywordRankings } from "@/api/books";
 import type { BookSuggestion } from "@/types/home";
+import {
+  clearSearchOverlayReturnTo,
+  consumeSearchOverlayReturnTo,
+} from "@/lib/searchOverlayReturn";
 
 interface SearchSectionProps {
   /** 스크롤 감지 후 부모에서 주입 — true일 때 하단 플로팅 버튼 표시 */
@@ -40,14 +44,22 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Header 로고 클릭 시 발행되는 이벤트 수신 → 오버레이 닫기
+  // Header 로고 클릭 시 발행되는 이벤트 수신 → 오버레이 닫기 (복귀 경로는 버림)
   useEffect(() => {
     const handleClose = () => {
       setIsSearchOpen(false);
       setSearchQuery("");
+      clearSearchOverlayReturnTo();
     };
     window.addEventListener("closeSearchOverlay", handleClose);
     return () => window.removeEventListener("closeSearchOverlay", handleClose);
+  }, []);
+
+  // 마이페이지·티켓 등에서 홈 검색 오버레이와 동일한 UI로 열기
+  useEffect(() => {
+    const handleOpen = () => setIsSearchOpen(true);
+    window.addEventListener("openSearchOverlay", handleOpen);
+    return () => window.removeEventListener("openSearchOverlay", handleOpen);
   }, []);
 
   // 🟢 자동완성 — GET /api/books/suggestions
@@ -70,12 +82,16 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
     if (!query.trim()) return;
     setIsSearchOpen(false);
     setSearchQuery("");
+    clearSearchOverlayReturnTo();
     router.push(`/search?q=${encodeURIComponent(query.trim())}`);
   };
 
+  /** 닫기(X): 다른 페이지에서 열었으면 그 페이지로 복귀 */
   const handleClose = () => {
     setIsSearchOpen(false);
     setSearchQuery("");
+    const back = consumeSearchOverlayReturnTo();
+    if (back) router.push(back);
   };
 
   const showSuggestions = debouncedQuery.trim().length > 0 && suggestions.length > 0;

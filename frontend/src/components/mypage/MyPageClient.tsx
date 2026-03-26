@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { ChevronLeft, ChevronRight, User, ArrowLeft } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
@@ -15,10 +16,13 @@ import useAuthStore from "@/store/useAuthStore";
 import MyPageTierSection from "@/components/mypage/MyPageTierSection";
 import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
+import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
+  const authHydrated = useAuthStoreHydrated();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const [wishlistPage, setWishlistPage] = useState(1);
@@ -28,7 +32,11 @@ export default function MyPageClient() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // 찜 목록 조회 (실제 API)
-  const { data: wishlistData } = useMyWishlists(wishlistPage - 1, 10);
+  const { data: wishlistData, isFetched: isWishlistFetched } = useMyWishlists(
+    wishlistPage - 1,
+    10,
+    isLoggedIn
+  );
   const wishlistItems = wishlistData?.content ?? [];
   const wishlistTotalPages = wishlistData?.totalPages ?? 0;
 
@@ -235,6 +243,25 @@ export default function MyPageClient() {
     queryClient.invalidateQueries({ queryKey: ["my-profile"] });
   }, [isLoggedIn, finishedBooks.length, queryClient]);
 
+  useEffect(() => {
+    if (!authHydrated) return;
+    if (!isLoggedIn) router.replace("/");
+  }, [authHydrated, isLoggedIn, router]);
+
+  if (!authHydrated) {
+    return (
+      <div
+        className="min-h-[50vh] flex items-center justify-center px-6"
+        aria-busy="true"
+        aria-label="로딩 중"
+      />
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
+
   return (
     <div className="pt-8 pb-32 px-6 md:px-12 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-16 items-start mb-24">
@@ -369,24 +396,43 @@ export default function MyPageClient() {
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">Wishlist</h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {wishlistItems.map((item: any) => (
-            <Link key={item.bookId} href={`/books/${item.slug}`} className="group block">
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
-                <img
-                  src={item.coverImageUrl}
-                  alt={item.title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{item.title}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
-              </div>
+        {isWishlistFetched && (wishlistData?.totalElements ?? 0) === 0 ? (
+          <div className="py-16 px-4 bg-white border border-gray-100 rounded-xl text-center">
+            <p className="text-sm font-black tracking-tight">아직 찜한 도서가 없어요.</p>
+            <p className="mt-2 text-xs text-gray-400 font-medium break-keep">
+              읽고 싶은 책을 검색해 찜해두면 나중에 쉽게 다시 찾을 수 있어요.
+            </p>
+            <Link
+              href="/?openSearch=1"
+              onClick={() => {
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+              }}
+              className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
+            >
+              도서 검색하고 찜하기
             </Link>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {wishlistItems.map((item: any) => (
+              <Link key={item.bookId} href={`/books/${item.slug}`} className="group block">
+                <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
+                  <img
+                    src={item.coverImageUrl}
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-all duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{item.title}</h4>
+                  <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* COMPLETED Books Section */}
@@ -402,7 +448,11 @@ export default function MyPageClient() {
               완독 도서를 추가하고 나만의 티어를 올려보세요.
             </p>
             <Link
-              href="/search?focus=true"
+              href="/?openSearch=1"
+              onClick={() => {
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+              }}
               className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
             >
               완독 도서 추가하러 가기

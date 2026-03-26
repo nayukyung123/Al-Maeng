@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import { User, LogOut, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -29,6 +29,7 @@ export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   const activeId = getActiveId(pathname);
 
   const { isLoggedIn, user, logout } = useAuthStore();
@@ -57,6 +58,7 @@ export default function Header() {
       // 2. 프론트엔드 상태 및 로컬 스토리지 비우기
       logout();
       setIsDropdownOpen(false);
+      router.push("/");
     }
   };
 

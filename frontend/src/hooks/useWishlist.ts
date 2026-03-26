@@ -82,10 +82,15 @@ export function useWishlistMutation(bookId: number) {
 /**
  * 내 찜 목록을 조회하는 쿼리 훅 (페이지네이션 지원)
  */
-export function useMyWishlists(page: number = 0, size: number = 10) {
+export function useMyWishlists(
+  page: number = 0,
+  size: number = 10,
+  enabled: boolean = true
+) {
   return useQuery<WishlistPageData>({
     queryKey: ["myWishlists", page, size],
     queryFn: () => getMyWishlists(page, size),
     staleTime: 5 * 60 * 1000, // 5분
+    enabled,
   });
 }

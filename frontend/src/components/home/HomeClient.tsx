@@ -32,6 +32,18 @@ export default function HomeClient() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // /?openSearch=1 로 진입 시 URL 정리 후 홈과 동일한 풀스크린 검색 오버레이 오픈
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openSearch") !== "1") return;
+    const path = window.location.pathname || "/";
+    window.history.replaceState(null, "", path);
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent("openSearchOverlay"));
+    });
+  }, []);
+
   const handleBannerClick = (contentId: number) => {
     setSelectedContentId(contentId);
     document.getElementById("section3")?.scrollIntoView({ behavior: "smooth" });
