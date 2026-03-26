@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
-import { User, LogOut, Settings } from "lucide-react";
+import { User, LogOut, Settings, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
 import useToastStore from "@/store/useToastStore";
@@ -30,6 +31,8 @@ function getActiveId(pathname: string): string {
 
 export default function Header() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+    const [mobileNavMounted, setMobileNavMounted] = useState(false);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
     const pathname = usePathname();
     const router = useRouter();
@@ -74,6 +77,28 @@ export default function Header() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        setMobileNavMounted(true);
+    }, []);
+
+    useEffect(() => {
+        setIsMobileNavOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        if (!isMobileNavOpen) return;
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setIsMobileNavOpen(false);
+        };
+        document.addEventListener("keydown", onKeyDown);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.removeEventListener("keydown", onKeyDown);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [isMobileNavOpen]);
+
     const handleLogout = async () => {
         try {
             // 1. 백엔드 로그아웃 API 호출 (성공/실패 여부와 상관없이 진행)
@@ -92,9 +117,84 @@ export default function Header() {
     /** 로고 클릭: 검색 오버레이가 열려 있으면 닫아주는 이벤트 발행 */
     const handleLogoClick = () => {
         window.dispatchEvent(new CustomEvent("closeSearchOverlay"));
+        setIsMobileNavOpen(false);
     };
 
+    const mobileNavPortal =
+        mobileNavMounted &&
+        createPortal(
+            <AnimatePresence>
+                {isMobileNavOpen && (
+                    <>
+                        <motion.button
+                            type="button"
+                            key="nav-backdrop"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 z-[100] bg-black/40 md:hidden"
+                            aria-label="메뉴 닫기"
+                            onClick={() => setIsMobileNavOpen(false)}
+                        />
+                        <motion.div
+                            id="mobile-nav-panel"
+                            key="nav-panel"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="주요 메뉴"
+                            initial={{ x: "100%" }}
+                            animate={{ x: 0 }}
+                            exit={{ x: "100%" }}
+                            transition={{ type: "spring", damping: 28, stiffness: 320 }}
+                            className="fixed top-0 right-0 z-[110] h-full w-[min(88vw,300px)] bg-white border-l border-black/10 shadow-[-8px_0_32px_rgba(0,0,0,0.08)] md:hidden flex flex-col"
+                        >
+                            <div className="flex items-center justify-between h-16 px-5 border-b border-black/10 shrink-0">
+                                <span className="text-xs font-black uppercase tracking-[0.2em] text-gray-400">
+                                    Menu
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsMobileNavOpen(false)}
+                                    className="flex items-center justify-center w-10 h-10 rounded-full border border-black/10 text-gray-600 hover:bg-black hover:text-white transition-colors"
+                                    aria-label="메뉴 닫기"
+                                >
+                                    <X size={20} strokeWidth={2} aria-hidden="true" />
+                                </button>
+                            </div>
+                            <nav className="flex-1 overflow-y-auto py-6 px-4" aria-label="주요 메뉴">
+                                <ul className="list-none m-0 p-0 space-y-1">
+                                    {NAV_ITEMS.map((item) => {
+                                        const isActive = activeId === item.id;
+                                        return (
+                                            <li key={item.id}>
+                                                <Link
+                                                    href={item.href}
+                                                    onClick={() => setIsMobileNavOpen(false)}
+                                                    aria-current={isActive ? "page" : undefined}
+                                                    className={clsx(
+                                                        "block px-4 py-4 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors border border-transparent",
+                                                        isActive
+                                                            ? "bg-[#0033FF]/10 text-[#0033FF] border-[#0033FF]/20"
+                                                            : "text-black hover:bg-gray-50 hover:border-black/5"
+                                                    )}
+                                                >
+                                                    {item.label}
+                                                </Link>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </nav>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>,
+            document.body
+        );
+
     return (
+        <>
         <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-md z-50 border-b border-black/10">
             <div className="max-w-7xl mx-auto w-full h-full flex justify-between items-center px-6 md:px-12">
 
@@ -123,10 +223,10 @@ export default function Header() {
                     </strong>
                 )}
 
-                <div className="flex items-center gap-8">
+                <div className="flex flex-row-reverse items-center gap-3 md:flex-row md:gap-8">
                     {/* ── PC 네비게이션 ── */}
-                    <nav aria-label="주요 메뉴" className="flex items-center">
-                        <ul className="hidden md:flex items-center gap-8 list-none m-0 p-0">
+                    <nav aria-label="주요 메뉴" className="hidden md:flex items-center">
+                        <ul className="flex items-center gap-8 list-none m-0 p-0">
                             {NAV_ITEMS.map((item) => {
                                 const isActive = activeId === item.id;
                                 return (
@@ -146,6 +246,18 @@ export default function Header() {
                             })}
                         </ul>
                     </nav>
+
+                    {/* ── 모바일: 사이드 메뉴 열기 ── */}
+                    <button
+                        type="button"
+                        className="md:hidden flex items-center justify-center w-8 h-8 rounded-full border-2 border-black/10 text-gray-700 hover:bg-black hover:text-white transition-colors shrink-0"
+                        onClick={() => setIsMobileNavOpen(true)}
+                        aria-expanded={isMobileNavOpen}
+                        aria-controls="mobile-nav-panel"
+                        aria-label="메뉴 열기"
+                    >
+                        <Menu size={18} strokeWidth={2} aria-hidden="true" />
+                    </button>
 
                     {/* ── 유저 영역 ── */}
                     <div
@@ -277,5 +389,7 @@ export default function Header() {
                 </div>
             </div>
         </header>
+        {mobileNavPortal}
+        </>
     );
 }

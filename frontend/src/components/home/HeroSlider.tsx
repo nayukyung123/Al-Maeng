@@ -96,14 +96,14 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
                   : "opacity-0 translate-y-4"
               }`}
             >
-              <p className="text-[#0033FF] font-mono text-sm md:text-base mb-4 tracking-widest uppercase">
+              <p className="text-[#0033FF] font-mono text-xs md:text-base mb-3 md:mb-4 tracking-widest uppercase">
                 Curation of the Day
               </p>
-              <h2 className="text-4xl md:text-6xl font-black leading-[1.1] tracking-tight mb-6 break-keep">
+              <h2 className="text-2xl sm:text-4xl md:text-6xl font-black leading-[1.1] tracking-tight mb-4 md:mb-6 break-keep">
                 <span className="italic font-serif font-light">{formatBookContent(slide.title)}</span>,
                 <br />이 작품은 어떠신가요?
               </h2>
-              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest group-hover:text-[#0033FF] transition-colors">
+              <div className="flex items-center gap-2 text-xs md:text-sm font-bold uppercase tracking-widest group-hover:text-[#0033FF] transition-colors">
                 Discover <ArrowRight size={16} aria-hidden="true" />
               </div>
             </div>
