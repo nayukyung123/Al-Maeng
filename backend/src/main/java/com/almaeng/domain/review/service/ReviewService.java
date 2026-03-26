@@ -99,16 +99,7 @@ public class ReviewService {
                 : reviewRepository.findSliceByBookId(book.getId(), sortedPageable);
 
         // DTO 변환 (작성자 티어 정보 포함)
-        return reviewSlice.map(r -> new ReviewResponse(
-                r.getId(),
-                r.getUser().getId(),
-                r.getUser().getNickname(),
-                r.getUser().getTier().getTierName(),
-                r.getUser().getProfileImageUrl(),
-                r.getRating(),
-                r.getContent(),
-                r.getSpoiler(),
-                r.getCreatedAt()));
+        return reviewSlice.map(ReviewResponse::from);
     }
 
     @Transactional
