@@ -121,10 +121,21 @@ export default function CurationResultStep() {
 
       {/* 결과가 없을 때 */}
       {validSections.length === 0 ? (
-        <div className="py-20 text-center">
-          <p className="text-gray-400 font-medium text-sm">
-            추천 결과를 불러오지 못했어요. 다시 시도해주세요.
+        <div className="py-16 md:py-24 text-center px-4 max-w-md mx-auto space-y-8">
+          <p className="text-gray-600 font-medium text-sm md:text-base leading-relaxed break-keep">
+            아직 이 조합에 딱 맞는 책을 찾지 못했어요.
+            <br />
+            <span className="text-gray-400 text-xs md:text-sm mt-2 inline-block">
+              다른 작품이나 분량으로 알맹이 다시 큐레이션해 드릴게요.
+            </span>
           </p>
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="inline-flex items-center justify-center px-8 py-3.5 rounded-full border-2 border-black text-xs font-black uppercase tracking-[0.2em] hover:bg-[#0033FF] hover:border-[#0033FF] hover:text-white transition-colors"
+          >
+            처음부터 다시 찾기
+          </button>
         </div>
       ) : (
         <div className="space-y-16">
@@ -134,15 +145,18 @@ export default function CurationResultStep() {
         </div>
       )}
 
-      {/* 다시 찾기 버튼 */}
-      <div className="mt-32 flex justify-center">
-        <button
-          onClick={reset}
-          className="px-12 py-4 border border-black/20 text-xs font-bold uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all duration-300 rounded-full"
-        >
-          다시 찾기
-        </button>
-      </div>
+      {/* 추천이 있을 때만 — 빈 결과면 위쪽 '처음부터 다시 찾기'만 노출 */}
+      {validSections.length > 0 && (
+        <div className="mt-32 flex justify-center">
+          <button
+            type="button"
+            onClick={reset}
+            className="px-12 py-4 border border-black/20 text-xs font-bold uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all duration-300 rounded-full"
+          >
+            다시 찾기
+          </button>
+        </div>
+      )}
     </div>
   );
 }

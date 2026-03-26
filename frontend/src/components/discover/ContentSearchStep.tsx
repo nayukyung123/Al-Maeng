@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, keepPreviousData } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
 import { ArrowRight, X, Search, Loader2, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useDebounce } from "@/hooks/useDebounce";
+import { cn } from "@/lib/utils";
 import {
   fetchContentSuggestions,
   searchContents,
   type ContentSuggestion,
   type ContentItem,
 } from "@/api/curation";
-import useDiscoverStore from "@/store/useDiscoverStore";
+import useDiscoverStore, { type ContentSortType } from "@/store/useDiscoverStore";
 import useAuthStore from "@/store/useAuthStore";
 import {
   MAX_SEARCH_KEYWORD_LENGTH,
@@ -38,16 +39,56 @@ import AuthGate from "./AuthGate";
 // ─────────────────────────────────────────────────────────────
 // 정렬 옵션
 // ─────────────────────────────────────────────────────────────
-const SORT_OPTIONS = [
+const SORT_OPTIONS: { label: string; value: ContentSortType }[] = [
   { label: "정확도순", value: "accuracy" },
-  { label: "최신순",   value: "latest"   },
-] as const;
-type SortType = (typeof SORT_OPTIONS)[number]["value"];
+  { label: "최신순", value: "latest" },
+];
+
+/** 포스터 로드 실패 시 텍스트 로고 톤의 플레이스홀더 */
+function DiscoverContentPoster({
+  posterUrl,
+  title,
+  className,
+}: {
+  posterUrl?: string | null;
+  title: string;
+  className?: string;
+}) {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const safeUrl = posterUrl?.trim();
+  const showImage = Boolean(safeUrl) && !loadFailed;
+
+  return (
+    <div className={cn("w-full h-full min-h-0 bg-gray-100", className)}>
+      {showImage ? (
+        <img
+          src={safeUrl}
+          alt={title}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={() => setLoadFailed(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-3 py-5 bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200 border border-black/[0.06]">
+          <span className="font-black text-[10px] sm:text-xs uppercase italic tracking-tighter text-[#0033FF] select-none">
+            Al-Maeng
+          </span>
+          <span className="text-[10px] text-gray-500 text-center line-clamp-3 leading-snug font-medium">
+            {title}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ContentSearchStep() {
-  const [keyword, setKeyword] = useState("");
-  const [committedSearch, setCommittedSearch] = useState("");
-  const [sortType, setSortType] = useState<SortType>("accuracy");
+  const keyword = useDiscoverStore((s) => s.contentSearchKeyword);
+  const committedSearch = useDiscoverStore((s) => s.contentCommittedSearch);
+  const sortType = useDiscoverStore((s) => s.contentSortType);
+  const setKeyword = useDiscoverStore((s) => s.setContentSearchKeyword);
+  const setCommittedSearch = useDiscoverStore((s) => s.setContentCommittedSearch);
+  const setSortType = useDiscoverStore((s) => s.setContentSortType);
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   useEffect(() => {
@@ -64,18 +105,24 @@ export default function ContentSearchStep() {
   const resultsTopRef = useRef<HTMLDivElement>(null);
 
   const debouncedKeyword = useDebounce(keyword, 400);
-  const { selectedContent, setSelectedContent, nextStep } = useDiscoverStore();
+  const selectedContent = useDiscoverStore((s) => s.selectedContent);
+  const setSelectedContent = useDiscoverStore((s) => s.setSelectedContent);
+  const nextStep = useDiscoverStore((s) => s.nextStep);
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
 
   // ── 자동완성: GET /api/contents/suggestions ───────────────
   // 비로그인 사용자도 허용 (백엔드 SecurityConfig에서 공개 처리)
-  const { data: suggestions = [], isFetching: isSuggestionFetching } =
-    useQuery({
-      queryKey: ["content-suggestions", debouncedKeyword],
-      queryFn: () => fetchContentSuggestions(debouncedKeyword),
-      enabled: debouncedKeyword.trim().length > 0,
-      staleTime: 1000 * 60 * 3,
-    });
+  const {
+    data: suggestions = [],
+    isFetching: isSuggestionFetching,
+    isError: isSuggestionQueryError,
+  } = useQuery({
+    queryKey: ["content-suggestions", debouncedKeyword],
+    queryFn: () => fetchContentSuggestions(debouncedKeyword),
+    enabled: debouncedKeyword.trim().length > 0,
+    staleTime: 1000 * 60 * 3,
+    placeholderData: keepPreviousData,
+  });
 
   const showSuggestions = isFocused && keyword.trim().length > 0;
 
@@ -86,6 +133,10 @@ export default function ContentSearchStep() {
     hasNextPage,
     isFetchingNextPage,
     isLoading: isSearchLoading,
+    isError: isSearchError,
+    isFetchNextPageError,
+    isFetching,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ["contents-search", committedSearch, sortType],
     queryFn: ({ pageParam }) =>
@@ -114,10 +165,25 @@ export default function ContentSearchStep() {
   });
 
   useEffect(() => {
-    if (inView && hasNextPage && !isFetchingNextPage) {
+    if (
+      inView &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      !isFetchNextPageError
+    ) {
       fetchNextPage();
     }
-  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [
+    inView,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  ]);
+
+  const isInitialSearchFailed =
+    hasSearched && isSearchError && allResults.length === 0;
+  const isRetryingInitialSearch = isInitialSearchFailed && isFetching;
 
   // ── 검색 실행 (Enter / 돋보기 버튼) ──────────────────────
   const handleSearch = useCallback(() => {
@@ -138,7 +204,7 @@ export default function ContentSearchStep() {
     setTimeout(() => {
       resultsTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
-  }, [keyword, isLoggedIn, selectedContent, setSelectedContent]);
+  }, [keyword, isLoggedIn, selectedContent, setSelectedContent, setKeyword, setCommittedSearch]);
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,31 +214,49 @@ export default function ContentSearchStep() {
         setSelectedContent(null);
       }
     },
-    [selectedContent, setSelectedContent]
+    [selectedContent, setSelectedContent, setKeyword]
   );
 
   const handleClear = useCallback(() => {
     setKeyword("");
     setCommittedSearch("");
     setSelectedContent(null);
-  }, [setSelectedContent]);
+  }, [setSelectedContent, setKeyword, setCommittedSearch]);
 
-  // 자동완성 항목 직접 선택
+  // 자동완성 항목 직접 선택 → 검색 결과와 동일하게 쿼리 유지 후 바로 2단계
   const handleSuggestionSelect = useCallback(
     (item: ContentSuggestion) => {
+      const t = clampSearchKeyword(item.title);
       setSelectedContent(item);
-      setKeyword(clampSearchKeyword(item.title));
+      setKeyword(t);
+      setCommittedSearch(t);
       setIsFocused(false);
+      if (!isLoggedIn) {
+        setShowAuthGate(true);
+        return;
+      }
+      nextStep();
     },
-    [setSelectedContent]
+    [
+      setSelectedContent,
+      setKeyword,
+      setCommittedSearch,
+      isLoggedIn,
+      nextStep,
+    ]
   );
 
-  // 검색 결과 카드 선택
+  // 검색 결과 카드 선택 시 바로 분량 선택 단계로
   const handleResultSelect = useCallback(
     (item: ContentItem) => {
       setSelectedContent({ id: item.id, title: item.title });
+      if (!isLoggedIn) {
+        setShowAuthGate(true);
+        return;
+      }
+      nextStep();
     },
-    [setSelectedContent]
+    [setSelectedContent, isLoggedIn, nextStep]
   );
 
   const handleNext = useCallback(() => {
@@ -320,6 +404,7 @@ export default function ContentSearchStep() {
                   ))}
 
                 {!isSuggestionFetching &&
+                  !isSuggestionQueryError &&
                   debouncedKeyword.trim().length > 0 &&
                   suggestions.length === 0 && (
                     <div className="px-5 py-4 text-sm text-gray-400 font-medium text-center">
@@ -350,9 +435,32 @@ export default function ContentSearchStep() {
             ref={resultsTopRef}
             className="mt-8 animate-in fade-in duration-500"
           >
-            {isSearchLoading ? (
+            {isSearchLoading && allResults.length === 0 ? (
               <div className="flex justify-center py-16">
                 <Loader2 size={32} className="animate-spin text-[#0033FF]" />
+              </div>
+            ) : isInitialSearchFailed ? (
+              <div className="flex flex-col items-center justify-center py-16 md:py-24 px-4 gap-6 max-w-md mx-auto text-center">
+                {isRetryingInitialSearch ? (
+                  <Loader2 size={36} className="animate-spin text-[#0033FF]" />
+                ) : (
+                  <>
+                    <p className="text-gray-600 text-sm md:text-base font-medium leading-relaxed break-keep">
+                      검색 서버와 연결이 잠시 끊겼어요.
+                      <br />
+                      <span className="text-gray-400 text-xs md:text-sm mt-2 inline-block font-normal">
+                        네트워크를 확인한 뒤 다시 시도해 주세요.
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      className="px-8 py-3 rounded-full bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-[#0033FF] transition-colors"
+                    >
+                      다시 시도
+                    </button>
+                  </>
+                )}
               </div>
             ) : allResults.length > 0 ? (
               <>
@@ -389,26 +497,17 @@ export default function ContentSearchStep() {
                       className="group cursor-pointer flex flex-col gap-3"
                     >
                       <div
-                        className={`w-full aspect-[2/3] overflow-hidden rounded-sm bg-gray-100 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-105 group-hover:shadow-lg ${
+                        className={`w-full aspect-[2/3] overflow-hidden rounded-sm shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:scale-105 group-hover:shadow-lg ${
                           selectedContent?.id === item.id
                             ? "ring-4 ring-[#0033FF] ring-offset-4"
                             : ""
                         }`}
                       >
-                        {item.posterUrl ? (
-                          <img
-                            src={item.posterUrl}
-                            alt={item.title}
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gray-200 flex items-center justify-center p-2">
-                            <span className="text-xs text-gray-400 text-center line-clamp-3">
-                              {item.title}
-                            </span>
-                          </div>
-                        )}
+                        <DiscoverContentPoster
+                          posterUrl={item.posterUrl}
+                          title={item.title}
+                          className="h-full"
+                        />
                       </div>
                       <div className="px-1">
                         <h4 className="font-semibold text-sm md:text-base line-clamp-1 group-hover:text-[#0033FF] transition-colors">
@@ -426,9 +525,25 @@ export default function ContentSearchStep() {
                   ))}
                 </div>
 
+                {isFetchNextPageError && (
+                  <div className="py-8 flex flex-col items-center gap-3 text-center px-4">
+                    <p className="text-xs text-gray-400 font-medium break-keep max-w-sm">
+                      다음 페이지를 불러오지 못했어요.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="text-xs font-bold text-[#0033FF] underline underline-offset-4 hover:text-black disabled:opacity-40 disabled:no-underline"
+                    >
+                      {isFetchingNextPage ? "불러오는 중…" : "터치하여 다시 시도"}
+                    </button>
+                  </div>
+                )}
+
                 {/* 무한 스크롤 센티널 + 로딩 스피너 */}
                 <div ref={sentinelRef} className="py-10 flex justify-center">
-                  {isFetchingNextPage && (
+                  {isFetchingNextPage && !isFetchNextPageError && (
                     <Loader2
                       size={28}
                       className="animate-spin text-[#0033FF]"
