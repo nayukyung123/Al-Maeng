@@ -42,7 +42,7 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
             SELECT
                 COALESCE(parent.id, g.id) AS genreId,
                 COALESCE(parent.genre_name, g.genre_name) AS genreName,
-                COUNT(*) AS bookCount
+                COUNT(DISTINCT cb.id) AS bookCount
             FROM user_completed_books cb
             JOIN book_genres bg ON cb.book_id = bg.book_id
             JOIN genres g ON bg.genre_id = g.id
@@ -58,16 +58,17 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
             SELECT
                 t.genreId AS genreId,
                 t.genreName AS genreName,
-                COUNT(*) AS bookCount
+                COUNT(DISTINCT t.completedBookId) AS bookCount
             FROM (
                 SELECT
+                    cb.id AS completedBookId,
                     CASE
-                        WHEN parent.genre_name = :topLevelGenreName THEN g.id
-                        WHEN grandParent.genre_name = :topLevelGenreName THEN parent.id
+                        WHEN parent.id = :topLevelGenreId THEN g.id
+                        WHEN grandParent.id = :topLevelGenreId THEN parent.id
                     END AS genreId,
                     CASE
-                        WHEN parent.genre_name = :topLevelGenreName THEN g.genre_name
-                        WHEN grandParent.genre_name = :topLevelGenreName THEN parent.genre_name
+                        WHEN parent.id = :topLevelGenreId THEN g.genre_name
+                        WHEN grandParent.id = :topLevelGenreId THEN parent.genre_name
                     END AS genreName
                 FROM user_completed_books cb
                 JOIN book_genres bg ON cb.book_id = bg.book_id
@@ -75,7 +76,7 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
                 LEFT JOIN genres parent ON g.parent_id = parent.id
                 LEFT JOIN genres grandParent ON parent.parent_id = grandParent.id
                 WHERE cb.user_id = :userId
-                  AND (parent.genre_name = :topLevelGenreName OR grandParent.genre_name = :topLevelGenreName)
+                  AND (parent.id = :topLevelGenreId OR grandParent.id = :topLevelGenreId)
             ) t
             WHERE t.genreId IS NOT NULL AND t.genreName IS NOT NULL
             GROUP BY t.genreId, t.genreName
@@ -83,6 +84,6 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
             """, nativeQuery = true)
     List<GenreCountProjection> aggregateSubGenresByTopLevelGenre(
             @Param("userId") Long userId,
-            @Param("topLevelGenreName") String topLevelGenreName
+            @Param("topLevelGenreId") Long topLevelGenreId
     );
 }
