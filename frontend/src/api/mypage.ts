@@ -26,8 +26,27 @@ export interface UserProfileUpdateRequest {
   tasteData: number[];
 }
 
+export interface TasteReportGenreStat {
+  genreId: number;
+  genreName: string;
+  count: number;
+  percentage: number;
+}
+
+export interface TasteReportResponse {
+  topLevelGenres: TasteReportGenreStat[];
+  subGenres: TasteReportGenreStat[];
+}
+
 export async function fetchMyProfile(): Promise<UserProfileResponse> {
   const response = await apiClient.get<ApiResponse<UserProfileResponse>>("/api/users/me");
+  return response.data.data;
+}
+
+export async function fetchMyTasteReport(): Promise<TasteReportResponse> {
+  const response = await apiClient.get<ApiResponse<TasteReportResponse>>(
+    "/api/users/me/taste-report"
+  );
   return response.data.data;
 }
 
