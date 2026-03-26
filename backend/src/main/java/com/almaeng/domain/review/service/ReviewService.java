@@ -7,6 +7,7 @@ import com.almaeng.domain.review.dto.ReviewCreateRequest;
 import com.almaeng.domain.review.dto.ReviewResponse;
 import com.almaeng.domain.review.dto.ReviewUpdateRequest;
 import com.almaeng.domain.review.entity.Review;
+import com.almaeng.domain.review.event.ReviewChangedEvent;
 import com.almaeng.domain.review.repository.ReviewRepository;
 import com.almaeng.domain.review.type.ReviewSortType;
 import com.almaeng.domain.user.entity.User;
@@ -14,6 +15,7 @@ import com.almaeng.domain.user.repository.UserRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -29,6 +31,8 @@ public class ReviewService {
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
     private final CompletedBookRepository completedBookRepository;
+
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final String CREATED_AT = "createdAt"; // 정렬
 
@@ -66,6 +70,8 @@ public class ReviewService {
                 .build();
 
         Review savedReview = reviewRepository.save(review);
+
+        eventPublisher.publishEvent(new ReviewChangedEvent(book.getId()));
 
         return savedReview.getId();
 
@@ -114,8 +120,14 @@ public class ReviewService {
         // 작성자 본인 확인
         validateReviewOwner(userId, review);
 
+        boolean isRatingChanged = !review.getRating().equals(request.getRating());
+
         // 수정
         review.updateReview(request.getRating(), request.getContent(), request.getSpoiler());
+
+        if (isRatingChanged) {
+            eventPublisher.publishEvent(new ReviewChangedEvent(review.getBook().getId()));
+        }
     }
 
     @Transactional
@@ -125,7 +137,11 @@ public class ReviewService {
 
         validateReviewOwner(userId, review);
 
+        Long bookId = review.getBook().getId();
+
         reviewRepository.delete(review);
+
+        eventPublisher.publishEvent(new ReviewChangedEvent(bookId));
     }
 
     // 권한 검증
