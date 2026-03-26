@@ -90,7 +90,8 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
       if (!el) return;
       const r = el.getBoundingClientRect();
       const margin = 8;
-      const maxW = Math.min(320, window.innerWidth - 2 * margin);
+      /* 좁으면 한글+keep-all에서 줄이 과하게 짧아져 우측 빈 여백처럼 보임 — 데스크톱은 더 넓게 */
+      const maxW = Math.min(520, window.innerWidth - 2 * margin);
       const width = Math.min(maxW, Math.max(0, r.right - margin));
       const left = Math.max(margin, r.right - width);
       const top = r.top - margin;
