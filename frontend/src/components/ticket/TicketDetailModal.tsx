@@ -8,6 +8,7 @@ import { toPng } from "html-to-image";
 import { PhotoCard } from "./PhotoCard";
 import { VerticalTicketBackOverlay } from "./VerticalTicketBackOverlay";
 import { HorizontalTicketBackOverlay } from "./HorizontalTicketBackOverlay";
+import { TicketExportComposite } from "./TicketExportComposite";
 import { useVerticalBackTitleVisible } from "@/hooks/useVerticalBackTitleVisible";
 
 interface TicketDetailModalProps {
@@ -47,7 +48,7 @@ export const TicketDetailModal = ({
     try {
       const dataUrl = await toPng(ticketRef.current, { quality: 1.0, pixelRatio: 3 });
       const link = document.createElement("a");
-      link.download = `al-maeng-ticket-${ticket.title}.png`;
+      link.download = `al-maeng-ticket-full-${ticket.title.replace(/[\\/:*?"<>|]/g, "_")}.png`;
       link.href = dataUrl;
       link.click();
     } catch (err) {
@@ -187,9 +188,9 @@ export const TicketDetailModal = ({
         )}
       </div>
 
-      <div className="fixed -left-[9999px] top-0">
-        <div ref={ticketRef} className="bg-transparent p-4 inline-block">
-          <PhotoCard ticket={ticket} holeColor="bg-white" />
+      <div className="fixed -left-[9999px] top-0 w-max pointer-events-none" aria-hidden>
+        <div ref={ticketRef} className="inline-block">
+          <TicketExportComposite ticket={ticket} showBackTitle={showVerticalBackTitle} />
         </div>
       </div>
     </div>
