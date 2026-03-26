@@ -125,13 +125,17 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
   };
 
-  // 스크롤 이벤트 구독 + 도서 목록 바뀔 때마다 화살표 재계산
+  // 스크롤·리사이즈 + 도서 목록 변경 시 화살표 재계산 (Extended Universe / 랭킹과 동일 패턴)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     updateArrows();
     el.addEventListener("scroll", updateArrows, { passive: true });
-    return () => el.removeEventListener("scroll", updateArrows);
+    window.addEventListener("resize", updateArrows);
+    return () => {
+      el.removeEventListener("scroll", updateArrows);
+      window.removeEventListener("resize", updateArrows);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayBooks]);
 
@@ -180,19 +184,19 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
       {/* 섹션 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-baseline gap-4 flex-wrap">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tighter uppercase text-black">
+          <h2 className="text-2xl md:text-4xl font-black tracking-tighter uppercase text-black">
             Today&apos;s Curation
           </h2>
           {isFallback ? (
             /* 맞춤 추천 데이터 없음 → 인기 도서 폴백 배지 */
-            <span className="flex items-center gap-1 text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-0.5 rounded-full">
+            <span className="flex items-center gap-1 text-xs md:text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2.5 md:px-3 py-0.5 rounded-full">
               <Shuffle size={13} aria-hidden="true" />
               인기 도서
             </span>
           ) : (
             isLoggedIn &&
             user?.nickname && (
-              <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+              <span className="text-xs md:text-sm font-medium text-gray-400 uppercase tracking-wider">
                 for {user.nickname}
               </span>
             )
@@ -241,7 +245,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
             type="button"
             onClick={handleRefreshClick}
             disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-black hover:text-white transition-all rounded-full border border-black/5 text-sm font-bold group disabled:opacity-50 disabled:pointer-events-none"
+            className="flex items-center justify-center gap-0 md:gap-2 size-8 md:size-auto md:px-4 md:py-2 bg-gray-50 hover:bg-black hover:text-white transition-all rounded-full border border-black/5 text-sm font-bold group disabled:opacity-50 disabled:pointer-events-none shrink-0"
             aria-label={`새로고침 (${refreshCount}회)`}
           >
             <RotateCcw
@@ -255,7 +259,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
                   : ""
               }`}
             />
-            <span>새로고침 ({refreshCount}회)</span>
+            <span className="hidden md:inline">새로고침 ({refreshCount}회)</span>
           </button>
         </div>
       </div>
@@ -268,7 +272,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
         */}
         <div
           ref={scrollRef}
-          className={`overflow-x-auto snap-x snap-mandatory transition-all duration-700 ${
+          className={`-mx-2 px-2 lg:mx-0 lg:px-0 overflow-x-auto snap-x snap-mandatory transition-all duration-700 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
             !isLoggedIn ? "blur-md pointer-events-none select-none" : ""
           }`}
           style={{ scrollbarWidth: "none" }}
@@ -280,8 +284,8 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
                 key={`${book.id}-${refreshCount}`}
-                // 소형~중형: 고정 너비(스크롤) / lg+: flex-1(균등 배분)
-                className="snap-start shrink-0 w-[52vw] sm:w-56 md:w-52 lg:flex-1 lg:shrink lg:w-auto lg:min-w-0 group cursor-pointer"
+                // ~lg 미만: ContentCuration·랭킹과 같은 폭으로 가로 스크롤 / lg+: 균등 배분
+                className="snap-start shrink-0 w-[min(31vw,118px)] sm:w-[min(36vw,150px)] md:w-[min(40vw,200px)] lg:flex-1 lg:shrink lg:w-auto lg:min-w-0 group cursor-pointer"
                 onClick={() => handleBookClick(book)}
               >
                 <div className="w-full aspect-[2/3] bg-gray-100 mb-3 overflow-hidden border border-black/5 relative">
@@ -296,10 +300,10 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                 </div>
-                <h3 className="font-bold text-base leading-tight mb-1 line-clamp-1 group-hover:text-[#0033FF] transition-colors">
+                <h3 className="font-bold text-sm md:text-base leading-tight mb-1 line-clamp-1 group-hover:text-[#0033FF] transition-colors">
                   {book.title}
                 </h3>
-                <p className="text-sm text-gray-500 line-clamp-1">{book.author}</p>
+                <p className="text-xs md:text-sm text-gray-500 line-clamp-1">{book.author}</p>
               </motion.div>
             ))}
           </div>
@@ -343,7 +347,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
         {!isLoggedIn && (
           <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-white/10">
             <div className="bg-white/80 backdrop-blur-md border border-black/5 p-8 md:p-12 text-center shadow-2xl rounded-sm">
-              <p className="text-xl md:text-2xl font-black mb-6 break-keep">
+              <p className="text-lg md:text-2xl font-black mb-6 break-keep">
                 로그인 후 이용하실 수 있습니다
               </p>
               <Link
