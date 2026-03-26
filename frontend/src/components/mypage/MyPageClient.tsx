@@ -260,6 +260,27 @@ export default function MyPageClient() {
     finishedPage * itemsPerPage
   );
 
+  const hasTopLevelTasteData = (tasteReport?.topLevelGenres?.length ?? 0) > 0;
+  const hasSubTasteData = (tasteReport?.subGenres?.length ?? 0) > 0;
+
+  const MOCK_TOP_LEVEL_DATA = [
+    { genreName: "소설", count: 5 },
+    { genreName: "에세이", count: 3 },
+    { genreName: "과학", count: 2 },
+    { genreName: "경제", count: 2 },
+  ];
+
+  const NOVEL_PERSONA_AXES = [
+    { dbName: "판타지/환상문학", label: "판타지" },
+    { dbName: "로맨스소설", label: "로맨스" },
+    { dbName: "호러.공포소설", label: "호러" },
+    { dbName: "액션/스릴러소설", label: "스릴러" },
+    { dbName: "과학소설(SF)", label: "SF" },
+    { dbName: "역사소설", label: "역사" },
+    { dbName: "추리/미스터리소설", label: "추리" },
+    { dbName: "무협소설", label: "무협" },
+  ];
+
   useEffect(() => {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
@@ -313,24 +334,50 @@ export default function MyPageClient() {
 
         {/* Taste Reports (left column) */}
         <section className="h-full flex flex-col">
-          <h3 className="text-xl font-black uppercase tracking-tight mb-4">
-            TASTE REPORTS
-          </h3>
+          <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+            <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
+              TASTE REPORTS
+            </h3>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
             <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-black uppercase tracking-widest">대분류 장르 리포트</h3>
+                <h3 className="text-sm md:text-base font-extrabold tracking-tight">나의 독서 스펙트럼</h3>
               </div>
 
               <div className="aspect-square w-full">
                 {isTasteReportLoading ? (
                   <div className="w-full h-full rounded-lg bg-gray-50 animate-pulse" />
-                ) : (tasteReport?.topLevelGenres?.length ?? 0) === 0 ? (
-                  <div className="w-full h-full rounded-lg bg-gray-50 flex items-center justify-center text-center px-6">
-                    <p className="text-xs font-bold text-gray-400 break-keep">
-                      아직 완독한 책이 없어요.
-                    </p>
+                ) : !hasTopLevelTasteData ? (
+                  <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-100">
+                    <div className="w-full h-full opacity-35 blur-[1.5px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={MOCK_TOP_LEVEL_DATA}
+                            dataKey="count"
+                            nameKey="genreName"
+                            innerRadius="55%"
+                            outerRadius="80%"
+                            paddingAngle={2}
+                            isAnimationActive={false}
+                          >
+                            {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
+                              <Cell
+                                key={`${g.genreName}-${idx}`}
+                                fill={g.genreName === "소설" ? "#0033FF" : "#E5E7EB"}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-center px-6">
+                      <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
+                        아직 완독한 책이 없어 리포트를 준비 중이에요
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
@@ -349,7 +396,7 @@ export default function MyPageClient() {
                           return (
                             <Cell
                               key={g.genreId}
-                              fill={isNovel ? "#4D41FF" : "#E5E7EB"}
+                              fill={isNovel ? "#0033FF" : "#E5E7EB"}
                             />
                           );
                         })}
@@ -371,12 +418,56 @@ export default function MyPageClient() {
 
             <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-black uppercase tracking-widest">소설 하위장르 리포트</h3>
+                <h3 className="text-sm md:text-base font-extrabold tracking-tight">문학적 페르소나</h3>
               </div>
 
               <div className="aspect-square w-full">
                 {isTasteReportLoading ? (
                   <div className="w-full h-full rounded-lg bg-gray-50 animate-pulse" />
+                ) : !hasTopLevelTasteData ? (
+                  <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-100">
+                    <div className="w-full h-full opacity-35 blur-[1.5px]">
+                      {(() => {
+                        const mockCounts = [5, 3, 4, 2, 5, 3, 2, 4];
+                        const mockRadarData = NOVEL_PERSONA_AXES.map((axis, index) => ({
+                          subject: axis.label,
+                          count: mockCounts[index % mockCounts.length],
+                          fullMark: 5,
+                        }));
+
+                        return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart
+                          cx="50%"
+                          cy="50%"
+                          outerRadius="70%"
+                          data={mockRadarData}
+                        >
+                          <PolarGrid stroke="#f0f0f0" />
+                          <PolarAngleAxis
+                            dataKey="subject"
+                            tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                          />
+                          <Radar
+                            name="완독 수"
+                            dataKey="count"
+                            stroke="#0033FF"
+                            strokeWidth={2}
+                            fill="#0033FF"
+                            fillOpacity={0.15}
+                            isAnimationActive={false}
+                          />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                        );
+                      })()}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-center px-6">
+                      <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
+                        데이터가 쌓이면 문학적 페르소나를 보여드릴게요
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <RadarChart
@@ -387,10 +478,10 @@ export default function MyPageClient() {
                         const statMap = new Map(
                           (tasteReport?.subGenres ?? []).map((s) => [s.genreName, s])
                         );
-                        const axisData = novelSubGenres.map((g) => {
-                          const stat = statMap.get(g.genreName);
+                        const axisData = NOVEL_PERSONA_AXES.map((axis) => {
+                          const stat = statMap.get(axis.dbName);
                           return {
-                            subject: g.genreName,
+                            subject: axis.label,
                             count: stat?.count ?? 0,
                           };
                         });
@@ -409,9 +500,9 @@ export default function MyPageClient() {
                       <Radar
                         name="완독 수"
                         dataKey="count"
-                        stroke="#4D41FF"
+                        stroke="#0033FF"
                         strokeWidth={2}
-                        fill="#4D41FF"
+                        fill="#0033FF"
                         fillOpacity={0.15}
                         isAnimationActive={false}
                       />
@@ -426,7 +517,7 @@ export default function MyPageClient() {
                 )}
               </div>
 
-              {!isTasteReportLoading && (tasteReport?.subGenres?.length ?? 0) === 0 && (
+              {!isTasteReportLoading && hasTopLevelTasteData && !hasSubTasteData && (
                 <p className="mt-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   소설 완독 데이터가 아직 없어요
                 </p>
@@ -437,7 +528,11 @@ export default function MyPageClient() {
 
         {/* Right Column: Small Stats */}
         <section className="h-full flex flex-col space-y-4">
-          <h3 className="text-xl font-black uppercase tracking-tight">STATS</h3>
+          <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+            <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
+              STATS
+            </h3>
+          </div>
 
           <div className="flex-1 w-full">
             <div className="h-full flex flex-col gap-4">
@@ -447,9 +542,9 @@ export default function MyPageClient() {
                 }}
                 className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl"
               >
-                <p className="text-gray-500 font-mono text-[10px] uppercase tracking-widest">찜한 권수</p>
-                <p className="text-2xl font-black">
-                  {wishlistData?.totalElements ?? 0}<span className="text-sm font-medium ml-1">권</span>
+                <p className="text-white/80 text-sm md:text-base font-extrabold tracking-tight">찜한 권수</p>
+                <p className="text-right text-4xl md:text-5xl font-black leading-none">
+                  {wishlistData?.totalElements ?? 0}<span className="text-base md:text-lg font-bold ml-1">권</span>
                 </p>
               </button>
 
@@ -457,11 +552,11 @@ export default function MyPageClient() {
                 onClick={() => {
                   document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex-1 bg-[#4D41FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#3d34e0] transition-colors rounded-xl"
+                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl"
               >
-                <p className="text-white/60 font-mono text-[10px] uppercase tracking-widest">완독 권수</p>
-                <p className="text-2xl font-black">
-                  {finishedBooks.length}<span className="text-sm font-medium ml-1">권</span>
+                <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
+                <p className="text-right text-4xl md:text-5xl font-black leading-none">
+                  {finishedBooks.length}<span className="text-base md:text-lg font-bold ml-1">권</span>
                 </p>
               </button>
             </div>
