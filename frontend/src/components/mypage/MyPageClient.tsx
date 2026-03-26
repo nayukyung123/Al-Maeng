@@ -202,6 +202,14 @@ export default function MyPageClient() {
   });
 
   const saveProfile = () => {
+    if (!editFormData.nickname || editFormData.nickname.length < 2) {
+      alert("닉네임은 2자 이상 입력해주세요.");
+      return;
+    }
+    if (!editFormData.birthday || !editFormData.gender) {
+      alert("출생년도와 성별을 선택해주세요.");
+      return;
+    }
     saveProfileMutation.mutate();
   };
 

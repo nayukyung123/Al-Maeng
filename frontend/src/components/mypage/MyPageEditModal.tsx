@@ -123,15 +123,20 @@ export default function MyPageEditModal(props: {
               <input
                 type="text"
                 value={props.editFormData.nickname}
-                onChange={(e) =>
+                maxLength={10}
+                onChange={(e) => {
+                  const filtered = e.target.value.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, "");
                   props.setEditFormData((prev) => ({
                     ...prev,
-                    nickname: e.target.value,
-                  }))
-                }
+                    nickname: filtered,
+                  }));
+                }}
                 className="w-full p-4 bg-gray-50 border border-transparent rounded-2xl font-bold focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all"
                 placeholder="닉네임을 입력하세요"
               />
+              <p className="text-[10px] text-gray-400 font-medium mt-2">
+                한글, 영문, 숫자만 10자 이내로 입력해 주세요.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
