@@ -5,8 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
-import { ChevronLeft, ChevronRight, User, ArrowLeft } from 'lucide-react';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Rectangle } from 'recharts';
+import { User, ArrowLeft } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, updateMyProfile } from "@/api/mypage";
@@ -26,8 +26,8 @@ export default function MyPageClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [wishlistPage, setWishlistPage] = useState(1);
-  const [finishedPage, setFinishedPage] = useState(1);
+  const [wishlistPage] = useState(1);
+  const [finishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -39,7 +39,6 @@ export default function MyPageClient() {
     isLoggedIn
   );
   const wishlistItems = wishlistData?.content ?? [];
-  const wishlistTotalPages = wishlistData?.totalPages ?? 0;
 
   const { data: completedBooks = [] } = useQuery({
     queryKey: ["completed-books"],
@@ -103,9 +102,13 @@ export default function MyPageClient() {
     };
 
     setUserData(mapped);
-    setEditFormData(mapped);
-    setProfileImageFile(null);
-  }, [myProfile]);
+    // 프로필 수정 모달이 열린 동안 myProfile이 다시 fetch되면(캐시 무효화 등) 여기서 폼/파일을
+    // 덮어쓰면 선택한 파일이 지워지고 미리보기만 data URL이거나 서버 더미 URL만 저장되는 현상이 난다.
+    if (!isEditModalOpen) {
+      setEditFormData(mapped);
+      setProfileImageFile(null);
+    }
+  }, [myProfile, isEditModalOpen]);
 
   // URL 기반으로 수정 모달 오픈 제어: /mypage?edit=true
   useEffect(() => {
@@ -186,7 +189,7 @@ export default function MyPageClient() {
     },
   });
 
-  const deleteAccountMutation = useMutation({
+  const deleteAccountMutation = useMutation<void, Error, void>({
     mutationFn: deleteMyAccount,
     onSuccess: () => {
       logout();
@@ -232,7 +235,6 @@ export default function MyPageClient() {
     dateRead: book.completedAt,
   }));
 
-  const finishedTotalPages = Math.ceil(finishedBooks.length / itemsPerPage);
   const currentFinishedBooks = finishedBooks.slice(
     (finishedPage - 1) * itemsPerPage,
     finishedPage * itemsPerPage
@@ -359,20 +361,34 @@ export default function MyPageClient() {
                     <Bar
                       dataKey="A"
                       radius={[0, 4, 4, 0]}
-                      onClick={(data: any) => {
-                        if (data.subject === '문학(소설)') {
-                          setSelectedCategory('문학(소설)');
+                      shape={(props: {
+                        x?: number;
+                        y?: number;
+                        width?: number;
+                        height?: number;
+                        payload?: { subject?: string };
+                      }) => {
+                        const { x = 0, y = 0, width = 0, height = 0, payload } = props;
+                        const isFiction = payload?.subject === "문학(소설)";
+                        return (
+                          <Rectangle
+                            x={x}
+                            y={y}
+                            width={width}
+                            height={height}
+                            fill={isFiction ? "#4D41FF" : "#E5E7EB"}
+                            radius={[0, 4, 4, 0]}
+                            className={isFiction ? "cursor-pointer hover:opacity-80" : ""}
+                          />
+                        );
+                      }}
+                      onClick={(state: { payload?: { subject?: string }; subject?: string }) => {
+                        const subject = state.payload?.subject ?? state.subject;
+                        if (subject === "문학(소설)") {
+                          setSelectedCategory("문학(소설)");
                         }
                       }}
-                    >
-                      {MAIN_CHART_DATA.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.subject === '문학(소설)' ? '#4D41FF' : '#E5E7EB'}
-                          className={entry.subject === '문학(소설)' ? 'cursor-pointer hover:opacity-80' : ''}
-                        />
-                      ))}
-                    </Bar>
+                    />
                   </BarChart>
                 )}
               </ResponsiveContainer>
