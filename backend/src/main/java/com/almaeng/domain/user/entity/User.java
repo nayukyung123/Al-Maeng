@@ -71,9 +71,6 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<UserTasteReportGenre> tasteReports = new ArrayList<>();
-
     @Builder
     public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.tier = tier;

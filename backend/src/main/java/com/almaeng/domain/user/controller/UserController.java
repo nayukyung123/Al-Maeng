@@ -2,9 +2,11 @@ package com.almaeng.domain.user.controller;
 
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
+import com.almaeng.domain.user.dto.TasteReportResponse;
 import com.almaeng.domain.user.dto.UserProfileResponse;
 import com.almaeng.domain.user.dto.UserProfileUpdateRequest;
 import com.almaeng.domain.user.service.UserService;
+import com.almaeng.domain.user.service.UserTasteReportService;
 import com.almaeng.global.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,12 +19,22 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
+    private final UserTasteReportService userTasteReportService;
 
     // 프로필 조회
     @GetMapping("/me")
     public ApiResponse<UserProfileResponse> getMyProfile(
             @AuthenticationPrincipal Long userId) {
         UserProfileResponse response = userService.getUserProfile(userId);
+
+        return ApiResponse.success(response);
+    }
+
+    // 취향 리포트 조회
+    @GetMapping("/me/taste-report")
+    public ApiResponse<TasteReportResponse> getMyTasteReport(
+            @AuthenticationPrincipal Long userId) {
+        TasteReportResponse response = userTasteReportService.getTasteReport(userId);
 
         return ApiResponse.success(response);
     }
