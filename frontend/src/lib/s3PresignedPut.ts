@@ -14,8 +14,7 @@ export async function putPresignedObject(
     body,
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`S3 업로드 실패 (${res.status}): ${text.slice(0, 400)}`);
+    throw new Error(`S3 업로드 실패 (${res.status})`);
   }
 }
 

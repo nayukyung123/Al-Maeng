@@ -128,7 +128,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
           uploadedImageUrl = imageUrl;
         } catch (uploadErr) {
           // S3 업로드 실패 시 이미지 없이 티켓 생성 진행 (경고만 표시)
-          console.warn("S3 이미지 업로드 실패, 이미지 없이 티켓을 생성합니다:", uploadErr);
           setSubmitError("이미지 업로드에 실패했습니다. 이미지 없이 티켓을 생성합니다.");
           uploadedImageUrl = "";
         }
