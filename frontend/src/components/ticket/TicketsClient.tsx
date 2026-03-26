@@ -98,6 +98,13 @@ export const TicketsClient = () => {
     ? (binderPageData?.content ?? [])
     : guestTickets;
 
+  const resolvedDetailTicket = useMemo(() => {
+    if (!selectedTicket) return null;
+    const fromGallery = galleryTickets.find((t) => t.id === selectedTicket.id);
+    const fromBinder = binderPageData?.content?.find((t) => t.id === selectedTicket.id);
+    return fromGallery ?? fromBinder ?? selectedTicket;
+  }, [selectedTicket, galleryTickets, binderPageData]);
+
   const isTicketsLoading = isLoggedIn && (isGalleryLoading || isBinderLoading || isCompletedLoading);
   const isEmptyGallery = isLoggedIn && !isTicketsLoading && view === "gallery" && shownGalleryTickets.length === 0;
   const isEmptyBinder = isLoggedIn && !isTicketsLoading && view === "binder" && shownBinderTickets.length === 0;
@@ -230,10 +237,11 @@ export const TicketsClient = () => {
       />
 
       {/* 3D 플립 티켓 상세조회 (다운로드 지원) 모달 */}
-      <TicketDetailModal 
-        ticket={selectedTicket} 
-        onClose={() => setSelectedTicket(null)} 
+      <TicketDetailModal
+        ticket={resolvedDetailTicket}
+        onClose={() => setSelectedTicket(null)}
         onDelete={isLoggedIn ? handleDeleteTicket : undefined}
+        persistBackTitlePreference={isLoggedIn}
       />
     </div>
   );
