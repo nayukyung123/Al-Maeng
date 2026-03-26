@@ -7,7 +7,9 @@ import { clsx } from "clsx";
 import { User, LogOut, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
+import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { logout as logoutApi } from "@/api/auth";
+import { fetchMyProfile } from "@/api/mypage";
 
 /** 메인 네비게이션 항목 정의 */
 const NAV_ITEMS = [
@@ -27,12 +29,34 @@ function getActiveId(pathname: string): string {
 
 export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const activeId = getActiveId(pathname);
 
-  const { isLoggedIn, user, logout } = useAuthStore();
+  const authHydrated = useAuthStoreHydrated();
+  const { isLoggedIn, user, logout, updateUser } = useAuthStore();
+
+  /** 로그인 응답에 프로필이 없어 store만으로는 이미지/닉네임이 비는 경우 — 서버 프로필과 맞춤 */
+  useEffect(() => {
+    if (!authHydrated || !isLoggedIn) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const profile = await fetchMyProfile();
+        if (cancelled) return;
+        updateUser({
+          nickname: profile.nickname,
+          profileImageUrl: profile.profileImageUrl ?? undefined,
+        });
+      } catch {
+        // 401 등은 axios 인터셉터가 처리; 그 외는 무시
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authHydrated, isLoggedIn, updateUser]);
 
   /* 드롭다운 외부 클릭 시 닫기 */
   useEffect(() => {
