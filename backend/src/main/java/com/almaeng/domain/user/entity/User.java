@@ -83,6 +83,13 @@ public class User {
         this.isDeleted = false;
     }
 
+    // 회원 탈퇴를 위한 메타데이터 익명화 및 소셜 연동 해제
+    public void deactivate(String anonymousNickname) {
+        this.nickname = anonymousNickname;
+        this.socialAccounts.clear();
+        this.isDeleted = true;
+    }
+
     // 처음 소셜 로그인 시 NOT NULL을 피하기 위한 임시 유저 생성기
     public static User createOAuthTempUser(String provider, Tier defaultTier) {
         String tempNickname = provider.toUpperCase() + "_" + UUID.randomUUID().toString().substring(0, 8);
