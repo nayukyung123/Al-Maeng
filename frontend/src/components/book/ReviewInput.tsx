@@ -8,6 +8,7 @@ import axios from "axios";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import { createReview } from "@/api/bookDetail";
+import ProfileAvatar from "./ProfileAvatar";
 
 interface ReviewInputProps {
   slug: string;
@@ -132,15 +133,12 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
         </div>
       )}
 
-      {/* 프로필 아바타 */}
-      <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden shrink-0 border border-black/5">
-        <img
-          src={profileSrc}
-          alt="내 프로필"
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-      </div>
+      {/* 프로필 아바타 — 이미지 없으면 회색 기본 실루엣 */}
+      <ProfileAvatar
+        imageUrl={user?.profileImageUrl}
+        alt="내 프로필"
+        size="md"
+      />
 
       <div className="flex-1 space-y-6">
         {/* 별점 · 스포일러 토글 */}
