@@ -11,6 +11,11 @@ import {
   clearSearchOverlayReturnTo,
   consumeSearchOverlayReturnTo,
 } from "@/lib/searchOverlayReturn";
+import {
+  MAX_SEARCH_KEYWORD_LENGTH,
+  SEARCH_KEYWORD_LENGTH_HINT,
+  clampSearchKeyword,
+} from "@/lib/searchKeyword";
 
 interface SearchSectionProps {
   /** 스크롤 감지 후 부모에서 주입 — true일 때 하단 플로팅 버튼 표시 */
@@ -79,11 +84,12 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
   });
 
   const handleSearchSubmit = (query: string) => {
-    if (!query.trim()) return;
+    const q = clampSearchKeyword(query.trim());
+    if (!q) return;
     setIsSearchOpen(false);
     setSearchQuery("");
     clearSearchOverlayReturnTo();
-    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    router.push(`/search?q=${encodeURIComponent(q)}`);
   };
 
   /** 닫기(X): 다른 페이지에서 열었으면 그 페이지로 복귀 */
@@ -163,10 +169,20 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
                     type="text"
                     autoFocus
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit(searchQuery)}
+                    maxLength={MAX_SEARCH_KEYWORD_LENGTH}
+                    onChange={(e) =>
+                      setSearchQuery(clampSearchKeyword(e.target.value))
+                    }
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleSearchSubmit(searchQuery)
+                    }
                     placeholder="Type a keyword, author, or text"
                     aria-label="도서 검색어 입력"
+                    aria-describedby={
+                      searchQuery.length >= MAX_SEARCH_KEYWORD_LENGTH
+                        ? "home-search-keyword-length-hint"
+                        : undefined
+                    }
                     className="w-full bg-transparent border-b border-[#0033FF]/30 py-6 pr-16 text-4xl md:text-7xl font-serif italic font-light focus:outline-none focus:border-[#0033FF] transition-colors placeholder:text-gray-200"
                   />
                   {searchQuery && (
@@ -216,6 +232,16 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
                     )}
                   </AnimatePresence>
                 </div>
+
+                {searchQuery.length >= MAX_SEARCH_KEYWORD_LENGTH && (
+                  <p
+                    id="home-search-keyword-length-hint"
+                    className="mt-3 text-sm font-medium text-red-600"
+                    role="status"
+                  >
+                    {SEARCH_KEYWORD_LENGTH_HINT}
+                  </p>
+                )}
 
                 {/* 실시간 검색어 */}
                 <div className="mt-16">

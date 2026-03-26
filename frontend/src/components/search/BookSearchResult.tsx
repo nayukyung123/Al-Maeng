@@ -8,6 +8,11 @@ import { useInView } from "react-intersection-observer";
 import { Search, X, ArrowLeft, Loader2, BookOpen, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchBooks } from "@/api/books";
+import {
+  MAX_SEARCH_KEYWORD_LENGTH,
+  SEARCH_KEYWORD_LENGTH_HINT,
+  clampSearchKeyword,
+} from "@/lib/searchKeyword";
 import type { Book } from "@/types/home";
 
 // ─────────────────────────────────────────────────────────────
@@ -97,9 +102,10 @@ export default function BookSearchResult({
   initialAutoFocus = false,
 }: BookSearchResultProps) {
   const router = useRouter();
-  const [inputValue, setInputValue] = useState(initialQuery);
+  const initialClamped = clampSearchKeyword(initialQuery);
+  const [inputValue, setInputValue] = useState(initialClamped);
   // 실제로 API에 날리는 쿼리 (제출 시에만 변경)
-  const [committedQuery, setCommittedQuery] = useState(initialQuery);
+  const [committedQuery, setCommittedQuery] = useState(initialClamped);
   const [sortType, setSortType] = useState<SortValue>("accuracy");
 
   // ── 스크롤 감지 → TOP 버튼 표시 여부 ───────────────────
@@ -122,8 +128,9 @@ export default function BookSearchResult({
 
   // URL이 바뀌면 committedQuery도 동기화 (뒤로가기 등)
   useEffect(() => {
-    setInputValue(initialQuery);
-    setCommittedQuery(initialQuery);
+    const q = clampSearchKeyword(initialQuery);
+    setInputValue(q);
+    setCommittedQuery(q);
   }, [initialQuery]);
 
   // ── 무한 스크롤 데이터 ───────────────────────────────────
@@ -161,7 +168,7 @@ export default function BookSearchResult({
 
   // ── 검색 제출 ────────────────────────────────────────────
   const handleSubmit = useCallback(() => {
-    const trimmed = inputValue.trim();
+    const trimmed = clampSearchKeyword(inputValue.trim());
     if (!trimmed) return;
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
     // URL 변경으로 인해 initialQuery prop이 바뀌면 useEffect에서 반영됨
@@ -193,46 +200,65 @@ export default function BookSearchResult({
           </button>
 
           {/* 검색 입력 */}
-          <div className="flex-1 relative flex items-center gap-3 border-b-2 border-black/10 focus-within:border-[#0033FF] transition-colors pb-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="제목, 작가, 키워드 검색"
-              aria-label="도서 검색어 입력"
-              className="flex-1 min-w-0 py-2 text-lg md:text-2xl font-bold italic focus:outline-none bg-transparent placeholder:text-gray-200"
-            />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="relative flex items-center gap-3 border-b-2 border-black/10 pb-1 transition-colors focus-within:border-[#0033FF]">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                maxLength={MAX_SEARCH_KEYWORD_LENGTH}
+                onChange={(e) =>
+                  setInputValue(clampSearchKeyword(e.target.value))
+                }
+                onKeyDown={handleKeyDown}
+                placeholder="제목, 작가, 키워드 검색"
+                aria-label="도서 검색어 입력"
+                aria-describedby={
+                  inputValue.length >= MAX_SEARCH_KEYWORD_LENGTH
+                    ? "search-keyword-length-hint"
+                    : undefined
+                }
+                className="min-w-0 flex-1 py-2 text-lg font-bold italic placeholder:text-gray-200 focus:outline-none md:text-2xl bg-transparent"
+              />
 
-            {/* 지우기 버튼 */}
-            <AnimatePresence>
-              {inputValue && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
-                  type="button"
-                  onClick={handleClear}
-                  aria-label="검색어 지우기"
-                  className="shrink-0 text-gray-300 hover:text-black transition-colors"
-                >
-                  <X size={20} aria-hidden="true" />
-                </motion.button>
-              )}
-            </AnimatePresence>
+              {/* 지우기 버튼 */}
+              <AnimatePresence>
+                {inputValue && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.15 }}
+                    type="button"
+                    onClick={handleClear}
+                    aria-label="검색어 지우기"
+                    className="shrink-0 text-gray-300 hover:text-black transition-colors"
+                  >
+                    <X size={20} aria-hidden="true" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
 
-            {/* 검색 버튼 */}
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={!inputValue.trim()}
-              aria-label="검색"
-              className="shrink-0 text-black hover:text-[#0033FF] transition-colors disabled:opacity-20"
-            >
-              <Search size={24} aria-hidden="true" />
-            </button>
+              {/* 검색 버튼 */}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!inputValue.trim()}
+                aria-label="검색"
+                className="shrink-0 text-black hover:text-[#0033FF] transition-colors disabled:opacity-20"
+              >
+                <Search size={24} aria-hidden="true" />
+              </button>
+            </div>
+            {inputValue.length >= MAX_SEARCH_KEYWORD_LENGTH && (
+              <p
+                id="search-keyword-length-hint"
+                className="mt-1.5 text-sm font-medium text-red-600"
+                role="status"
+              >
+                {SEARCH_KEYWORD_LENGTH_HINT}
+              </p>
+            )}
           </div>
         </div>
       </div>

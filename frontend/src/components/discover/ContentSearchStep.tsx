@@ -14,6 +14,11 @@ import {
 } from "@/api/curation";
 import useDiscoverStore from "@/store/useDiscoverStore";
 import useAuthStore from "@/store/useAuthStore";
+import {
+  MAX_SEARCH_KEYWORD_LENGTH,
+  SEARCH_KEYWORD_LENGTH_HINT,
+  clampSearchKeyword,
+} from "@/lib/searchKeyword";
 import AuthGate from "./AuthGate";
 
 /**
@@ -116,15 +121,17 @@ export default function ContentSearchStep() {
 
   // ── 검색 실행 (Enter / 돋보기 버튼) ──────────────────────
   const handleSearch = useCallback(() => {
-    if (!keyword.trim()) return;
+    const k = clampSearchKeyword(keyword.trim());
+    if (!k) return;
     // 비로그인 사용자 → 로그인 안내 팝업
     if (!isLoggedIn) {
       setShowAuthGate(true);
       return;
     }
-    setCommittedSearch(keyword);
+    setKeyword(k);
+    setCommittedSearch(k);
     setIsFocused(false);
-    if (selectedContent && selectedContent.title !== keyword) {
+    if (selectedContent && selectedContent.title !== k) {
       setSelectedContent(null);
     }
     // 새 검색 시 결과 영역 상단으로 스크롤
@@ -135,7 +142,7 @@ export default function ContentSearchStep() {
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
+      const value = clampSearchKeyword(e.target.value);
       setKeyword(value);
       if (selectedContent && selectedContent.title !== value) {
         setSelectedContent(null);
@@ -154,7 +161,7 @@ export default function ContentSearchStep() {
   const handleSuggestionSelect = useCallback(
     (item: ContentSuggestion) => {
       setSelectedContent(item);
-      setKeyword(item.title);
+      setKeyword(clampSearchKeyword(item.title));
       setIsFocused(false);
     },
     [setSelectedContent]
@@ -204,43 +211,60 @@ export default function ContentSearchStep() {
         <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm pt-4 pb-3 -mx-6 md:-mx-12 px-6 md:px-12">
 
         {/* ② 검색 입력창 */}
-        <div className="w-full relative">
-          <div className="flex items-center gap-3 pb-1">
-            <input
-              type="text"
-              value={keyword}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setTimeout(() => setIsFocused(false), 150)}
-              placeholder="영화, 드라마 제목 검색"
-              className="flex-1 min-w-0 py-3 text-2xl md:text-4xl font-bold italic focus:outline-none transition-colors placeholder:text-gray-200 bg-transparent"
-            />
+        <div className="relative w-full">
+          <div className="flex flex-col gap-0">
+            <div className="flex items-center gap-3 pb-1">
+              <input
+                type="text"
+                value={keyword}
+                maxLength={MAX_SEARCH_KEYWORD_LENGTH}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+                placeholder="영화, 드라마 제목 검색"
+                aria-describedby={
+                  keyword.length >= MAX_SEARCH_KEYWORD_LENGTH
+                    ? "content-search-keyword-length-hint"
+                    : undefined
+                }
+                className="min-w-0 flex-1 py-3 text-2xl font-bold italic transition-colors placeholder:text-gray-200 focus:outline-none md:text-4xl bg-transparent"
+              />
 
-            <AnimatePresence>
-              {keyword && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={handleClear}
-                  className="shrink-0 text-gray-300 hover:text-black transition-colors"
-                  aria-label="검색어 지우기"
-                >
-                  <X size={24} />
-                </motion.button>
-              )}
-            </AnimatePresence>
+              <AnimatePresence>
+                {keyword && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.15 }}
+                    onClick={handleClear}
+                    className="shrink-0 text-gray-300 hover:text-black transition-colors"
+                    aria-label="검색어 지우기"
+                  >
+                    <X size={24} />
+                  </motion.button>
+                )}
+              </AnimatePresence>
 
-            <button
-              onClick={handleSearch}
-              disabled={!keyword.trim()}
-              className="shrink-0 text-black hover:text-[#0033FF] transition-colors disabled:opacity-20"
-              aria-label="검색"
-            >
-              <Search size={32} />
-            </button>
+              <button
+                onClick={handleSearch}
+                disabled={!keyword.trim()}
+                className="shrink-0 text-black hover:text-[#0033FF] transition-colors disabled:opacity-20"
+                aria-label="검색"
+              >
+                <Search size={32} />
+              </button>
+            </div>
+            {keyword.length >= MAX_SEARCH_KEYWORD_LENGTH && (
+              <p
+                id="content-search-keyword-length-hint"
+                className="text-sm font-medium text-red-600"
+                role="status"
+              >
+                {SEARCH_KEYWORD_LENGTH_HINT}
+              </p>
+            )}
           </div>
 
           {/* 포커스 시 파란 구분선 */}
