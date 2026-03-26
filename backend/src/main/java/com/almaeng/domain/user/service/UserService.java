@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -130,6 +131,9 @@ public class UserService {
         } catch (Exception e) {
             log.warn("invalidateSession failed while deleting user. userId={}, accessTokenPresent={}", userId, accessToken != null, e);
         }
-        userRepository.delete(user);
+        String anonymousNickname = "DELETED_" + user.getId() + "_" + UUID.randomUUID().toString().substring(0, 8);
+        user.deactivate(anonymousNickname);
+
+        userRepository.save(user); // save()를 지시하여 연동 계정 삭제 및 닉네임/is_deleted 업데이트 유도
     }
 }
