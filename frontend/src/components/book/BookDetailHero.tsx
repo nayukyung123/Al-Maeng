@@ -184,7 +184,9 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
           )}
           <div className="flex items-center gap-1">
             <Star size={12} fill="#111" className="text-black" />
-            <span className="text-xs font-black">{book.averageRating.toFixed(1)}</span>
+            <span className="text-xs font-black">
+              {Number(book.averageRating ?? 0).toFixed(1)}
+            </span>
           </div>
         </div>
 
