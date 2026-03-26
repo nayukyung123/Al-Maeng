@@ -48,25 +48,27 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
       }}
       className="cursor-pointer group relative w-full h-[60vh] md:h-[500px] bg-black overflow-hidden"
     >
-      {/* 슬라이드 트랙 */}
+      {/* 슬라이드 트랙 — 슬라이드당 100% 너비(양옆 검정 여백 없음) */}
       <div
-        className="flex w-full h-full transition-transform duration-700 ease-in-out gap-4"
+        className="flex h-full transition-transform duration-700 ease-in-out"
         style={{
-          transform: `translateX(calc(-${currentSlide * 88}% - ${currentSlide * 16}px + 6%))`,
+          width: `${banners.length * 100}%`,
+          transform: `translateX(-${(currentSlide * 100) / banners.length}%)`,
         }}
       >
         {banners.map((slide, index) => (
           <div
             key={slide.contentId}
-            className={`w-[88%] h-full shrink-0 relative text-white flex flex-col justify-end p-8 md:p-16 transition-all duration-700 ${
+            className={`relative flex h-full shrink-0 flex-col justify-end p-8 text-white transition-all duration-700 md:p-16 ${
               currentSlide === index ? "scale-100" : "scale-[0.98]"
             }`}
+            style={{ width: `${100 / banners.length}%` }}
           >
             {slide.bannerPosterUrl ? (
               <img
                 src={slide.bannerPosterUrl}
                 alt={slide.title}
-                className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 mix-blend-luminosity ${
+                className={`absolute inset-0 h-full w-full object-cover object-center transition-all duration-700 mix-blend-luminosity ${
                   currentSlide === index
                     ? "opacity-40"
                     : "opacity-10 brightness-[0.3]"

@@ -50,7 +50,7 @@ export default function HomeClient() {
   };
 
   return (
-    <div className="flex flex-col gap-16 pb-24 pt-20 md:pt-12 px-6 md:px-12 animate-in fade-in duration-500">
+    <div className="flex flex-col gap-16 px-10 pb-24 pt-20 animate-in fade-in duration-500 md:px-20 md:pt-12">
       {/* 히어로 배너 슬라이더 */}
       <HeroSlider onBannerClick={handleBannerClick} />
 
