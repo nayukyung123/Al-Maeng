@@ -2,6 +2,7 @@ package com.almaeng.domain.wishlist.service;
 
 import com.almaeng.domain.book.entity.Book;
 import com.almaeng.domain.book.repository.BookRepository;
+import com.almaeng.domain.log.event.UserActionEvent;
 import com.almaeng.domain.user.entity.User;
 import com.almaeng.domain.user.repository.UserRepository;
 import com.almaeng.domain.wishlist.dto.WishlistAddRequest;
@@ -11,6 +12,7 @@ import com.almaeng.domain.wishlist.repository.UserWishlistRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class WishlistService {
     private final UserWishlistRepository wishlistRepository;
     private final UserRepository userRepository;
     private final BookRepository bookRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public WishlistResponse.PageData getMyWishlists(Long userId, Pageable pageable) {
         Page<UserWishlist> wishlistPage = wishlistRepository.findWishlistWithBookByUserId(userId, pageable);
@@ -48,10 +51,13 @@ public class WishlistService {
                 .build();
 
         wishlistRepository.save(newWishlist);
+        
+        // 5. 이벤트 발행
+        eventPublisher.publishEvent(new UserActionEvent(userId, request.getBookId(), request.getSource(), "wish"));
     }
 
     @Transactional
-    public void deleteWishlist(Long userId, Long bookId) {
+    public void deleteWishlist(Long userId, Long bookId, String source) {
 
         // 1. 내 찜 목록에 해당 도서가 있는지 확인
         UserWishlist wishlist = wishlistRepository.findByUserIdAndBookId(userId, bookId)
@@ -59,6 +65,9 @@ public class WishlistService {
 
         // 2. 찜 내역 삭제
         wishlistRepository.delete(wishlist);
+
+        // 3. 이벤트 발행
+        eventPublisher.publishEvent(new UserActionEvent(userId, bookId, source, "wish_cancel"));
     }
 
     // 찜 여부 확인

@@ -17,6 +17,7 @@ import MyPageTierSection from "@/components/mypage/MyPageTierSection";
 import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
+import { formatBookContent } from '@/utils/decode';
 import { MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
@@ -426,7 +427,7 @@ export default function MyPageClient() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{item.title}</h4>
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{formatBookContent(item.title)}</h4>
                   <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
                 </div>
               </Link>
@@ -476,7 +477,7 @@ export default function MyPageClient() {
                 </div>
                 <div className="space-y-1">
                   <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">
-                    {book.title}
+                    {formatBookContent(book.title)}
                   </h4>
                   <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
                 </div>

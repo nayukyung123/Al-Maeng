@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { fetchRecommendations } from "@/api/bookDetail";
+import { formatBookContent } from "@/utils/decode";
 import type { RecommendedBook } from "@/types/book";
 
 interface RecommendationListProps {
@@ -54,10 +55,10 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
           return (
             <div
               key={rec.id}
-              onClick={() => router.push(`/books/${rec.slug}`)}
-              className="min-w-[140px] group cursor-pointer"
+              onClick={() => router.push(`/books/${rec.slug}?source=book`)}
+              className="w-[120px] md:w-[140px] shrink-0 group cursor-pointer"
             >
-              <div className="aspect-[2/3] bg-gray-50 mb-4 relative overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-500">
+              <div className="aspect-[2/3] w-full bg-gray-50 mb-4 relative overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-500">
                 <img
                   src={imgSrc}
                   alt={rec.title}
@@ -65,11 +66,11 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <h4 className="text-xs font-black uppercase tracking-tight line-clamp-1 mb-1">
-                {rec.title}
+              <h4 className="text-[11px] font-black uppercase tracking-tight line-clamp-2 mb-1 h-8 leading-tight">
+                {formatBookContent(rec.title)}
               </h4>
-              <p className="text-[10px] text-gray-400 font-serif italic">
-                {rec.author}
+              <p className="text-[10px] text-gray-400 font-serif italic truncate">
+                {formatBookContent(rec.author)}
               </p>
             </div>
           );

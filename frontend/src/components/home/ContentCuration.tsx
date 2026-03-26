@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchContentRecommendations } from "@/api/recommendations";
+import { formatBookContent } from "@/utils/decode";
 import type { ContentRecommendationItem } from "@/types/home";
 
 interface ContentCurationProps {
@@ -37,7 +38,7 @@ export default function ContentCuration({ selectedContentId }: ContentCurationPr
     setCurrentIndex((prev) => (prev + 1) % curations.length);
 
   const handleBookClick = (slug: string) => {
-    router.push(`/books/${slug}`);
+    router.push(`/books/${slug}?source=trend`);
   };
 
   return (
@@ -150,9 +151,9 @@ export default function ContentCuration({ selectedContentId }: ContentCurationPr
                     )}
                   </div>
                   <h4 className="font-bold text-base mb-1 line-clamp-2 group-hover:text-[#0033FF] transition-colors">
-                    {book.title}
+                    {formatBookContent(book.title)}
                   </h4>
-                  <p className="text-sm text-gray-500">{book.author}</p>
+                  <p className="text-sm text-gray-500">{formatBookContent(book.author)}</p>
                 </div>
               ))}
             </div>

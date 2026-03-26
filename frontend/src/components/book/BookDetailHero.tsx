@@ -15,19 +15,22 @@ import {
   fetchCompletedBooks,
 } from "@/api/completedBooks";
 import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
+import { formatBookContent } from "@/utils/decode";
 
 interface BookDetailHeroProps {
   book: BookDetail;
+  /** 도서 상세 진입 시 유입 경로 — 찜/완독 로그에도 동일하게 사용 */
+  source: string;
 }
 
-export default function BookDetailHero({ book }: BookDetailHeroProps) {
+export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
   const queryClient = useQueryClient();
 
-  // 찜하기 상태 및 뮤테이션
+  // 찜하기 상태 및 뮤테이션 (진입 source 그대로 전달)
   const { data: isWishlisted = false } = useWishlistStatus(book.id, isLoggedIn);
-  const { addWishlist, removeWishlist } = useWishlistMutation(book.id);
+  const { addWishlist, removeWishlist } = useWishlistMutation(book.id, source);
 
   const { data: completedBooks = [] } = useQuery<CompletedBook[]>({
     queryKey: ["completed-books"],
@@ -63,7 +66,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
     mutationFn: () =>
       addCompletedBook({
         bookId: book.id,
-        readDate: new Date().toISOString().slice(0, 10),
+        source,
       }),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["completed-books"] });
@@ -101,7 +104,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
   });
 
   const deleteCompletedMutation = useMutation({
-    mutationFn: () => deleteCompletedBook(book.id),
+    mutationFn: () => deleteCompletedBook(book.id, source),
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["completed-books"] });
       const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
@@ -172,15 +175,15 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
 
         {/* 제목 · 저자 */}
         <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-3 leading-[1.1] break-keep">
-          {book.title}
+          {formatBookContent(book.title)}
         </h2>
         <p className="text-lg text-gray-400 font-serif italic mb-6">
-          {book.author}
+          {formatBookContent(book.author)}
         </p>
 
         {/* 책 소개 */}
         <div className="text-sm leading-relaxed text-gray-600 mb-8 max-w-xl break-keep font-medium">
-          {book.description}
+          {formatBookContent(book.description)}
         </div>
 
         {/* 구매 링크 */}
