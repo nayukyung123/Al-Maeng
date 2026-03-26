@@ -38,7 +38,7 @@ export default function ContentCuration({ selectedContentId }: ContentCurationPr
     setCurrentIndex((prev) => (prev + 1) % curations.length);
 
   const handleBookClick = (slug: string) => {
-    router.push(`/books/${slug}`);
+    router.push(`/books/${slug}?source=trend`);
   };
 
   return (

@@ -59,20 +59,19 @@ export async function signup(data: SignupRequest) {
 }
 
 export async function getPresignedUrl(userId: number, fileExtension: string) {
-  const response = await apiClient.post<ApiResponse<{ presignedUrl: string; imageUrl: string }>>(
-    "/api/tickets/image-url",
-    { fileExtension },
-    { params: { userId } }
-  );
+  const response = await apiClient.post<
+    ApiResponse<{ presignedUrl: string; imageUrl: string; contentType: string }>
+  >("/api/tickets/image-url", { fileExtension }, { params: { userId } });
   return response.data.data;
 }
 
-export async function uploadImageToS3(presignedUrl: string, file: File) {
+export async function uploadImageToS3(presignedUrl: string, file: File, contentType: string) {
   // 기본 axios 객체를 사용하여 S3에 직접 업로드 (CORS 및 불필요한 헤더 방지)
   await axios.put(presignedUrl, file, {
     headers: {
-      "Content-Type": file.type,
+      "Content-Type": contentType,
     },
+    maxRedirects: 0,
   });
 }
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
-import { fetchBookDetail } from "@/api/bookDetail";
+import { fetchBookDetail, logBookView } from "@/api/bookDetail";
 import BookDetailHero from "./BookDetailHero";
 import RecommendationList from "./RecommendationList";
 import ReviewSection from "./ReviewSection";
@@ -16,13 +16,15 @@ interface BookDetailClientProps {
 
 export default function BookDetailClient({ slug }: BookDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const loggedRef = useRef(false);
 
   // 페이지 진입 또는 도서 전환(Slug 변경) 시 스크롤을 맨 위로 초기화
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [slug]);
 
-  /* ── 도서 상세 조회 (Mock API) ── */
+  /* ── 도서 상세 조회 ── */
   const {
     data: book,
     isLoading,
@@ -32,6 +34,15 @@ export default function BookDetailClient({ slug }: BookDetailClientProps) {
     queryFn: () => fetchBookDetail(slug),
     staleTime: 10 * 60 * 1000,
   });
+
+  const source = searchParams.get("source") ?? "none";
+
+  /* ── 도서 진입 시 조회 로그 전송 (1회만) ── */
+  useEffect(() => {
+    if (!book?.id || loggedRef.current) return;
+    loggedRef.current = true;
+    logBookView(book.id, source).catch(() => {});
+  }, [book?.id, source]);
 
   /* ── 로딩 스켈레톤 ── */
   if (isLoading) {
@@ -88,7 +99,7 @@ export default function BookDetailClient({ slug }: BookDetailClientProps) {
 
       <div className="max-w-6xl mx-auto pt-12 pb-24 px-6 md:px-12">
         {/* ── 1. 도서 정보 히어로 ── */}
-        <BookDetailHero book={book} />
+        <BookDetailHero book={book} source={source} />
 
         <hr className="border-gray-100 mb-12" />
 

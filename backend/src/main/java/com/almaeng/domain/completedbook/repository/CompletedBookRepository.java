@@ -27,4 +27,7 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
             "LEFT JOIN FETCH g.parent " +
             "WHERE cb.user.id = :userId")
     List<CompletedBook> findAllByUserIdWithDetails(@Param("userId") Long userId, Sort sort);
+
+    @Query("SELECT COUNT(cb) FROM CompletedBook cb WHERE cb.user.id = :userId")
+    long countByUserId(@Param("userId") Long userId);
 }

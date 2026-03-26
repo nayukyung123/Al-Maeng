@@ -13,5 +13,5 @@ export interface CompletedBook {
 
 export interface AddCompletedBookRequest {
   bookId: number;
-  readDate: string;
+  source: string;
 }

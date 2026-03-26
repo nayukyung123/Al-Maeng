@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import MyPageClient from '@/components/mypage/MyPageClient';
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function MyPage() {
-  return <MyPageClient />;
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-stone-50" aria-hidden />}>
+      <MyPageClient />
+    </Suspense>
+  );
 }

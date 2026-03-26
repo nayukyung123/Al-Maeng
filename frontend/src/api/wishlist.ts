@@ -17,17 +17,20 @@ export async function getMyWishlists(page: number = 0, size: number = 10): Promi
 /**
  * 도서를 찜 목록에 추가합니다.
  * @param bookId 찜할 도서의 ID
+ * @param source 유입 경로 (백엔드 WishlistAddRequest.source 필드)
  */
-export async function addWishlist(bookId: number): Promise<void> {
-  await apiClient.post("/api/wishlists", { bookId });
+export async function addWishlist(bookId: number, source: string = "none"): Promise<void> {
+  await apiClient.post("/api/wishlists", { bookId, source });
 }
 
 /**
  * 찜 목록에서 도서를 제거합니다.
  * @param bookId 찜 취소할 도서의 ID
  */
-export async function removeWishlist(bookId: number): Promise<void> {
-  await apiClient.delete(`/api/wishlists/${bookId}`);
+export async function removeWishlist(bookId: number, source: string = "none"): Promise<void> {
+  await apiClient.delete(`/api/wishlists/${bookId}`, {
+    data: { source },
+  });
 }
 /**
  * 특정 도서의 찜 여부를 확인합니다.

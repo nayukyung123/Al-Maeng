@@ -9,6 +9,7 @@ import com.almaeng.domain.ticket.dto.TicketCreateRequest;
 import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.entity.Ticket;
 import com.almaeng.domain.ticket.repository.TicketRepository;
+import com.almaeng.domain.ticket.vo.StyleData;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -69,6 +70,26 @@ public class TicketService {
                 .build();
 
         return ticketRepository.save(ticket).getId();
+    }
+
+    @Transactional
+    public void updateShowBackTitle(Long userId, Long ticketId, boolean showBackTitle) {
+        Ticket ticket = ticketRepository.findByIdWithUser(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+
+        if (!ticket.getCompletedBook().getUser().getId().equals(userId)) {
+            throw new ApiException(ErrorCode.TICKET_ACCESS_DENIED);
+        }
+
+        StyleData old = ticket.getStyleData();
+        StyleData updated = new StyleData(
+                old.getOrientation(),
+                old.getCoverShape(),
+                old.getTypography(),
+                old.getTicketColor(),
+                showBackTitle
+        );
+        ticket.updateStyleData(updated);
     }
 
     // 완독 티켓 삭제
@@ -191,6 +212,6 @@ public class TicketService {
 
         String imageUrl = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
 
-        return new PresignedUrlResponse(presignedUrl, imageUrl);
+        return new PresignedUrlResponse(presignedUrl, imageUrl, mimeType);
     }
 }
