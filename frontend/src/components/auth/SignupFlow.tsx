@@ -47,7 +47,15 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     staleTime: 1000 * 60 * 60 * 24, // 24시간: 오버페칭 방지
   });
 
-  const mainGenres = React.useMemo(() => genres.filter((g) => g.parentId === null), [genres]);
+  const mainGenres = React.useMemo(() => {
+    return genres
+      .filter((g) => g.parentId === null)
+      .sort((a, b) => {
+        if (a.genreName === "소설/시/희곡") return -1;
+        if (b.genreName === "소설/시/희곡") return 1;
+        return a.genreName.localeCompare(b.genreName, "ko");
+      });
+  }, [genres]);
   const novelSubGenres = React.useMemo(() => genres.filter((g) => g.parentId === 27594), [genres]);
 
   const authMutation = useMutation({
