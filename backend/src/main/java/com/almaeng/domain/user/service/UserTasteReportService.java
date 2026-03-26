@@ -13,7 +13,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserTasteReportService {
-    private static final String NOVEL_TOP_LEVEL_GENRE_NAME = "소설";
+    private static final Long NOVEL_TOP_LEVEL_GENRE_ID = 27594L;
 
     private final CompletedBookRepository completedBookRepository;
 
@@ -26,7 +26,7 @@ public class UserTasteReportService {
         }
 
         List<CompletedBookRepository.GenreCountProjection> subGenreRows =
-                completedBookRepository.aggregateSubGenresByTopLevelGenre(userId, NOVEL_TOP_LEVEL_GENRE_NAME);
+                completedBookRepository.aggregateSubGenresByTopLevelGenre(userId, NOVEL_TOP_LEVEL_GENRE_ID);
 
         return new TasteReportResponse(
                 toGenreStats(topLevelRows),
@@ -52,4 +52,5 @@ public class UserTasteReportService {
                 ))
                 .toList();
     }
+
 }

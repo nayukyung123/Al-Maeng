@@ -269,6 +269,7 @@ export default function MyPageClient() {
     { genreName: "과학", count: 2 },
     { genreName: "경제", count: 2 },
   ];
+  const TOP_LEVEL_COLORS = ["#0033FF", "#3B82F6", "#60A5FA", "#93C5FD", "#1D4ED8", "#2563EB", "#0EA5E9", "#38BDF8"];
 
   const NOVEL_PERSONA_AXES = [
     { dbName: "판타지/환상문학", label: "판타지" },
@@ -392,11 +393,10 @@ export default function MyPageClient() {
                         isAnimationActive={false}
                       >
                         {tasteReport!.topLevelGenres.map((g) => {
-                          const isNovel = g.genreName === "소설" || g.genreName === "문학(소설)";
                           return (
                             <Cell
                               key={g.genreId}
-                              fill={isNovel ? "#0033FF" : "#E5E7EB"}
+                              fill={TOP_LEVEL_COLORS[Math.abs(g.genreId) % TOP_LEVEL_COLORS.length]}
                             />
                           );
                         })}
@@ -518,7 +518,7 @@ export default function MyPageClient() {
               </div>
 
               {!isTasteReportLoading && hasTopLevelTasteData && !hasSubTasteData && (
-                <p className="mt-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <p className="mt-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   소설 완독 데이터가 아직 없어요
                 </p>
               )}
