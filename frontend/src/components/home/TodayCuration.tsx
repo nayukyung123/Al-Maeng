@@ -62,10 +62,14 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
   // 팝업은 마운트 이후 실제로 새로 받아온 응답에서만 열기
   // dataUpdatedAt이 mountedAt보다 이전이면 캐시 데이터이므로 무시
   useEffect(() => {
-    if (data?.showPopup && dataUpdatedAt > mountedAtRef.current) {
+    if (
+      isLoggedIn &&
+      data?.showPopup &&
+      dataUpdatedAt > mountedAtRef.current
+    ) {
       setShowLimitPopup(true);
     }
-  }, [data, dataUpdatedAt]);
+  }, [isLoggedIn, data, dataUpdatedAt]);
 
   useEffect(() => {
     return () => {
@@ -108,8 +112,9 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
     ? (data?.books ?? [])
     : placeholderBooks;
 
-  const refreshCount = data?.refreshCount ?? 0;
-  const isFallback = data?.isFallback ?? false;
+  /* 로그아웃 시에도 쿼리 캐시(data)는 남아 이전 refreshCount가 보일 수 있음 → 비로그인이면 표시만 0/폴백 없음 */
+  const refreshCount = isLoggedIn ? (data?.refreshCount ?? 0) : 0;
+  const isFallback = isLoggedIn ? (data?.isFallback ?? false) : false;
 
   // 스크롤 위치에 따라 화살표 표시 여부 갱신
   const updateArrows = () => {
