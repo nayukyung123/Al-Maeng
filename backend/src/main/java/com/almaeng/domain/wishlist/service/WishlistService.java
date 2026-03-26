@@ -60,4 +60,9 @@ public class WishlistService {
         // 2. 찜 내역 삭제
         wishlistRepository.delete(wishlist);
     }
+
+    // 찜 여부 확인
+    public boolean isWished(Long userId, Long bookId) {
+        return wishlistRepository.existsByUserIdAndBookId(userId, bookId);
+    }
 }

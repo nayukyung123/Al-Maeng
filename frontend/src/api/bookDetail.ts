@@ -1,13 +1,9 @@
 import apiClient from "@/lib/axios";
-import type { ApiResponse } from "@/types/api";
+import type { ApiResponse, SliceResponse } from "@/types/api";
 import type { BookDetail, RecommendedBook, Review, CreateReviewBody, UpdateReviewBody } from "@/types/book";
 
 /**
  * 도서 상세 정보를 서버에서 가져옵니다.
- * 백엔드 GET /api/books/{slug}
- *
- * @param slug 도서의 고유 슬러그 (예: 1984-book)
- * @returns BookDetail 도서 상세 정보 객체
  */
 export async function fetchBookDetail(slug: string): Promise<BookDetail> {
   const response = await apiClient.get<ApiResponse<BookDetail>>(`/api/books/${slug}`);
@@ -15,11 +11,7 @@ export async function fetchBookDetail(slug: string): Promise<BookDetail> {
 }
 
 /**
- * 인자로 넘긴 도서와 연관성이 높은 추천 도서 목록을 가져옵니다.
- * 백엔드 GET /api/books/{slug}/recommendations
- *
- * @param slug 추천의 기준이 되는 도서 슬러그
- * @returns RecommendedBook[] 추천 도서 배열
+ * 연관 도서 추천 목록을 가져옵니다.
  */
 export async function fetchRecommendations(slug: string): Promise<RecommendedBook[]> {
   const response = await apiClient.get<ApiResponse<RecommendedBook[]>>(`/api/books/${slug}/recommendations`);
@@ -30,8 +22,11 @@ export async function fetchRecommendations(slug: string): Promise<RecommendedBoo
  * 도서 리뷰 목록을 가져옵니다.
  */
 export async function fetchReviews(slug: string): Promise<Review[]> {
-  const response = await apiClient.get<ApiResponse<Review[]>>(`/api/books/${slug}/reviews`);
-  return response.data.data;
+  const response = await apiClient.get<ApiResponse<SliceResponse<Review>>>(
+    `/api/books/${slug}/reviews`
+  );
+  // Slice 객체의 content 배열만 반환하여 기존 UI와 호환 유지
+  return response.data.data.content ?? [];
 }
 
 /**
@@ -45,12 +40,14 @@ export async function createReview(slug: string, body: CreateReviewBody): Promis
  * 리뷰를 수정합니다.
  */
 export async function updateReview(slug: string, reviewId: number, body: UpdateReviewBody): Promise<void> {
-  await apiClient.put(`/api/books/${slug}/reviews/${reviewId}`, body);
+  // 백엔드 ReviewController: @PatchMapping("/api/reviews/{reviewId}")
+  await apiClient.patch(`/api/reviews/${reviewId}`, body);
 }
 
 /**
  * 리뷰를 삭제합니다.
  */
 export async function deleteReview(slug: string, reviewId: number): Promise<void> {
-  await apiClient.delete(`/api/books/${slug}/reviews/${reviewId}`);
+  // 백엔드 ReviewController: @DeleteMapping("/api/reviews/{reviewId}")
+  await apiClient.delete(`/api/reviews/${reviewId}`);
 }

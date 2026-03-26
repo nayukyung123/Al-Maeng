@@ -1,6 +1,7 @@
 export interface CompletedBook {
   completedBookId: number;
   bookId: number;
+  slug: string;
   title: string;
   author: string;
   coverImageUrl: string;

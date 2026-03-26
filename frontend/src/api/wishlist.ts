@@ -29,3 +29,11 @@ export async function addWishlist(bookId: number): Promise<void> {
 export async function removeWishlist(bookId: number): Promise<void> {
   await apiClient.delete(`/api/wishlists/${bookId}`);
 }
+/**
+ * 특정 도서의 찜 여부를 확인합니다.
+ * @param bookId 확인하고 싶은 도서 ID
+ */
+export async function checkWishlistStatus(bookId: number): Promise<boolean> {
+  const response = await apiClient.get<ApiResponse<boolean>>(`/api/wishlists/${bookId}/status`);
+  return response.data.data;
+}

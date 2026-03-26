@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public record CompletedBookResponse(
         Long completedBookId,
         Long bookId,
+        String slug,
         String title,
         String author,
         String coverImageUrl,
@@ -32,6 +33,7 @@ public record CompletedBookResponse(
         return new CompletedBookResponse(
                 completedBook.getId(),
                 completedBook.getBook().getId(),
+                completedBook.getBook().getSlug(),
                 completedBook.getBook().getTitle(),
                 completedBook.getBook().getAuthor(),
                 completedBook.getBook().getCoverImageUrl(),

@@ -12,9 +12,10 @@ import { deleteMyAccount, fetchMyProfile, updateMyProfile } from "@/api/mypage";
 import { fetchGenres } from "@/api/genres";
 import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
-import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 import MyPageTierSection from "@/components/mypage/MyPageTierSection";
 import MyPageEditModal from "@/components/mypage/MyPageEditModal";
+import { useMyWishlists } from '@/hooks/useWishlist';
+import { MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const router = useRouter();
@@ -25,6 +26,11 @@ export default function MyPageClient() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // 찜 목록 조회 (실제 API)
+  const { data: wishlistData } = useMyWishlists(wishlistPage - 1, 10);
+  const wishlistItems = wishlistData?.content ?? [];
+  const wishlistTotalPages = wishlistData?.totalPages ?? 0;
 
   const { data: completedBooks = [] } = useQuery({
     queryKey: ["completed-books"],
@@ -208,14 +214,9 @@ export default function MyPageClient() {
 
   const itemsPerPage = 10; // 요구사항: 한 번에 최대 10권 (2줄)
 
-  const wishlistTotalPages = Math.ceil(WISHLIST_BOOKS.length / itemsPerPage);
-  const currentWishlistBooks = WISHLIST_BOOKS.slice(
-    (wishlistPage - 1) * itemsPerPage,
-    wishlistPage * itemsPerPage
-  );
-
   const finishedBooks: Book[] = completedBooks.map((book) => ({
     bookId: book.bookId,
+    slug: book.slug,
     title: book.title,
     author: book.author,
     coverImageUrl: book.coverImageUrl,
@@ -272,7 +273,7 @@ export default function MyPageClient() {
             >
               <p className="text-gray-500 font-mono text-[10px] uppercase tracking-widest">찜한 권수</p>
               <p className="text-3xl md:text-5xl font-black">
-                {WISHLIST_BOOKS.length}<span className="text-lg font-medium ml-1">권</span>
+                {wishlistData?.totalElements ?? 0}<span className="text-lg font-medium ml-1">권</span>
               </p>
             </button>
             <button
@@ -369,21 +370,21 @@ export default function MyPageClient() {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {currentWishlistBooks.map((book) => (
-            <div key={book.bookId} className="group cursor-pointer">
+          {wishlistItems.map((item: any) => (
+            <Link key={item.bookId} href={`/books/${item.slug}`} className="group block">
               <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
                 <img
-                  src={book.coverImageUrl}
-                  alt={book.title}
+                  src={item.coverImageUrl}
+                  alt={item.title}
                   className="w-full h-full object-cover transition-all duration-500"
                   referrerPolicy="no-referrer"
                 />
               </div>
               <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{book.title}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
+                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{item.title}</h4>
+                <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -412,7 +413,7 @@ export default function MyPageClient() {
             {currentFinishedBooks.map((book) => (
               <Link
                 key={book.bookId}
-                href={`/books/${book.bookId}`}
+                href={`/books/${book.slug}`}
                 className="group block"
               >
                 <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
