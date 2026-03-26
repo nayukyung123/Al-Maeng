@@ -19,6 +19,11 @@ export default function BookDetailClient({ slug }: BookDetailClientProps) {
   const searchParams = useSearchParams();
   const loggedRef = useRef(false);
 
+  // 페이지 진입 또는 도서 전환(Slug 변경) 시 스크롤을 맨 위로 초기화
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [slug]);
+
   /* ── 도서 상세 조회 ── */
   const {
     data: book,
