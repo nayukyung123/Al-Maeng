@@ -45,4 +45,13 @@ public class WishlistController {
         wishlistService.deleteWishlist(userId, bookId);
         return ApiResponse.success();
     }
+
+    @GetMapping("/{bookId}/status")
+    public ApiResponse<Boolean> checkWishlistStatus(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookId
+    ) {
+        boolean isWished = wishlistService.isWished(userId, bookId);
+        return ApiResponse.success(isWished);
+    }
 }
