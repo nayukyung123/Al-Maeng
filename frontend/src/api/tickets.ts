@@ -41,8 +41,8 @@ interface TicketCreateResponse {
 interface PresignedUrlResponse {
   presignedUrl: string;
   imageUrl: string;
-  /** 서명에 사용된 값과 동일해야 PUT 시 403(SignatureDoesNotMatch) 방지 */
-  contentType: string;
+  /** 서명에 사용된 값과 동일해야 PUT 시 403(SignatureDoesNotMatch) 방지 (구 API 없을 수 있음) */
+  contentType?: string;
 }
 
 function parseStyleFromDto(style: TicketStyleDataDto | null): {

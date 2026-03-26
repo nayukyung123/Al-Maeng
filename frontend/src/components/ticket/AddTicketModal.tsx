@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState, useEffect, useMemo } from "react";
-import { X, Search, Plus, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
+import { X, Search, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
@@ -12,7 +12,7 @@ import { useVerticalBackTitleVisible } from "@/hooks/useVerticalBackTitleVisible
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { createTicket, fetchTicketImagePresignedUrl, fetchGalleryTickets, type TicketStyleDataDto } from "@/api/tickets";
-import axios from "axios";
+import { putPresignedObject } from "@/lib/s3PresignedPut";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -35,7 +35,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const [searchQuery, setSearchQuery] = useState("");
   
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
-  const customCoverInputRef = useRef<HTMLInputElement>(null);
+  const customCoverInputRef = useRef<HTMLInputElement | null >(null);
   
   const [ticketData, setTicketData] = useState({
     dateRead: new Date().toISOString().split("T")[0],
@@ -124,10 +124,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
           const putContentType =
             contentType?.trim() ||
             (ext === "jpg" || ext === "jpeg" || ext === "jpe" ? "image/jpeg" : `image/${ext}`);
-          await axios.put(presignedUrl, customImageFile, {
-            headers: { "Content-Type": putContentType },
-            maxRedirects: 0,
-          });
+          await putPresignedObject(presignedUrl, customImageFile, putContentType);
           uploadedImageUrl = imageUrl;
         } catch (uploadErr) {
           // S3 업로드 실패 시 이미지 없이 티켓 생성 진행 (경고만 표시)

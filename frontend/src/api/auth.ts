@@ -1,5 +1,5 @@
-import axios from "axios";
 import apiClient from "@/lib/axios";
+import { guessImageContentTypeFromFile, putPresignedObject } from "@/lib/s3PresignedPut";
 import type { ApiResponse } from "@/types/api";
 
 export interface SignupRequest {
@@ -60,19 +60,18 @@ export async function signup(data: SignupRequest) {
 
 export async function getPresignedUrl(userId: number, fileExtension: string) {
   const response = await apiClient.post<
-    ApiResponse<{ presignedUrl: string; imageUrl: string; contentType: string }>
+    ApiResponse<{ presignedUrl: string; imageUrl: string; contentType?: string }>
   >("/api/tickets/image-url", { fileExtension }, { params: { userId } });
   return response.data.data;
 }
 
-export async function uploadImageToS3(presignedUrl: string, file: File, contentType: string) {
-  // 기본 axios 객체를 사용하여 S3에 직접 업로드 (CORS 및 불필요한 헤더 방지)
-  await axios.put(presignedUrl, file, {
-    headers: {
-      "Content-Type": contentType,
-    },
-    maxRedirects: 0,
-  });
+export async function uploadImageToS3(
+  presignedUrl: string,
+  file: File,
+  contentType: string | undefined
+) {
+  const ct = contentType?.trim() || guessImageContentTypeFromFile(file);
+  await putPresignedObject(presignedUrl, file, ct);
 }
 
 export async function checkNickname(nickname: string) {

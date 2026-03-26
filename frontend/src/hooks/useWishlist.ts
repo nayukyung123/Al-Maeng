@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import { addWishlist, removeWishlist, getMyWishlists, checkWishlistStatus } from "@/api/wishlist";
 import type { WishlistPageData } from "@/types/wishlist";
 
@@ -86,8 +91,8 @@ export function useMyWishlists(
   page: number = 0,
   size: number = 10,
   enabled: boolean = true
-) {
-  return useQuery<WishlistPageData>({
+): UseQueryResult<WishlistPageData, Error> {
+  return useQuery<WishlistPageData, Error>({
     queryKey: ["myWishlists", page, size],
     queryFn: () => getMyWishlists(page, size),
     staleTime: 5 * 60 * 1000, // 5분
