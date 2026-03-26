@@ -211,7 +211,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
             {showDescriptionToggle && (
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-wider"
+                className="text-xs font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-wider cursor-pointer"
               >
                 {isExpanded ? "[접기]" : "[더보기]"}
               </button>
@@ -225,7 +225,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
             href={book.purchaseUrl ?? "https://www.aladin.co.kr"}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-3 border border-black bg-white text-[11px] font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-3 group shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+            className="px-6 py-3 border border-black bg-white text-[11px] font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-3 group shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] cursor-pointer"
           >
             <img
               src="https://www.aladin.co.kr/favicon.ico"
@@ -253,7 +253,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
             }
             aria-label={isWishlisted ? "찜 해제" : "찜하기"}
             className={cn(
-              "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all relative",
+              "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all relative cursor-pointer",
               isWishlisted
                 ? "bg-red-50 border-red-200 text-red-500"
                 : "hover:border-black"
@@ -307,7 +307,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
               })
             }
             className={cn(
-              "flex-1 text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg",
+              "flex-1 text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg cursor-pointer",
               isCompleted
                 ? "bg-gray-700 hover:bg-gray-800 shadow-gray-700/20"
                 : "bg-[#4D41FF] hover:bg-[#3D31EF] shadow-[#4D41FF]/20"
