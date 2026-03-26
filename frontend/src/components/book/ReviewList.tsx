@@ -53,6 +53,7 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
       updateReview(slug, id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
+      queryClient.invalidateQueries({ queryKey: ["book-detail", slug] });
       closeEditModal();
     },
   });
@@ -62,6 +63,7 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
     mutationFn: (reviewId: number) => deleteReview(slug, reviewId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
+      queryClient.invalidateQueries({ queryKey: ["book-detail", slug] });
       setDeletingId(null);
     },
   });

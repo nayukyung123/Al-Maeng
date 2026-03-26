@@ -64,4 +64,5 @@ public class Review {
         if (content != null) this.content = content;
         if (spoiler != null) this.spoiler = Boolean.TRUE.equals(spoiler);
     }
+
 }

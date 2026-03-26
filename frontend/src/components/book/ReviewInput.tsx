@@ -44,9 +44,11 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
     }
   };
 
-  /* ── 캐시 무효화 헬퍼 ── */
-  const invalidateReviews = () =>
+  /* ── 캐시 무효화: 리뷰 목록 + 도서 상세(서버 averageRating 반영) ── */
+  const invalidateReviews = () => {
     queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
+    queryClient.invalidateQueries({ queryKey: ["book-detail", slug] });
+  };
 
   /* ── 리뷰 작성 Mutation ── */
   const createMutation = useMutation({
