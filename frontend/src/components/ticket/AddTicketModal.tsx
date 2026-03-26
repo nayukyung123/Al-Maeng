@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { X, Search, Plus, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const [searchQuery, setSearchQuery] = useState("");
   
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
+  const customCoverInputRef = useRef<HTMLInputElement>(null);
   
   const [ticketData, setTicketData] = useState({
     dateRead: new Date().toISOString().split("T")[0],
@@ -197,6 +198,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
     });
     setSelectedBook(null);
     setCustomImageFile(null);
+    if (customCoverInputRef.current) customCoverInputRef.current.value = "";
     onClose();
   };
 
@@ -331,7 +333,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                   <label className="flex items-center justify-center w-full h-12 border border-dashed border-gray-300 hover:border-black hover:bg-stone-50 transition-colors cursor-pointer rounded-sm group disabled:opacity-50">
                     <ImageIcon className="text-gray-400 group-hover:text-black mr-2" size={20} />
                     <span className="text-xs font-bold text-gray-500 group-hover:text-black tracking-widest">UPLOAD IMAGE</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    <input ref={customCoverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
                         setCustomImageFile(file);
@@ -341,6 +343,44 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                       }
                     }} />
                   </label>
+
+                  {(customImageFile || ticketData.customImage) && (
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-stone-200 bg-white p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-sm overflow-hidden border border-stone-200 bg-stone-50 shrink-0">
+                          {/* dataURL(방금 업로드) or 빈 값 방지 */}
+                          {ticketData.customImage ? (
+                            <img
+                              src={ticketData.customImage}
+                              alt="Custom cover preview"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-stone-700 truncate">
+                            {customImageFile?.name ?? "CUSTOM COVER"}
+                          </p>
+                          {customImageFile && (
+                            <p className="text-[10px] text-stone-400 font-mono">
+                              {(customImageFile.size / 1024).toFixed(0)} KB
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomImageFile(null);
+                          setTicketData({ ...ticketData, customImage: "" });
+                          if (customCoverInputRef.current) customCoverInputRef.current.value = "";
+                        }}
+                        className="text-[10px] font-black uppercase tracking-widest text-stone-500 hover:text-black border border-stone-200 rounded-full px-3 py-1 transition-colors shrink-0"
+                      >
+                        DELETE
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
