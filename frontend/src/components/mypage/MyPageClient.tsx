@@ -156,7 +156,7 @@ export default function MyPageClient() {
       if (profileImageFile) {
         const ext = profileImageFile.name.split(".").pop() || "jpeg";
         const uploadInfo = await getPresignedUrl(getCurrentUserId(), `.${ext}`);
-        await uploadImageToS3(uploadInfo.presignedUrl, profileImageFile);
+        await uploadImageToS3(uploadInfo.presignedUrl, profileImageFile, uploadInfo.contentType);
         finalProfileImageUrl = uploadInfo.imageUrl;
       }
 

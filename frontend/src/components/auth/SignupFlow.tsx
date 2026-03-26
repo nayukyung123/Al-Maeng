@@ -61,7 +61,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
         const uploadInfo = await getPresignedUrl(user.id, `.${ext}`);
         
         if (uploadInfo && uploadInfo.presignedUrl) {
-          await uploadImageToS3(uploadInfo.presignedUrl, formData.profileImageFile);
+          await uploadImageToS3(uploadInfo.presignedUrl, formData.profileImageFile, uploadInfo.contentType);
           finalImageUrl = uploadInfo.imageUrl;
         }
       }
