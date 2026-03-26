@@ -331,13 +331,21 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
                   <input
                     type="text"
                     value={formData.nickname}
-                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                    maxLength={10}
+                    onChange={(e) => {
+                      // 한글, 영문, 숫자만 허용 (특수문자 및 공백 제거)
+                      const filtered = e.target.value.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, "");
+                      setFormData({ ...formData, nickname: filtered });
+                    }}
                     placeholder="사용하실 닉네임을 입력하세요"
                     className="w-full border-b-2 border-black py-3 text-lg focus:outline-none focus:border-[#0033FF] transition-colors"
                   />
+                  <p className="text-[10px] text-gray-400 font-medium mt-2">
+                    한글, 영문, 숫자만 10자 이내로 입력해 주세요.
+                  </p>
                 </div>
 
-                <div>
+                <div className="pt-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
                     Birth Year
                   </label>

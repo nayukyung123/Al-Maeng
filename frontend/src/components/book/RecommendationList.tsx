@@ -46,7 +46,7 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
         </h3>
       </div>
 
-      <div className="flex justify-center gap-6 overflow-x-auto pb-6 hide-scrollbar">
+      <div className="flex justify-start gap-6 overflow-x-auto pb-6 hide-scrollbar px-1">
         {recommendations.map((rec, i) => {
           const imgSrc = rec.coverImageUrl
             ? rec.coverImageUrl
