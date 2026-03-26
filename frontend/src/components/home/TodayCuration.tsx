@@ -1,8 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { RotateCcw, Shuffle, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  RotateCcw,
+  Shuffle,
+  ChevronLeft,
+  ChevronRight,
+  HelpCircle,
+} from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -12,6 +19,9 @@ import useAuthStore from "@/store/useAuthStore";
 import LimitPopup from "./LimitPopup";
 import type { Book } from "@/types/home";
 
+/** ? 안내 클릭 시 메시지 표시 시간(초) */
+const CURATION_HELP_DURATION_SEC = 6;
+
 interface TodayCurationProps {
   /** HomeClient에서 내려주는 ref — 스크롤 감지용 */
   sectionRef?: React.RefObject<HTMLDivElement | null>;
@@ -19,12 +29,20 @@ interface TodayCurationProps {
 
 export default function TodayCuration({ sectionRef }: TodayCurationProps) {
   const router = useRouter();
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, user } = useAuthStore();
   const [showLimitPopup, setShowLimitPopup] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showCurationHelp, setShowCurationHelp] = useState(false);
 
   // 이 컴포넌트가 마운트된 시각을 기록 — 캐시 데이터와 실제 fetch 구분에 사용
   const mountedAtRef = useRef(Date.now());
+  const curationHelpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const curationHelpBtnRef = useRef<HTMLButtonElement>(null);
+  const [curationHelpTooltipRect, setCurationHelpTooltipRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
 
   // 슬라이드 스크롤 컨테이너 ref
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -48,6 +66,40 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
       setShowLimitPopup(true);
     }
   }, [data, dataUpdatedAt]);
+
+  useEffect(() => {
+    return () => {
+      if (curationHelpTimerRef.current) {
+        clearTimeout(curationHelpTimerRef.current);
+      }
+    };
+  }, []);
+
+  /* ? 안내 말풍선 — body에 fixed로 올려 잘림 방지, 버튼 바로 위에 배치 */
+  useLayoutEffect(() => {
+    if (!showCurationHelp) {
+      setCurationHelpTooltipRect(null);
+      return;
+    }
+    const updateRect = () => {
+      const el = curationHelpBtnRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const margin = 8;
+      const maxW = Math.min(320, window.innerWidth - 2 * margin);
+      const width = Math.min(maxW, Math.max(0, r.right - margin));
+      const left = Math.max(margin, r.right - width);
+      const top = r.top - margin;
+      setCurationHelpTooltipRect({ top, left, width });
+    };
+    updateRect();
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
+  }, [showCurationHelp]);
 
   // 비로그인 시 블러 뒤에 보여줄 플레이스홀더
   const placeholderBooks = useMemo(() => ALL_BOOKS.slice(0, 5) as Book[], []);
@@ -98,6 +150,25 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
     router.push(`/books/${book.slug}?source=curation`);
   };
 
+  const handleCurationHelpClick = () => {
+    if (showCurationHelp) {
+      if (curationHelpTimerRef.current) {
+        clearTimeout(curationHelpTimerRef.current);
+        curationHelpTimerRef.current = null;
+      }
+      setShowCurationHelp(false);
+      return;
+    }
+    if (curationHelpTimerRef.current) {
+      clearTimeout(curationHelpTimerRef.current);
+    }
+    setShowCurationHelp(true);
+    curationHelpTimerRef.current = setTimeout(() => {
+      setShowCurationHelp(false);
+      curationHelpTimerRef.current = null;
+    }, CURATION_HELP_DURATION_SEC * 1000);
+  };
+
   return (
     <section ref={sectionRef}>
       {/* 섹션 헤더 */}
@@ -113,32 +184,74 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
               인기 도서
             </span>
           ) : (
-            <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">
-              THIS IS FOR YOU
-            </span>
+            isLoggedIn &&
+            user?.nickname && (
+              <span className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+                for {user.nickname}
+              </span>
+            )
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={handleRefreshClick}
-          disabled={isRefreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-black hover:text-white transition-all rounded-full border border-black/5 text-sm font-bold group disabled:opacity-50 disabled:pointer-events-none"
-          aria-label={`새로고침 (${refreshCount}회)`}
-        >
-          <RotateCcw
-            size={16}
-            aria-hidden="true"
-            className={`transition-transform duration-500 ${
-              isRefreshing
-                ? "animate-spin"
-                : refreshCount > 0
-                ? "group-hover:rotate-180"
-                : ""
-            }`}
-          />
-          <span>새로고침 ({refreshCount}회)</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            ref={curationHelpBtnRef}
+            type="button"
+            onClick={handleCurationHelpClick}
+            className="flex items-center justify-center w-8 h-8 rounded-full border border-black/10 bg-gray-50 text-gray-500 hover:bg-black hover:text-white transition-colors"
+            aria-label={
+              showCurationHelp
+                ? "안내 닫기"
+                : "오늘의 큐레이션 추천 방식 안내"
+            }
+            aria-expanded={showCurationHelp}
+          >
+            <HelpCircle size={16} strokeWidth={2} aria-hidden="true" />
+          </button>
+
+          {showCurationHelp &&
+            curationHelpTooltipRect &&
+            typeof document !== "undefined" &&
+            createPortal(
+              <div
+                role="status"
+                className="rounded-lg border border-black/10 bg-white p-4 shadow-xl text-sm text-gray-700 leading-relaxed break-keep"
+                style={{
+                  position: "fixed",
+                  zIndex: 100,
+                  top: curationHelpTooltipRect.top,
+                  left: curationHelpTooltipRect.left,
+                  width: curationHelpTooltipRect.width,
+                  transform: "translateY(-100%)",
+                }}
+              >
+                회원님의 최근 조회, 찜, 완독 기록을 꼼꼼히 분석했어요! 최근의 관심사를 분석해, 지금
+                회원님께 딱 맞는 취향 저격 도서들을 가져왔습니다.
+              </div>,
+              document.body
+            )}
+
+          <button
+            type="button"
+            onClick={handleRefreshClick}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-black hover:text-white transition-all rounded-full border border-black/5 text-sm font-bold group disabled:opacity-50 disabled:pointer-events-none"
+            aria-label={`새로고침 (${refreshCount}회)`}
+          >
+            <RotateCcw
+              size={16}
+              aria-hidden="true"
+              className={`transition-transform duration-500 ${
+                isRefreshing
+                  ? "animate-spin"
+                  : refreshCount > 0
+                  ? "group-hover:rotate-180"
+                  : ""
+              }`}
+            />
+            <span>새로고침 ({refreshCount}회)</span>
+          </button>
+        </div>
       </div>
 
       {/* 도서 목록 */}
