@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import { deleteReview, updateReview } from "@/api/bookDetail";
 import type { Review } from "@/types/book";
+import ProfileAvatar from "./ProfileAvatar";
 
 interface ReviewListProps {
   reviews: Review[];
@@ -232,13 +233,9 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
 
       {/* ── 리뷰 목록 ── */}
       <div className="space-y-12">
-        {reviews.map((review, i) => {
+        {reviews.map((review) => {
           const isRevealed = revealedIds.has(review.id);
           const isOwner = isLoggedIn && user?.id === review.userId;
-
-          const profileSrc = review.profileImageUrl
-            ? review.profileImageUrl
-            : `https://picsum.photos/seed/user${review.userId ?? i}/200/200`;
 
           const formattedDate = new Date(review.createdAt).toLocaleDateString(
             "ko-KR",
@@ -247,15 +244,12 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
 
           return (
             <div key={review.id} className="flex gap-6 relative">
-              {/* 프로필 아바타 */}
-              <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden shrink-0 border border-black/5">
-                <img
-                  src={profileSrc}
-                  alt={review.nickname}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+              {/* 프로필 아바타 — 이미지 없으면 회색 기본 실루엣 */}
+              <ProfileAvatar
+                imageUrl={review.profileImageUrl}
+                alt={review.nickname}
+                size="sm"
+              />
 
               <div className="flex-1">
                 {/* 닉네임 · 날짜 */}

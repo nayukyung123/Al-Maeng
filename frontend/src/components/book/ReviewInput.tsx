@@ -8,6 +8,7 @@ import axios from "axios";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import { createReview } from "@/api/bookDetail";
+import ProfileAvatar from "./ProfileAvatar";
 
 interface ReviewInputProps {
   slug: string;
@@ -132,15 +133,12 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
         </div>
       )}
 
-      {/* 프로필 아바타 */}
-      <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden shrink-0 border border-black/5">
-        <img
-          src={profileSrc}
-          alt="내 프로필"
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-      </div>
+      {/* 프로필 아바타 — 이미지 없으면 회색 기본 실루엣 */}
+      <ProfileAvatar
+        imageUrl={user?.profileImageUrl}
+        alt="내 프로필"
+        size="md"
+      />
 
       <div className="flex-1 space-y-6">
         {/* 별점 · 스포일러 토글 */}
@@ -153,7 +151,7 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
                 onClick={() => setRating(i)}
                 aria-label={`${i}점`}
                 className={cn(
-                  "transition-all duration-200",
+                  "transition-all duration-200 cursor-pointer",
                   i <= rating
                     ? "text-[#4D41FF] scale-110"
                     : "text-gray-200 hover:text-gray-300"
@@ -172,7 +170,7 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
           <button
             onClick={() => setIsSpoilerInput((prev) => !prev)}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[11px] font-bold",
+              "flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all text-[11px] font-bold cursor-pointer",
               isSpoilerInput
                 ? "bg-red-50 border-red-200 text-red-600"
                 : "bg-gray-50 border-gray-100 text-gray-400 hover:border-gray-300"
@@ -187,6 +185,7 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
         <div className="relative">
           <textarea
             value={comment}
+            maxLength={500}
             onChange={(e) => setComment(e.target.value)}
             placeholder="이 책에 대한 당신의 문장을 남겨주세요."
             disabled={isPending}
@@ -197,10 +196,17 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
             onClick={handleSubmit}
             disabled={isPending || !comment.trim() || rating === 0}
             aria-label="리뷰 제출"
-            className="absolute right-0 bottom-2 text-black hover:text-[#4D41FF] transition-all p-2 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="absolute right-0 bottom-2 text-black hover:text-[#4D41FF] transition-all p-2 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
           >
             <Send size={24} />
           </button>
+
+          {/* 500자 제한 경고 문구 */}
+          {comment.length >= 500 && (
+            <p className="mt-2 text-[11px] font-bold text-red-600 animate-in fade-in slide-in-from-top-1 duration-300">
+              리뷰는 최대 500자까지 입력할 수 있습니다.
+            </p>
+          )}
         </div>
 
       </div>

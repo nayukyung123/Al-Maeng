@@ -7,9 +7,10 @@ export async function putPresignedObject(
   body: Blob,
   contentType: string
 ): Promise<void> {
+  const ct = contentType.trim().toLowerCase();
   const res = await fetch(presignedUrl, {
     method: "PUT",
-    headers: { "Content-Type": contentType },
+    headers: { "Content-Type": ct },
     body,
   });
   if (!res.ok) {
@@ -18,7 +19,9 @@ export async function putPresignedObject(
 }
 
 export function guessImageContentTypeFromFile(file: File): string {
-  const t = file.type?.trim();
+  const t = file.type?.trim().toLowerCase();
+  // 일부 환경에서 비표준 image/jpg 로 내려오는 케이스를 표준 image/jpeg 로 정규화
+  if (t === "image/jpg") return "image/jpeg";
   if (t) return t;
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
   if (ext === "jpg" || ext === "jpeg" || ext === "jpe") return "image/jpeg";
