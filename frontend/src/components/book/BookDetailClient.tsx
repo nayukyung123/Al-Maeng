@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -15,6 +16,11 @@ interface BookDetailClientProps {
 
 export default function BookDetailClient({ slug }: BookDetailClientProps) {
   const router = useRouter();
+
+  // 페이지 진입 또는 도서 전환(Slug 변경) 시 스크롤을 맨 위로 초기화
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [slug]);
 
   /* ── 도서 상세 조회 (Mock API) ── */
   const {
