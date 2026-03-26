@@ -1,19 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
-import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
-import { Book, UserData } from '@/types/mypage';
+import { ChevronLeft, ChevronRight, User, ArrowLeft } from 'lucide-react';
+import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
+import { deleteMyAccount, fetchMyProfile, updateMyProfile } from "@/api/mypage";
+import { fetchGenres } from "@/api/genres";
+import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
+import MyPageTierSection from "@/components/mypage/MyPageTierSection";
+import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
+import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
 import { MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 export default function MyPageClient() {
-  const { isLoggedIn } = useAuthStore();
-  const [isMounted, setIsMounted] = useState(false);
+  const { isLoggedIn, user, logout, updateUser } = useAuthStore();
+  const authHydrated = useAuthStoreHydrated();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const [wishlistPage, setWishlistPage] = useState(1);
   const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -21,7 +33,11 @@ export default function MyPageClient() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // 찜 목록 조회 (실제 API)
-  const { data: wishlistData } = useMyWishlists(wishlistPage - 1, 10);
+  const { data: wishlistData, isFetched: isWishlistFetched } = useMyWishlists(
+    wishlistPage - 1,
+    10,
+    isLoggedIn
+  );
   const wishlistItems = wishlistData?.content ?? [];
   const wishlistTotalPages = wishlistData?.totalPages ?? 0;
 
@@ -34,6 +50,37 @@ export default function MyPageClient() {
     refetchOnWindowFocus: false,
   });
 
+  const {
+    data: myProfile,
+  } = useQuery({
+    queryKey: ["my-profile"],
+    queryFn: fetchMyProfile,
+    enabled: isLoggedIn,
+    // 완독 권수/티어는 자주 바뀔 수 있어 캐시로 고정되면 UX가 나빠짐
+    // (특히 백엔드 수정 직후엔 기존 캐시가 남아있을 수 있음)
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+  });
+
+  const {
+    data: genres = [],
+    isLoading: isGenresLoading,
+    isError: isGenresError,
+  } = useQuery({
+    queryKey: ["genres"],
+    queryFn: fetchGenres,
+    enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  const mainGenres = React.useMemo(() => genres.filter((g) => g.parentId === null), [genres]);
+  const novelSubGenres = React.useMemo(
+    () => genres.filter((g) => g.parentId === 27594),
+    [genres]
+  );
+
   const [editFormData, setEditFormData] = useState<UserData>({
     nickname: '',
     gender: '',
@@ -42,66 +89,138 @@ export default function MyPageClient() {
     profileImage: ''
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
 
   useEffect(() => {
-    setIsMounted(true); // Hydration 에러 방지를 위해 클라이언트 마운트 여부 체크
+    if (!myProfile) return;
 
-    const savedData = localStorage.getItem('userData');
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      setUserData(parsed);
-      setEditFormData({
-        nickname: parsed.nickname || '',
-        gender: parsed.gender || '',
-        preferences: parsed.preferences || [],
-        birthday: parsed.birthday || '',
-        profileImage: parsed.profileImage || ''
-      });
-    }
+    const mapped: UserData = {
+      nickname: myProfile.nickname ?? '',
+      gender: (myProfile.gender ?? '') as Gender,
+      preferences: myProfile.tasteData ?? [],
+      birthday: myProfile.birthYear ? String(myProfile.birthYear) : '',
+      profileImage: myProfile.profileImageUrl ?? '',
+    };
 
-  }, []);
+    setUserData(mapped);
+    setEditFormData(mapped);
+    setProfileImageFile(null);
+  }, [myProfile]);
 
-  // SSR 단계이거나 하이드레이션 이전이면 스켈레톤만 렌더링
-  if (!isMounted) {
-    return <div className="pt-24 pb-32 px-6 min-h-screen animate-pulse bg-gray-50" />;
-  }
+  // URL 기반으로 수정 모달 오픈 제어: /mypage?edit=true
+  useEffect(() => {
+    const shouldOpen = searchParams.get("edit") === "true";
+    if (!shouldOpen) return;
+    if (!userData) return; // 프로필 로딩 전에는 오픈하지 않음
+    setIsEditModalOpen(true);
+  }, [searchParams, userData]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditFormData(prev => ({ ...prev, profileImage: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const togglePreference = (genre: string) => {
-    setEditFormData(prev => ({
+  const togglePreference = (genreId: number) => {
+    setEditFormData((prev) => ({
       ...prev,
-      preferences: prev.preferences.includes(genre)
-        ? prev.preferences.filter(g => g !== genre)
-        : [...prev.preferences, genre]
+      preferences: prev.preferences.includes(genreId)
+        ? prev.preferences.filter((id) => id !== genreId)
+        : [...prev.preferences, genreId],
     }));
   };
 
-  const saveProfile = () => {
-    // 취향 리스트 중복 제거 (서버 검증에서 중복 개수 문제를 피하기 위함)
-    const uniquePreferences = Array.from(new Set(editFormData.preferences));
+  function parseUserIdFromToken(token: string): number {
+    try {
+      const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const payload: { sub?: string } = JSON.parse(atob(base64));
+      return payload.sub ? parseInt(payload.sub, 10) : 0;
+    } catch {
+      return 0;
+    }
+  }
 
-    const updatedData = {
-      ...userData,
-      ...editFormData,
-      preferences: uniquePreferences,
-    } as UserData;
-    setUserData(updatedData);
-    localStorage.setItem('userData', JSON.stringify(updatedData));
-    setIsEditModalOpen(false);
+  function getCurrentUserId(): number {
+    if (user?.id) return user.id;
+    if (typeof window === "undefined") return 0;
+    const token = localStorage.getItem("accessToken");
+    if (!token) return 0;
+    return parseUserIdFromToken(token);
+  }
+
+  const saveProfileMutation = useMutation({
+    mutationFn: async (): Promise<{ nickname: string; profileImageUrl: string }> => {
+      const uniqueTasteData = Array.from(new Set(editFormData.preferences));
+      const birthYearNum = Number(editFormData.birthday);
+
+      if (!Number.isFinite(birthYearNum)) throw new Error("Invalid birthYear");
+      if (!editFormData.nickname.trim()) throw new Error("Invalid nickname");
+      if (!editFormData.gender) throw new Error("Gender is required");
+
+      const finalNickname = editFormData.nickname.trim();
+      let finalProfileImageUrl = editFormData.profileImage;
+
+      if (profileImageFile) {
+        const ext = profileImageFile.name.split(".").pop() || "jpeg";
+        const uploadInfo = await getPresignedUrl(getCurrentUserId(), `.${ext}`);
+        await uploadImageToS3(uploadInfo.presignedUrl, profileImageFile, uploadInfo.contentType);
+        finalProfileImageUrl = uploadInfo.imageUrl;
+      }
+
+      await updateMyProfile({
+        nickname: finalNickname,
+        profileImageUrl: finalProfileImageUrl,
+        birthYear: birthYearNum,
+        gender: editFormData.gender as Gender,
+        tasteData: uniqueTasteData,
+      });
+
+      return { nickname: finalNickname, profileImageUrl: finalProfileImageUrl };
+    },
+    onSuccess: ({ nickname, profileImageUrl }) => {
+      // 헤더 즉시 반영 (zustand store 갱신)
+      updateUser({ nickname, profileImageUrl });
+      queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+      setProfileImageFile(null);
+      setIsEditModalOpen(false);
+      // edit=true로 다시 열리는 현상 방지
+      router.replace("/mypage", { scroll: false });
+    },
+    onError: (err) => {
+      console.error(err);
+      alert("프로필 저장에 실패했습니다. 다시 시도해주세요.");
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: deleteMyAccount,
+    onSuccess: () => {
+      logout();
+      router.push("/login");
+    },
+    onError: (err) => {
+      console.error(err);
+      alert("회원 탈퇴 처리 중 오류가 발생했습니다.");
+    },
+  });
+
+  const saveProfile = () => {
+    saveProfileMutation.mutate();
   };
 
-  const genres = ['문학(소설)', '에세이', '인문/철학', 'SF', '과학', '예술', '경제/경영', '자기계발'];
+  const handleCancelEdit = () => {
+    setIsEditModalOpen(false);
+    setProfileImageFile(null);
+    if (userData) setEditFormData(userData);
+    // URL에서 edit 파라미터 제거 (뒤로가기/딥링크 상태 정리)
+    router.replace("/mypage", { scroll: false });
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteAccountMutation.isPending) return;
+    const ok = confirm("정말 회원 탈퇴하시겠습니까?");
+    if (!ok) return;
+    try {
+      await deleteAccountMutation.mutateAsync();
+    } catch {
+      // onError에서 alert 처리
+    }
+  };
+
   const itemsPerPage = 10; // 요구사항: 한 번에 최대 10권 (2줄)
 
   const finishedBooks: Book[] = completedBooks.map((book) => ({
@@ -119,6 +238,31 @@ export default function MyPageClient() {
     finishedPage * itemsPerPage
   );
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
+    queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+  }, [isLoggedIn, finishedBooks.length, queryClient]);
+
+  useEffect(() => {
+    if (!authHydrated) return;
+    if (!isLoggedIn) router.replace("/");
+  }, [authHydrated, isLoggedIn, router]);
+
+  if (!authHydrated) {
+    return (
+      <div
+        className="min-h-[50vh] flex items-center justify-center px-6"
+        aria-busy="true"
+        aria-label="로딩 중"
+      />
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
+
   return (
     <div className="pt-8 pb-32 px-6 md:px-12 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-16 items-start mb-24">
@@ -126,7 +270,9 @@ export default function MyPageClient() {
         <div className="space-y-12">
           {/* Profile Section */}
           <section className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            <div className="relative group cursor-pointer" onClick={() => setIsEditModalOpen(true)}>
+            <div
+              className="relative"
+            >
               <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-black shrink-0 bg-gray-50 flex items-center justify-center">
                 {userData?.profileImage ? (
                   <img src={userData.profileImage} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -134,19 +280,14 @@ export default function MyPageClient() {
                   <User size={48} className="text-gray-300" />
                 )}
               </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Camera size={24} className="text-white" />
-              </div>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row items-center gap-4 mb-3 justify-center md:justify-start">
+            <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
+              <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <span className="bg-black text-white px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest shrink-0">LV.1 새싹독서가</span>
+                <MyPageTierSection part="badge" tier={myProfile?.tier} />
               </div>
-              <div className="w-full max-w-sm bg-gray-100 h-2 rounded-full overflow-hidden mb-2 mx-auto md:mx-0">
-                <div className="bg-[#0033FF] h-full" style={{ width: '10%' }} />
-              </div>
-              <p className="text-[10px] md:text-xs text-gray-400 font-medium">다음 티어까지 5권 남았습니다.</p>
+              <MyPageTierSection part="progress" tier={myProfile?.tier} />
+              <MyPageTierSection part="message" tier={myProfile?.tier} />
             </div>
           </section>
 
@@ -256,24 +397,43 @@ export default function MyPageClient() {
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">Wishlist</h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {wishlistItems.map((item: any) => (
-            <Link key={item.bookId} href={`/books/${item.slug}`} className="group block">
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
-                <img
-                  src={item.coverImageUrl}
-                  alt={item.title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{formatBookContent(item.title)}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
-              </div>
+        {isWishlistFetched && (wishlistData?.totalElements ?? 0) === 0 ? (
+          <div className="py-16 px-4 bg-white border border-gray-100 rounded-xl text-center">
+            <p className="text-sm font-black tracking-tight">아직 찜한 도서가 없어요.</p>
+            <p className="mt-2 text-xs text-gray-400 font-medium break-keep">
+              읽고 싶은 책을 검색해 찜해두면 나중에 쉽게 다시 찾을 수 있어요.
+            </p>
+            <Link
+              href="/?openSearch=1"
+              onClick={() => {
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+              }}
+              className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
+            >
+              도서 검색하고 찜하기
             </Link>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {wishlistItems.map((item: any) => (
+              <Link key={item.bookId} href={`/books/${item.slug}`} className="group block">
+                <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
+                  <img
+                    src={item.coverImageUrl}
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-all duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{formatBookContent(item.title)}</h4>
+                  <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* COMPLETED Books Section */}
@@ -282,136 +442,69 @@ export default function MyPageClient() {
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">COMPLETED Books</h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {currentFinishedBooks.map((book) => (
+        {finishedBooks.length === 0 ? (
+          <div className="py-16 px-4 bg-white border border-gray-100 rounded-xl text-center">
+            <p className="text-sm font-black tracking-tight">아직 완독한 도서가 없어요.</p>
+            <p className="mt-2 text-xs text-gray-400 font-medium break-keep">
+              완독 도서를 추가하고 나만의 티어를 올려보세요.
+            </p>
             <Link
-              key={book.bookId}
-              href={`/books/${book.slug}`}
-              className="group block"
+              href="/?openSearch=1"
+              onClick={() => {
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+              }}
+              className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
             >
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
-                <img
-                  src={book.coverImageUrl}
-                  alt={book.title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{formatBookContent(book.title)}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
-              </div>
+              완독 도서 추가하러 가기
             </Link>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {currentFinishedBooks.map((book) => (
+              <Link
+                key={book.bookId}
+                href={`/books/${book.slug}`}
+                className="group block"
+              >
+                <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
+                  <img
+                    src={book.coverImageUrl}
+                    alt={book.title}
+                    className="w-full h-full object-cover transition-all duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">
+                    {formatBookContent(book.title)}
+                  </h4>
+                  <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Edit Profile Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
-          <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-black uppercase tracking-tight">Edit Profile</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="p-8 overflow-y-auto space-y-8">
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative group">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-black bg-gray-50 flex items-center justify-center">
-                    {editFormData.profileImage ? (
-                      <img src={editFormData.profileImage} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <User size={40} className="text-gray-300" />
-                    )}
-                  </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 p-2 bg-black text-white rounded-full shadow-lg hover:bg-[#4D41FF] transition-colors"
-                  >
-                    <Camera size={14} />
-                  </button>
-                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">닉네임</label>
-                  <input
-                    type="text"
-                    value={editFormData.nickname}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, nickname: e.target.value }))}
-                    className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all"
-                    placeholder="닉네임을 입력하세요"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">성별</label>
-                    <select
-                      value={editFormData.gender}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, gender: e.target.value }))}
-                      className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all appearance-none"
-                    >
-                      <option value="">선택 안함</option>
-                      <option value="male">남성</option>
-                      <option value="female">여성</option>
-                      <option value="other">기타</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">생일</label>
-                    <input
-                      type="date"
-                      value={editFormData.birthday}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, birthday: e.target.value }))}
-                      className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">선호 장르 (다중 선택)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {genres.map((genre) => (
-                      <button
-                        key={genre}
-                        onClick={() => togglePreference(genre)}
-                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${editFormData.preferences.includes(genre)
-                            ? 'bg-black text-white'
-                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                          }`}
-                      >
-                        {genre}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="flex-1 py-4 bg-gray-100 text-gray-500 font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={saveProfile}
-                className="flex-1 py-4 bg-black text-white font-black uppercase tracking-widest rounded-xl hover:bg-[#4D41FF] transition-colors"
-              >
-                저장하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MyPageEditModal
+        isOpen={isEditModalOpen}
+        onClose={handleCancelEdit}
+        onSave={saveProfile}
+        onDeleteAccount={handleDeleteAccount}
+        isSavePending={saveProfileMutation.isPending}
+        isDeletePending={deleteAccountMutation.isPending}
+        editFormData={editFormData}
+        setEditFormData={setEditFormData}
+        profileImageFile={profileImageFile}
+        setProfileImageFile={setProfileImageFile}
+        togglePreference={togglePreference}
+        isGenresLoading={isGenresLoading}
+        isGenresError={isGenresError}
+        mainGenres={mainGenres}
+        novelSubGenres={novelSubGenres}
+      />
     </div>
   );
 }

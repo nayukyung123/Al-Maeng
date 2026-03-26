@@ -38,7 +38,7 @@ public record TicketResponse(
                 ticket.getCompletedBook().getBook().getAuthor(),
                 ticket.getCompletedBook().getBook().getCoverImageUrl(),
                 ticket.getComment(),
-                ticket.getCompletedBook().getCreatedAt(),
+                ticket.getCompletedBook().getCompletedAt(),
                 ticket.getTicketImageUrl(),
                 ticket.getStyleData(),
                 topLevelGenreName

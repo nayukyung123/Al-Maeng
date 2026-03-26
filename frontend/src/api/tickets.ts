@@ -8,6 +8,8 @@ export interface TicketStyleDataDto {
   coverShape: string;
   typography: string;
   ticketColor: string;
+  /** 세로형 뒷면 제목 표시 (기본 true, 생략 시 구티켓과 동일하게 취급) */
+  showBackTitle?: boolean;
 }
 
 interface TicketResponseDto {
@@ -39,6 +41,8 @@ interface TicketCreateResponse {
 interface PresignedUrlResponse {
   presignedUrl: string;
   imageUrl: string;
+  /** 서명에 사용된 값과 동일해야 PUT 시 403(SignatureDoesNotMatch) 방지 */
+  contentType: string;
 }
 
 function parseStyleFromDto(style: TicketStyleDataDto | null): {
@@ -66,6 +70,9 @@ function parseStyleFromDto(style: TicketStyleDataDto | null): {
       ? style.orientation
       : "horizontal";
 
+  const showBackTitle: boolean | undefined =
+    style.showBackTitle === true ? true : style.showBackTitle === false ? false : undefined;
+
   return {
     templateId: style.coverShape || "classic",
     style: {
@@ -73,6 +80,7 @@ function parseStyleFromDto(style: TicketStyleDataDto | null): {
       background: style.ticketColor || "bg-white",
       textColor: "text-stone-900",
       orientation,
+      showBackTitle,
     },
   };
 }
@@ -123,6 +131,15 @@ export async function createTicket(payload: TicketCreateRequest): Promise<Ticket
 
 export async function deleteTicket(ticketId: number): Promise<void> {
   await apiClient.delete<ApiResponse<void>>(`/api/tickets/${ticketId}`);
+}
+
+export async function patchTicketShowBackTitle(
+  ticketId: number,
+  showBackTitle: boolean
+): Promise<void> {
+  await apiClient.patch<ApiResponse<void>>(`/api/tickets/${ticketId}/show-back-title`, {
+    showBackTitle,
+  });
 }
 
 export async function fetchTicketImagePresignedUrl(fileExtension: string): Promise<PresignedUrlResponse> {
