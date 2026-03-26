@@ -185,6 +185,7 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
         <div className="relative">
           <textarea
             value={comment}
+            maxLength={500}
             onChange={(e) => setComment(e.target.value)}
             placeholder="이 책에 대한 당신의 문장을 남겨주세요."
             disabled={isPending}
@@ -199,6 +200,13 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
           >
             <Send size={24} />
           </button>
+
+          {/* 500자 제한 경고 문구 */}
+          {comment.length >= 500 && (
+            <p className="mt-2 text-[11px] font-bold text-red-600 animate-in fade-in slide-in-from-top-1 duration-300">
+              리뷰는 최대 500자까지 입력할 수 있습니다.
+            </p>
+          )}
         </div>
 
       </div>
