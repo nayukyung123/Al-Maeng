@@ -56,32 +56,30 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
     // 완독 도서(소설)의 하위 장르 가져오기
     @Query(value = """
             SELECT
-                CASE
-                    WHEN parent.genre_name = :topLevelGenreName THEN g.id
-                    WHEN grandParent.genre_name = :topLevelGenreName THEN parent.id
-                END AS genreId,
-                CASE
-                    WHEN parent.genre_name = :topLevelGenreName THEN g.genre_name
-                    WHEN grandParent.genre_name = :topLevelGenreName THEN parent.genre_name
-                END AS genreName,
+                t.genreId AS genreId,
+                t.genreName AS genreName,
                 COUNT(*) AS bookCount
-            FROM user_completed_books cb
-            JOIN book_genres bg ON cb.book_id = bg.book_id
-            JOIN genres g ON bg.genre_id = g.id
-            LEFT JOIN genres parent ON g.parent_id = parent.id
-            LEFT JOIN genres grandParent ON parent.parent_id = grandParent.id
-            WHERE cb.user_id = :userId
-              AND (parent.genre_name = :topLevelGenreName OR grandParent.genre_name = :topLevelGenreName)
-            GROUP BY
-                CASE
-                    WHEN parent.genre_name = :topLevelGenreName THEN g.id
-                    WHEN grandParent.genre_name = :topLevelGenreName THEN parent.id
-                END,
-                CASE
-                    WHEN parent.genre_name = :topLevelGenreName THEN g.genre_name
-                    WHEN grandParent.genre_name = :topLevelGenreName THEN parent.genre_name
-                END
-            ORDER BY bookCount DESC, genreName ASC
+            FROM (
+                SELECT
+                    CASE
+                        WHEN parent.genre_name = :topLevelGenreName THEN g.id
+                        WHEN grandParent.genre_name = :topLevelGenreName THEN parent.id
+                    END AS genreId,
+                    CASE
+                        WHEN parent.genre_name = :topLevelGenreName THEN g.genre_name
+                        WHEN grandParent.genre_name = :topLevelGenreName THEN parent.genre_name
+                    END AS genreName
+                FROM user_completed_books cb
+                JOIN book_genres bg ON cb.book_id = bg.book_id
+                JOIN genres g ON bg.genre_id = g.id
+                LEFT JOIN genres parent ON g.parent_id = parent.id
+                LEFT JOIN genres grandParent ON parent.parent_id = grandParent.id
+                WHERE cb.user_id = :userId
+                  AND (parent.genre_name = :topLevelGenreName OR grandParent.genre_name = :topLevelGenreName)
+            ) t
+            WHERE t.genreId IS NOT NULL AND t.genreName IS NOT NULL
+            GROUP BY t.genreId, t.genreName
+            ORDER BY bookCount DESC, t.genreName ASC
             """, nativeQuery = true)
     List<GenreCountProjection> aggregateSubGenresByTopLevelGenre(
             @Param("userId") Long userId,

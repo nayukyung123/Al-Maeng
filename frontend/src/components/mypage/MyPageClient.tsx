@@ -5,11 +5,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Rectangle } from 'recharts';
-import { User, ArrowLeft } from 'lucide-react';
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+} from 'recharts';
+import { User } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
-import { deleteMyAccount, fetchMyProfile, updateMyProfile } from "@/api/mypage";
+import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
 import { fetchGenres } from "@/api/genres";
 import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
@@ -18,7 +28,6 @@ import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
-import { MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const authHydrated = useAuthStoreHydrated();
@@ -29,7 +38,6 @@ export default function MyPageClient() {
   const [wishlistPage] = useState(1);
   const [finishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // 찜 목록 조회 (실제 API)
@@ -79,6 +87,18 @@ export default function MyPageClient() {
     () => genres.filter((g) => g.parentId === 27594),
     [genres]
   );
+
+  const {
+    data: tasteReport,
+    isLoading: isTasteReportLoading,
+  } = useQuery({
+    queryKey: ["my-taste-report"],
+    queryFn: fetchMyTasteReport,
+    enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
+  });
 
   const [editFormData, setEditFormData] = useState<UserData>({
     nickname: '',
@@ -248,6 +268,27 @@ export default function MyPageClient() {
     finishedPage * itemsPerPage
   );
 
+  const hasTopLevelTasteData = (tasteReport?.topLevelGenres?.length ?? 0) > 0;
+  const hasSubTasteData = (tasteReport?.subGenres?.length ?? 0) > 0;
+
+  const MOCK_TOP_LEVEL_DATA = [
+    { genreName: "소설", count: 5 },
+    { genreName: "에세이", count: 3 },
+    { genreName: "과학", count: 2 },
+    { genreName: "경제", count: 2 },
+  ];
+
+  const NOVEL_PERSONA_AXES = [
+    { dbName: "판타지/환상문학", label: "판타지" },
+    { dbName: "로맨스소설", label: "로맨스" },
+    { dbName: "호러.공포소설", label: "호러" },
+    { dbName: "액션/스릴러소설", label: "스릴러" },
+    { dbName: "과학소설(SF)", label: "SF" },
+    { dbName: "역사소설", label: "역사" },
+    { dbName: "추리/미스터리소설", label: "추리" },
+    { dbName: "무협소설", label: "무협" },
+  ];
+
   useEffect(() => {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
@@ -276,10 +317,8 @@ export default function MyPageClient() {
   return (
     <div className="pt-8 pb-32 px-6 md:px-12 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-16 items-start mb-24">
-        {/* Left Column: Profile & Stats */}
-        <div className="space-y-12">
-          {/* Profile Section */}
-          <section className="flex flex-col md:flex-row items-center md:items-start gap-8">
+        {/* Profile Section (full width on lg) */}
+        <section className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:col-span-2">
             <div
               className="relative"
             >
@@ -301,116 +340,234 @@ export default function MyPageClient() {
             </div>
           </section>
 
-          {/* Dashboard Stats */}
-          <section className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => {
-                document.getElementById('wishlist-section')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-black text-white p-6 md:p-8 aspect-[4/3] flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl"
-            >
-              <p className="text-gray-500 font-mono text-[10px] uppercase tracking-widest">찜한 권수</p>
-              <p className="text-3xl md:text-5xl font-black">
-                {wishlistData?.totalElements ?? 0}<span className="text-lg font-medium ml-1">권</span>
-              </p>
-            </button>
-            <button
-              onClick={() => {
-                document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-[#4D41FF] text-white p-6 md:p-8 aspect-[4/3] flex flex-col justify-between text-left hover:bg-[#3d34e0] transition-colors rounded-xl"
-            >
-              <p className="text-white/60 font-mono text-[10px] uppercase tracking-widest">완독 권수</p>
-              <p className="text-3xl md:text-5xl font-black">
-                {finishedBooks.length}<span className="text-lg font-medium ml-1">권</span>
-              </p>
-            </button>
-          </section>
-        </div>
-
-        {/* Right Column: Taste Report */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-black uppercase tracking-tight">TASTE REPORT</h3>
-            {selectedCategory && (
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="flex items-center gap-1 text-xs font-bold text-[#4D41FF] hover:underline"
-              >
-                <ArrowLeft size={14} />
-                대분류 보기
-              </button>
-            )}
+        {/* Taste Reports (left column) */}
+        <section className="h-full flex flex-col">
+          <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+            <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
+              TASTE REPORTS
+            </h3>
           </div>
-          <div className="bg-white border rounded-xl border-gray-100 p-4 aspect-square flex flex-col items-center justify-center shadow-sm">
-            <div className="w-full h-full">
-              <ResponsiveContainer width="100%" height="100%">
-                {selectedCategory === '문학(소설)' ? (
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={FICTION_SUB_CHART_DATA}>
-                    <PolarGrid stroke="#f0f0f0" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }} />
-                    <Radar name="Taste" dataKey="A" stroke="#4D41FF" strokeWidth={2} fill="#4D41FF" fillOpacity={0.15} />
-                  </RadarChart>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm md:text-base font-extrabold tracking-tight">나의 독서 스펙트럼</h3>
+              </div>
+
+              <div className="aspect-square w-full">
+                {isTasteReportLoading ? (
+                  <div className="w-full h-full rounded-lg bg-gray-50 animate-pulse" />
+                ) : !hasTopLevelTasteData ? (
+                  <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-100">
+                    <div className="w-full h-full opacity-35 blur-[1.5px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={MOCK_TOP_LEVEL_DATA}
+                            dataKey="count"
+                            nameKey="genreName"
+                            innerRadius="55%"
+                            outerRadius="80%"
+                            paddingAngle={2}
+                            isAnimationActive={false}
+                          >
+                            {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
+                              <Cell
+                                key={`${g.genreName}-${idx}`}
+                                fill={g.genreName === "소설" ? "#0033FF" : "#E5E7EB"}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-center px-6">
+                      <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
+                        아직 완독한 책이 없어 리포트를 준비 중이에요
+                      </p>
+                    </div>
+                  </div>
                 ) : (
-                  <BarChart
-                    data={MAIN_CHART_DATA}
-                    layout="vertical"
-                    margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis
-                      dataKey="subject"
-                      type="category"
-                      tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
-                      width={80}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Bar
-                      dataKey="A"
-                      radius={[0, 4, 4, 0]}
-                      shape={(props: {
-                        x?: number;
-                        y?: number;
-                        width?: number;
-                        height?: number;
-                        payload?: { subject?: string };
-                      }) => {
-                        const { x = 0, y = 0, width = 0, height = 0, payload } = props;
-                        const isFiction = payload?.subject === "문학(소설)";
-                        return (
-                          <Rectangle
-                            x={x}
-                            y={y}
-                            width={width}
-                            height={height}
-                            fill={isFiction ? "#4D41FF" : "#E5E7EB"}
-                            radius={[0, 4, 4, 0]}
-                            className={isFiction ? "cursor-pointer hover:opacity-80" : ""}
-                          />
-                        );
-                      }}
-                      onClick={(state: { payload?: { subject?: string }; subject?: string }) => {
-                        const subject = state.payload?.subject ?? state.subject;
-                        if (subject === "문학(소설)") {
-                          setSelectedCategory("문학(소설)");
-                        }
-                      }}
-                    />
-                  </BarChart>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={tasteReport!.topLevelGenres}
+                        dataKey="count"
+                        nameKey="genreName"
+                        innerRadius="55%"
+                        outerRadius="80%"
+                        paddingAngle={2}
+                        isAnimationActive={false}
+                      >
+                        {tasteReport!.topLevelGenres.map((g) => {
+                          const isNovel = g.genreName === "소설" || g.genreName === "문학(소설)";
+                          return (
+                            <Cell
+                              key={g.genreId}
+                              fill={isNovel ? "#0033FF" : "#E5E7EB"}
+                            />
+                          );
+                        })}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any, name: any, props: any) => {
+                          const count = typeof value === "number" ? value : Number(value);
+                          const percent = props?.payload?.percentage;
+                          const percentText =
+                            typeof percent === "number" ? ` (${percent.toFixed(1)}%)` : "";
+                          return [`${count}권${percentText}`, name];
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 )}
-              </ResponsiveContainer>
+              </div>
             </div>
-            {selectedCategory === '문학(소설)' && (
-              <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                문학(소설) 소분류 취향 분석
-              </p>
-            )}
-            {!selectedCategory && (
-              <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                카테고리를 클릭하여 상세 분석을 확인하세요
-              </p>
-            )}
+
+            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm md:text-base font-extrabold tracking-tight">문학적 페르소나</h3>
+              </div>
+
+              <div className="aspect-square w-full">
+                {isTasteReportLoading ? (
+                  <div className="w-full h-full rounded-lg bg-gray-50 animate-pulse" />
+                ) : !hasTopLevelTasteData ? (
+                  <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-100">
+                    <div className="w-full h-full opacity-35 blur-[1.5px]">
+                      {(() => {
+                        const mockCounts = [5, 3, 4, 2, 5, 3, 2, 4];
+                        const mockRadarData = NOVEL_PERSONA_AXES.map((axis, index) => ({
+                          subject: axis.label,
+                          count: mockCounts[index % mockCounts.length],
+                          fullMark: 5,
+                        }));
+
+                        return (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RadarChart
+                          cx="50%"
+                          cy="50%"
+                          outerRadius="70%"
+                          data={mockRadarData}
+                        >
+                          <PolarGrid stroke="#f0f0f0" />
+                          <PolarAngleAxis
+                            dataKey="subject"
+                            tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                          />
+                          <Radar
+                            name="완독 수"
+                            dataKey="count"
+                            stroke="#0033FF"
+                            strokeWidth={2}
+                            fill="#0033FF"
+                            fillOpacity={0.15}
+                            isAnimationActive={false}
+                          />
+                        </RadarChart>
+                      </ResponsiveContainer>
+                        );
+                      })()}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-center px-6">
+                      <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
+                        데이터가 쌓이면 문학적 페르소나를 보여드릴게요
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart
+                      cx="50%"
+                      cy="50%"
+                      outerRadius="70%"
+                      data={(() => {
+                        const statMap = new Map(
+                          (tasteReport?.subGenres ?? []).map((s) => [s.genreName, s])
+                        );
+                        const axisData = NOVEL_PERSONA_AXES.map((axis) => {
+                          const stat = statMap.get(axis.dbName);
+                          return {
+                            subject: axis.label,
+                            count: stat?.count ?? 0,
+                          };
+                        });
+
+                        const maxCount = Math.max(...axisData.map((d) => d.count), 0);
+                        const fullMark = Math.max(maxCount, 5);
+
+                        return axisData.map((d) => ({ ...d, fullMark }));
+                      })()}
+                    >
+                      <PolarGrid stroke="#f0f0f0" />
+                      <PolarAngleAxis
+                        dataKey="subject"
+                        tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                      />
+                      <Radar
+                        name="완독 수"
+                        dataKey="count"
+                        stroke="#0033FF"
+                        strokeWidth={2}
+                        fill="#0033FF"
+                        fillOpacity={0.15}
+                        isAnimationActive={false}
+                      />
+                      <Tooltip
+                        formatter={(value: any) => {
+                          const count = typeof value === "number" ? value : Number(value);
+                          return [`${count}권`, "완독 수"];
+                        }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              {!isTasteReportLoading && hasTopLevelTasteData && !hasSubTasteData && (
+                <p className="mt-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  소설 완독 데이터가 아직 없어요
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Right Column: Small Stats */}
+        <section className="h-full flex flex-col space-y-4">
+          <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+            <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
+              STATS
+            </h3>
+          </div>
+
+          <div className="flex-1 w-full">
+            <div className="h-full flex flex-col gap-4">
+              <button
+                onClick={() => {
+                  document.getElementById('wishlist-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl"
+              >
+                <p className="text-white/80 text-sm md:text-base font-extrabold tracking-tight">찜한 권수</p>
+                <p className="text-right text-4xl md:text-5xl font-black leading-none">
+                  {wishlistData?.totalElements ?? 0}<span className="text-base md:text-lg font-bold ml-1">권</span>
+                </p>
+              </button>
+
+              <button
+                onClick={() => {
+                  document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl"
+              >
+                <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
+                <p className="text-right text-4xl md:text-5xl font-black leading-none">
+                  {finishedBooks.length}<span className="text-base md:text-lg font-bold ml-1">권</span>
+                </p>
+              </button>
+            </div>
           </div>
         </section>
       </div>
