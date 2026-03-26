@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchBanners, type BannerResponse } from "@/api/banners";
+import { formatBookContent } from "@/utils/decode";
 
 interface HeroSliderProps {
   /** 배너 클릭 시 해당 배너의 contentId를 부모로 전달 (ContentCuration 동기화 용) */
@@ -97,7 +98,7 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
                 Curation of the Day
               </p>
               <h2 className="text-4xl md:text-6xl font-black leading-[1.1] tracking-tight mb-6 break-keep">
-                <span className="italic font-serif font-light">{slide.title}</span>,
+                <span className="italic font-serif font-light">{formatBookContent(slide.title)}</span>,
                 <br />이 작품은 어떠신가요?
               </h2>
               <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest group-hover:text-[#0033FF] transition-colors">
