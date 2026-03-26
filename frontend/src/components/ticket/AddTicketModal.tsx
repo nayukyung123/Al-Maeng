@@ -393,9 +393,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                       {isHorizontal ? (
                         <div className={cn("w-[480px] h-[240px] flex flex-row-reverse shadow-2xl rounded-lg overflow-hidden relative", previewTicket.style?.background, previewTicket.style?.textColor)}>
                           <div className="flex-1 relative z-10 min-w-0 rounded-r-lg overflow-hidden">
-                            <div className="absolute top-3 left-3 font-mono text-[10px] font-bold text-current/75 z-20 pointer-events-none">
-                              NO. PREVIEW
-                            </div>
                             <HorizontalTicketBackOverlay
                               title={previewTicket.title}
                               completedAt={previewTicket.completedAt}

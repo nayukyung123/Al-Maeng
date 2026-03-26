@@ -46,7 +46,6 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
               <div className="flex flex-col min-h-0">
                 <div className="flex justify-between items-start shrink-0">
                   <span className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-40">BOOK ADMISSION</span>
-                  <span className="text-[9px] font-mono opacity-40">#{ticket.id.toString().padStart(4, '0')}</span>
                 </div>
                 {/* 제목/작가를 세로 중앙 근처로 배치 */}
                 <div className="flex-1 flex flex-col justify-center min-h-0">
@@ -92,7 +91,6 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
           
           <div className="flex justify-between items-start mb-2 shrink-0">
             <span className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-40">BOOK ADMISSION</span>
-            <span className="text-[9px] font-mono opacity-40">#{ticket.id.toString().padStart(4, '0')}</span>
           </div>
 
           <div className={cn(

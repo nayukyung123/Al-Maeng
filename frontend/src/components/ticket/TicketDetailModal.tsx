@@ -126,9 +126,6 @@ export const TicketDetailModal = ({
             ) : (
               <>
                 <div className="flex-1 relative z-10 min-w-0 rounded-r-lg overflow-hidden">
-                  <div className="absolute top-3 left-3 font-mono text-[10px] font-bold text-current/75 z-20 pointer-events-none">
-                    NO. {ticket.id.toString().padStart(4, "0")}
-                  </div>
                   <HorizontalTicketBackOverlay
                     title={ticket.title}
                     completedAt={ticket.completedAt}
