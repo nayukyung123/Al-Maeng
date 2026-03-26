@@ -8,14 +8,9 @@ import type { Review } from "@/types/book";
 
 interface ReviewSectionProps {
   slug: string;
-  /** 도서 상세에서 전달받은 총 리뷰 수 (Mock 값) */
-  reviewCount: number;
 }
 
-export default function ReviewSection({
-  slug,
-  reviewCount,
-}: ReviewSectionProps) {
+export default function ReviewSection({ slug }: ReviewSectionProps) {
   /* ── 리뷰 목록 조회 ── */
   const {
     data: reviews = [],
@@ -32,7 +27,7 @@ export default function ReviewSection({
       <h3 className="text-3xl font-black mb-12 flex items-center gap-3">
         Readers&apos; Notes{" "}
         <span className="text-[#4D41FF] font-mono">
-          {reviewCount.toLocaleString()}
+          {(reviews?.length ?? 0).toLocaleString()}
         </span>
       </h3>
 

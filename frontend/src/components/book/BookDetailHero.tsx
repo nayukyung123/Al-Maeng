@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -15,6 +14,7 @@ import {
   deleteCompletedBook,
   fetchCompletedBooks,
 } from "@/api/completedBooks";
+import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
 
 interface BookDetailHeroProps {
   book: BookDetail;
@@ -23,8 +23,11 @@ interface BookDetailHeroProps {
 export default function BookDetailHero({ book }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const queryClient = useQueryClient();
+
+  // 찜하기 상태 및 뮤테이션
+  const { data: isWishlisted = false } = useWishlistStatus(book.id, isLoggedIn);
+  const { addWishlist, removeWishlist } = useWishlistMutation(book.id);
 
   const { data: completedBooks = [] } = useQuery<CompletedBook[]>({
     queryKey: ["completed-books"],
@@ -72,9 +75,11 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
           {
             completedBookId: -book.id,
             bookId: book.id,
+            slug: book.slug,
             title: book.title,
             author: book.author,
             coverImageUrl: book.coverImageUrl ?? "",
+            genreName: "미분류",
             completedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
           },
@@ -151,10 +156,14 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
       <div className="flex-1 flex flex-col justify-center py-4">
         {/* 장르 · 평점 뱃지 */}
         <div className="flex items-center gap-3 mb-6">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
-            {book.genre}
-          </span>
-          <span className="w-1 h-1 bg-gray-300 rounded-full" />
+          {book.genre && (
+            <>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+                {book.genre}
+              </span>
+              <span className="w-1 h-1 bg-gray-300 rounded-full" />
+            </>
+          )}
           <div className="flex items-center gap-1">
             <Star size={12} fill="#111" className="text-black" />
             <span className="text-xs font-black">{book.averageRating.toFixed(1)}</span>
@@ -197,7 +206,15 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
         <div className="flex gap-3">
           {/* 찜하기 (Heart) */}
           <button
-            onClick={() => requireAuth(() => setIsWishlisted((prev) => !prev))}
+            onClick={() =>
+              requireAuth(() => {
+                if (isWishlisted) {
+                  removeWishlist();
+                } else {
+                  addWishlist();
+                }
+              })
+            }
             aria-label={isWishlisted ? "찜 해제" : "찜하기"}
             className={cn(
               "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all",

@@ -30,6 +30,11 @@ public class BookController {
         return ResponseEntity.ok(ApiResponse.success(rankings));
     }
 
+    @GetMapping("/{slug}/recommendations")
+    public ResponseEntity<ApiResponse<List<BookResponse>>> getSimilarBooks(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(bookService.getSimilarBooks(slug)));
+    }
+
     @GetMapping("/{slug}")
     public ResponseEntity<ApiResponse<BookDetailResponse>> getBookDetail(@PathVariable String slug) {
         return ResponseEntity.ok(ApiResponse.success(bookService.getBookDetail(slug)));

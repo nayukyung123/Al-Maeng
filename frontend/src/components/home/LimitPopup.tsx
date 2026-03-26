@@ -7,15 +7,20 @@ import { motion, AnimatePresence } from "motion/react";
 interface LimitPopupProps {
   isOpen: boolean;
   onClose: () => void;
+  /** 백엔드 popupMessage — null이면 기본 문구 사용 */
+  message?: string | null;
 }
 
-export default function LimitPopup({ isOpen, onClose }: LimitPopupProps) {
+export default function LimitPopup({ isOpen, onClose, message }: LimitPopupProps) {
   const router = useRouter();
 
-  const handleNavigateToWizard = () => {
+  const handleNavigateToDiscover = () => {
     onClose();
-    router.push("/wizard");
+    router.push("/discover");
   };
+
+  const displayMessage =
+    message ?? "취향에 맞는 책을 찾기 어려우신가요?";
 
   return (
     <AnimatePresence>
@@ -51,18 +56,16 @@ export default function LimitPopup({ isOpen, onClose }: LimitPopupProps) {
                 <Sparkles size={32} aria-hidden="true" />
               </div>
               <h3 className="text-2xl font-black mb-4 break-keep">
-                취향에 맞는 책을 찾기 어려우신가요?
+                {displayMessage}
               </h3>
               <p className="text-gray-600 mb-8 leading-relaxed break-keep">
-                새로고침 횟수를 모두 사용하셨습니다.
-                <br />
                 AI가 분석한{" "}
                 <span className="text-[#0033FF] font-bold">맞춤형 추천 서비스</span>를
                 이용해보시는 건 어떨까요?
               </p>
               <button
                 type="button"
-                onClick={handleNavigateToWizard}
+                onClick={handleNavigateToDiscover}
                 className="w-full bg-black text-white py-4 font-black tracking-widest uppercase hover:bg-[#0033FF] transition-colors"
               >
                 맞춤 추천 받기

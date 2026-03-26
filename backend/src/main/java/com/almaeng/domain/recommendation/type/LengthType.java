@@ -1,7 +1,7 @@
 package com.almaeng.domain.recommendation.type;
 
 public enum LengthType {
-    SHORT,
+    LIGHT,
     MEDIUM,
     LONG
 }

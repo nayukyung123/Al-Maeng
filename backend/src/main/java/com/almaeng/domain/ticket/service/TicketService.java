@@ -26,6 +26,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +65,7 @@ public class TicketService {
                 .completedBook(completedBook)
                 .comment(request.comment())
                 .ticketImageUrl(request.ticketImageUrl())
+                .styleData(request.styleData())
                 .build();
 
         return ticketRepository.save(ticket).getId();
@@ -70,7 +74,7 @@ public class TicketService {
     // 완독 티켓 삭제
     @Transactional
     public void deleteTicket(Long userId, Long ticketId) {
-        Ticket ticket = ticketRepository.findById(ticketId)
+        Ticket ticket = ticketRepository.findByIdWithUser(ticketId)
                 .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
 
         Long ownerId = ticket.getCompletedBook().getUser().getId();
@@ -78,20 +82,37 @@ public class TicketService {
             throw new ApiException(ErrorCode.TICKET_ACCESS_DENIED);
         }
 
-        // db 삭제 전 S3에서 실제 이미지 파일 지우기
-        if (ticket.getTicketImageUrl() != null) {
-            deleteImageFromS3(ticket.getTicketImageUrl());
-        }
-
+        // S3 URL을 미리 꺼내두고 DB 삭제 먼저 수행
+        String imageUrl = ticket.getTicketImageUrl();
         ticketRepository.delete(ticket);
+
+        // 트랜잭션 커밋 후에 S3 이미지 삭제 (커밋 실패 시 S3 삭제 안 됨)
+        if (imageUrl != null) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        deleteImageFromS3(imageUrl);
+                    } catch (Throwable t) {
+                        // afterCommit 예외가 HTTP 응답으로 전파되지 않도록 반드시 catch
+                        log.error("afterCommit S3 삭제 중 예외 발생 (무시): {}", imageUrl, t);
+                    }
+                }
+            });
+        }
     }
 
     // S3에서 이미지 삭제하는 메서드
     private void deleteImageFromS3(String imageUrl) {
         try {
-            String key = imageUrl.substring(imageUrl.indexOf("amazonaws.com/") + 14);
+            int idx = imageUrl.indexOf("amazonaws.com/");
+            if (idx == -1) {
+                log.warn("S3 URL 형식이 아닙니다, 삭제 건너뜀: {}", imageUrl);
+                return;
+            }
+            String key = imageUrl.substring(idx + 14);
 
-            DeleteObjectRequest deleteRequest =  DeleteObjectRequest.builder()
+            DeleteObjectRequest deleteRequest = DeleteObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)
                     .build();
@@ -152,14 +173,16 @@ public class TicketService {
 
     // S3 이미지 저장용 url 발급
     public PresignedUrlResponse getPresignedUrl(Long userId, String fileExtension) {
-        String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + fileExtension;
+        String ext = fileExtension.toLowerCase().replaceAll("^\\.", "");
+        String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + ext;
+        String mimeType = "image/" + (ext.equals("jpg") ? "jpeg" : ext);
 
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .signatureDuration(Duration.ofMinutes(10))
                 .putObjectRequest(req -> req
                         .bucket(bucketName)
                         .key(fileName)
-                        .contentType("image/" + fileExtension)
+                        .contentType(mimeType)
                 )
                 .build();
 

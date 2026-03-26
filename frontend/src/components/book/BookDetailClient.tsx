@@ -92,7 +92,7 @@ export default function BookDetailClient({ slug }: BookDetailClientProps) {
         <hr className="border-gray-100 mb-20" />
 
         {/* ── 3. 리뷰 섹션 ── */}
-        <ReviewSection slug={slug} reviewCount={book.reviewCount} />
+        <ReviewSection slug={slug} />
       </div>
     </div>
   );

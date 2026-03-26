@@ -5,12 +5,14 @@ import com.almaeng.global.error.mattermost.NotificationManager;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -47,6 +49,34 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, combinedMessage));
+    }
+
+    // 2-1. JSON 역직렬화 실패 (enum 값 형식 오류 등)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e) {
+        Throwable cause = e.getCause();
+
+        if (cause instanceof InvalidFormatException invalidFormatException) {
+            boolean hasGenderField = invalidFormatException.getPath().stream()
+                    .anyMatch(ref -> "gender".equals(ref.getFieldName()));
+
+            if (hasGenderField) {
+                String msg = invalidFormatException.getMessage();
+                if (msg != null && msg.contains("성별")) {
+                    return ResponseEntity
+                            .status(HttpStatus.BAD_REQUEST)
+                            .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, "성별 값 형식이 잘못되었습니다"));
+                }
+
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE, "성별 값 형식이 잘못되었습니다"));
+            }
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.INVALID_INPUT_VALUE));
     }
 
     // 3. 서버 런타임 에러 처리
