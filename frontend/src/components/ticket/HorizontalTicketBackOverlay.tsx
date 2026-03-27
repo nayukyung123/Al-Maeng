@@ -36,8 +36,13 @@ export function HorizontalTicketBackOverlay({
         "bg-transparent"
       )}
     >
-      {/* quote 영역: 하단 영역 높이가 고정이므로 showTitle 토글에도 중앙 정렬이 안정적으로 유지 */}
-      <div className="min-h-0 flex items-center justify-center px-4 py-2 overflow-hidden">
+      {/* 제목/날짜 ON이면 한줄평을 살짝 아래로 두어 상단 공백이 덜 남도록 */}
+      <div
+        className={cn(
+          "min-h-0 flex justify-center px-4 py-2 overflow-hidden",
+          showTitle ? "items-end pb-2 pt-4" : "items-center"
+        )}
+      >
         {text ? (
           <div className="relative w-full max-w-[92%] max-h-full">
             <span
