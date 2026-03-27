@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -16,7 +16,7 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
-import { User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil, User } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
@@ -28,15 +28,17 @@ import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
+import useToastStore from "@/store/useToastStore";
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
+  const addToast = useToastStore((s) => s.addToast);
   const authHydrated = useAuthStoreHydrated();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [wishlistPage] = useState(1);
-  const [finishedPage] = useState(1);
+  const [wishlistPage, setWishlistPage] = useState(1);
+  const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -95,9 +97,10 @@ export default function MyPageClient() {
     queryKey: ["my-taste-report"],
     queryFn: fetchMyTasteReport,
     enabled: isLoggedIn,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const [editFormData, setEditFormData] = useState<UserData>({
@@ -109,6 +112,7 @@ export default function MyPageClient() {
   });
 
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const hasHandledEditQueryRef = useRef(false);
 
   useEffect(() => {
     if (!myProfile) return;
@@ -133,8 +137,13 @@ export default function MyPageClient() {
   // URL 기반으로 수정 모달 오픈 제어: /mypage?edit=true
   useEffect(() => {
     const shouldOpen = searchParams.get("edit") === "true";
-    if (!shouldOpen) return;
+    if (!shouldOpen) {
+      hasHandledEditQueryRef.current = false;
+      return;
+    }
+    if (hasHandledEditQueryRef.current) return;
     if (!userData) return; // 프로필 로딩 전에는 오픈하지 않음
+    hasHandledEditQueryRef.current = true;
     setIsEditModalOpen(true);
   }, [searchParams, userData]);
 
@@ -200,12 +209,13 @@ export default function MyPageClient() {
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
       setProfileImageFile(null);
       setIsEditModalOpen(false);
+      addToast("프로필이 성공적으로 저장되었습니다.", "success");
       // edit=true로 다시 열리는 현상 방지
       router.replace("/mypage", { scroll: false });
     },
     onError: (err) => {
       console.error(err);
-      alert("프로필 저장에 실패했습니다. 다시 시도해주세요.");
+      addToast("프로필 저장에 실패했습니다. 다시 시도해주세요.", "error");
     },
   });
 
@@ -217,23 +227,24 @@ export default function MyPageClient() {
     },
     onError: (err) => {
       console.error(err);
-      alert("회원 탈퇴 처리 중 오류가 발생했습니다.");
+      addToast("회원 탈퇴 처리 중 오류가 발생했습니다.", "error");
     },
   });
 
   const saveProfile = () => {
     if (!editFormData.nickname || editFormData.nickname.length < 2) {
-      alert("닉네임은 2자 이상 입력해주세요.");
+      addToast("닉네임은 2자 이상 입력해주세요.", "error");
       return;
     }
     if (!editFormData.birthday || !editFormData.gender) {
-      alert("출생년도와 성별을 선택해주세요.");
+      addToast("출생년도와 성별을 선택해주세요.", "error");
       return;
     }
     saveProfileMutation.mutate();
   };
 
   const handleCancelEdit = () => {
+    hasHandledEditQueryRef.current = true;
     setIsEditModalOpen(false);
     setProfileImageFile(null);
     if (userData) setEditFormData(userData);
@@ -253,6 +264,8 @@ export default function MyPageClient() {
   };
 
   const itemsPerPage = 10; // 요구사항: 한 번에 최대 10권 (2줄)
+  const wishlistTotalElements = wishlistData?.totalElements ?? 0;
+  const wishlistTotalPages = Math.max(1, Math.ceil(wishlistTotalElements / itemsPerPage));
 
   const finishedBooks: Book[] = completedBooks.map((book) => ({
     bookId: book.bookId,
@@ -262,11 +275,20 @@ export default function MyPageClient() {
     coverImageUrl: book.coverImageUrl,
     dateRead: book.completedAt,
   }));
+  const finishedTotalPages = Math.max(1, Math.ceil(finishedBooks.length / itemsPerPage));
 
   const currentFinishedBooks = finishedBooks.slice(
     (finishedPage - 1) * itemsPerPage,
     finishedPage * itemsPerPage
   );
+
+  useEffect(() => {
+    setWishlistPage((prev) => Math.min(prev, wishlistTotalPages));
+  }, [wishlistTotalPages]);
+
+  useEffect(() => {
+    setFinishedPage((prev) => Math.min(prev, finishedTotalPages));
+  }, [finishedTotalPages]);
 
   const hasTopLevelTasteData = (tasteReport?.topLevelGenres?.length ?? 0) > 0;
   const hasSubTasteData = (tasteReport?.subGenres?.length ?? 0) > 0;
@@ -293,10 +315,21 @@ export default function MyPageClient() {
   /** 레이더: 실제 권수와 별도로, 얇게만 보이는 축을 방지(툴팁은 count 그대로) */
   const RADAR_VISUAL_FLOOR = 0.2;
 
+  const topLevelWithColor = React.useMemo(
+    () =>
+      (tasteReport?.topLevelGenres ?? []).map((genre, index) => ({
+        ...genre,
+        color: TOP_LEVEL_COLORS[index % TOP_LEVEL_COLORS.length],
+      })),
+    [tasteReport?.topLevelGenres]
+  );
+
   useEffect(() => {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
     queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+    // 완독 목록 변경 시 취향 리포트도 즉시 최신화
+    queryClient.invalidateQueries({ queryKey: ["my-taste-report"] });
   }, [isLoggedIn, finishedBooks.length, queryClient]);
 
   useEffect(() => {
@@ -337,7 +370,17 @@ export default function MyPageClient() {
             <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                <div className="flex items-center gap-4">
+                  <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    aria-label="프로필 수정 열기"
+                    className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:text-black hover:border-black transition-colors cursor-pointer"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
               </div>
               <MyPageTierSection part="progress" tier={myProfile?.tier} />
               <MyPageTierSection part="message" tier={myProfile?.tier} />
@@ -378,7 +421,7 @@ export default function MyPageClient() {
                             {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
                               <Cell
                                 key={`${g.genreName}-${idx}`}
-                                fill={g.genreName === "소설" ? "#0033FF" : "#E5E7EB"}
+                                fill={TOP_LEVEL_COLORS[idx % TOP_LEVEL_COLORS.length]}
                               />
                             ))}
                           </Pie>
@@ -395,7 +438,7 @@ export default function MyPageClient() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={tasteReport!.topLevelGenres}
+                        data={topLevelWithColor}
                         dataKey="count"
                         nameKey="genreName"
                         innerRadius="30%"
@@ -403,11 +446,11 @@ export default function MyPageClient() {
                         paddingAngle={2}
                         isAnimationActive={false}
                       >
-                        {tasteReport!.topLevelGenres.map((g) => {
+                        {topLevelWithColor.map((g) => {
                           return (
                             <Cell
                               key={g.genreId}
-                              fill={TOP_LEVEL_COLORS[Math.abs(g.genreId) % TOP_LEVEL_COLORS.length]}
+                              fill={g.color}
                             />
                           );
                         })}
@@ -425,6 +468,24 @@ export default function MyPageClient() {
                   </ResponsiveContainer>
                 )}
               </div>
+              {!isTasteReportLoading && hasTopLevelTasteData && (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                  {topLevelWithColor.map((genre) => (
+                    <div key={`legend-${genre.genreId}`} className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: genre.color }}
+                        />
+                        <span className="font-semibold text-gray-700 truncate">{genre.genreName}</span>
+                      </div>
+                      <span className="text-gray-500 font-semibold shrink-0 ml-2">
+                        {genre.count}권 ({genre.percentage.toFixed(0)}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
@@ -557,7 +618,7 @@ export default function MyPageClient() {
                 onClick={() => {
                   document.getElementById('wishlist-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl"
+                className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl cursor-pointer"
               >
                 <p className="text-white/80 text-sm md:text-base font-extrabold tracking-tight">찜한 권수</p>
                 <p className="text-right text-4xl md:text-5xl font-black leading-none">
@@ -569,7 +630,7 @@ export default function MyPageClient() {
                 onClick={() => {
                   document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl"
+                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl cursor-pointer"
               >
                 <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
                 <p className="text-right text-4xl md:text-5xl font-black leading-none">
@@ -583,8 +644,33 @@ export default function MyPageClient() {
 
       {/* Wishlist Section */}
       <section id="wishlist-section" className="mt-24 scroll-mt-24">
-        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4 gap-3">
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">Wishlist</h3>
+          {wishlistTotalElements > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setWishlistPage((prev) => Math.max(1, prev - 1))}
+                disabled={wishlistPage <= 1}
+                aria-label="찜 목록 이전 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold tracking-widest text-gray-500 min-w-[68px] text-center">
+                {wishlistPage} / {wishlistTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setWishlistPage((prev) => Math.min(wishlistTotalPages, prev + 1))}
+                disabled={wishlistPage >= wishlistTotalPages}
+                aria-label="찜 목록 다음 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         {isWishlistFetched && (wishlistData?.totalElements ?? 0) === 0 ? (
@@ -628,8 +714,33 @@ export default function MyPageClient() {
 
       {/* COMPLETED Books Section */}
       <section id="completed-section" className="mt-24 scroll-mt-24">
-        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4 gap-3">
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">COMPLETED Books</h3>
+          {finishedBooks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFinishedPage((prev) => Math.max(1, prev - 1))}
+                disabled={finishedPage <= 1}
+                aria-label="완독 목록 이전 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold tracking-widest text-gray-500 min-w-[68px] text-center">
+                {finishedPage} / {finishedTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFinishedPage((prev) => Math.min(finishedTotalPages, prev + 1))}
+                disabled={finishedPage >= finishedTotalPages}
+                aria-label="완독 목록 다음 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         {finishedBooks.length === 0 ? (

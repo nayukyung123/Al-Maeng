@@ -33,12 +33,15 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TicketService {
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
+
     private final TicketRepository ticketRepository;
     private final CompletedBookRepository completedBookRepository;
     private final GenreRepository genreRepository;
@@ -195,6 +198,9 @@ public class TicketService {
     // S3 이미지 저장용 url 발급
     public PresignedUrlResponse getPresignedUrl(Long userId, String fileExtension) {
         String ext = fileExtension.toLowerCase().replaceAll("^\\.", "");
+        if (!ALLOWED_IMAGE_EXTENSIONS.contains(ext)) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + ext;
         String mimeType = "image/" + (ext.equals("jpg") ? "jpeg" : ext);
 

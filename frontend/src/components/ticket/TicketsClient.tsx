@@ -23,8 +23,10 @@ import { fetchCompletedBooks } from "@/api/completedBooks";
 import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
 import { EmptyTicketState } from "./EmptyTicketState";
 import { Loader2 } from "lucide-react";
+import useToastStore from "@/store/useToastStore";
 
 export const TicketsClient = () => {
+  const addToast = useToastStore((s) => s.addToast);
   const [view, setView] = useState<"gallery" | "binder">("gallery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<GalleryTicket | null>(null);
@@ -128,8 +130,10 @@ export const TicketsClient = () => {
   const handleDeleteTicket = async (ticketId: number) => {
     try {
       await deleteTicketApi(ticketId);
+      addToast("티켓이 삭제되었습니다.", "success");
     } catch {
-      // 500이어도 DB에서 이미 삭제됐을 수 있으므로 쿼리를 무조건 갱신
+      // 500이어도 DB에서 이미 삭제됐을 수 있어 정보성 안내 후 쿼리를 갱신
+      addToast("삭제 요청 처리 중 오류가 발생했습니다. 목록을 새로고침합니다.", "info");
     }
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
