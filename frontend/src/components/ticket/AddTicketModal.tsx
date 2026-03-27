@@ -13,6 +13,11 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { createTicket, fetchTicketImagePresignedUrl, fetchGalleryTickets, type TicketStyleDataDto } from "@/api/tickets";
 import { putPresignedObject } from "@/lib/s3PresignedPut";
+import {
+  getFileExtensionForPresigned,
+  prepareUploadImage,
+  readFileAsDataUrl,
+} from "@/lib/imageCompression";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -118,7 +123,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
       let uploadedImageUrl = ticketData.customImage;
       if (customImageFile) {
         try {
-          const ext = (customImageFile.name.split(".").pop()?.toLowerCase() || "jpg");
+          const ext = getFileExtensionForPresigned(customImageFile);
           const { presignedUrl, imageUrl, contentType } = await fetchTicketImagePresignedUrl(ext);
           // 서명은 PUT + Content-Type 고정. undefined/리다이렉트 후 GET으로 바뀌면 S3가 SignatureDoesNotMatch(GET)를 반환함
           const putContentType =
@@ -329,13 +334,26 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                   <label className="flex items-center justify-center w-full h-12 border border-dashed border-gray-300 hover:border-black hover:bg-stone-50 transition-colors cursor-pointer rounded-sm group disabled:opacity-50">
                     <ImageIcon className="text-gray-400 group-hover:text-black mr-2" size={20} />
                     <span className="text-xs font-bold text-gray-500 group-hover:text-black tracking-widest">UPLOAD IMAGE</span>
-                    <input ref={customCoverInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    <input ref={customCoverInputRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        setCustomImageFile(file);
-                        const reader = new FileReader();
-                        reader.onloadend = () => setTicketData({ ...ticketData, customImage: reader.result as string });
-                        reader.readAsDataURL(file);
+                      if (!file) return;
+                      try {
+                        const prepared = await prepareUploadImage(file, "ticket");
+                        const previewDataUrl = await readFileAsDataUrl(prepared.file);
+                        setCustomImageFile(prepared.file);
+                        setTicketData((prev) => ({ ...prev, customImage: previewDataUrl }));
+                        if (prepared.usedOriginalFallback) {
+                          setSubmitError("이미지 압축에 실패해 원본 파일로 업로드합니다.");
+                        } else {
+                          setSubmitError(null);
+                        }
+                      } catch (err) {
+                        const message =
+                          err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.";
+                        setSubmitError(message);
+                        setCustomImageFile(null);
+                        setTicketData((prev) => ({ ...prev, customImage: "" }));
+                        if (customCoverInputRef.current) customCoverInputRef.current.value = "";
                       }
                     }} />
                   </label>

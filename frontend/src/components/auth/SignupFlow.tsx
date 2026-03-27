@@ -9,6 +9,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse, fetchGenres, GenreResponse } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
+import {
+  getFileExtensionForPresigned,
+  prepareUploadImage,
+  readFileAsDataUrl,
+} from "@/lib/imageCompression";
 
 interface SignupFlowProps {
   onComplete?: (data: any) => void;
@@ -65,7 +70,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
 
       if (formData.profileImageFile && user?.id) {
         // 백엔드 API 호출로 presignedUrl 받아오기
-        const ext = formData.profileImageFile.name.split('.').pop() || "jpeg";
+        const ext = getFileExtensionForPresigned(formData.profileImageFile);
         const uploadInfo = await getPresignedUrl(user.id, `.${ext}`);
         
         if (uploadInfo && uploadInfo.presignedUrl) {
@@ -113,18 +118,23 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     }
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({
-          ...prev,
-          profileImagePreview: reader.result as string,
-          profileImageFile: file,
-        }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    try {
+      const prepared = await prepareUploadImage(file, "profile");
+      const previewDataUrl = await readFileAsDataUrl(prepared.file);
+      setFormData((prev) => ({
+        ...prev,
+        profileImagePreview: previewDataUrl,
+        profileImageFile: prepared.file,
+      }));
+      if (prepared.usedOriginalFallback) {
+        alert("이미지 압축에 실패해 원본 파일로 업로드합니다.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.";
+      alert(message);
     }
   };
 
