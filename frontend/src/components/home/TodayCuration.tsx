@@ -17,10 +17,36 @@ import { fetchTodayRecommendations } from "@/api/recommendations";
 import { ALL_BOOKS } from "@/data/books";
 import useAuthStore from "@/store/useAuthStore";
 import LimitPopup from "./LimitPopup";
-import type { Book } from "@/types/home";
+import type { Book, TodayCurationResponse } from "@/types/home";
 
 /** ? 안내 클릭 시 메시지 표시 시간(초) */
 const CURATION_HELP_DURATION_SEC = 6;
+
+const TODAY_CURATION_SESSION_PREFIX = "almaeng.todayCuration.v1:";
+
+function todayCurationStorageKey(userId: number) {
+  return `${TODAY_CURATION_SESSION_PREFIX}${userId}`;
+}
+
+function readTodayCurationSession(userId: number): TodayCurationResponse | undefined {
+  if (typeof window === "undefined") return undefined;
+  try {
+    const raw = sessionStorage.getItem(todayCurationStorageKey(userId));
+    if (!raw) return undefined;
+    return JSON.parse(raw) as TodayCurationResponse;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeTodayCurationSession(userId: number, data: TodayCurationResponse) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(todayCurationStorageKey(userId), JSON.stringify(data));
+  } catch {
+    /* quota 등 */
+  }
+}
 
 interface TodayCurationProps {
   /** HomeClient에서 내려주는 ref — 스크롤 감지용 */
@@ -49,14 +75,29 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
+  const userId = user?.id;
+  /** 전체 페이지 새로고침(F5) 시 API 대신 복원 — 새로고침 버튼(refetch)에서만 갱신 */
+  const cachedOnLoad = useMemo(() => {
+    if (userId == null) return undefined;
+    return readTodayCurationSession(userId);
+  }, [userId]);
+
+  const shouldFetchOnMount = isLoggedIn && userId != null && cachedOnLoad === undefined;
+
   const { data, refetch, dataUpdatedAt } = useQuery({
-    queryKey: ["todayRecommendations"],
-    queryFn: fetchTodayRecommendations,
-    enabled: isLoggedIn,
-    // staleTime을 Infinity로 설정해 포커스/마운트 시 자동 재호출 방지
-    // (백엔드가 호출마다 refreshCount를 증가시키므로 명시적 refetch만 허용)
+    queryKey: ["todayRecommendations", userId],
+    queryFn: async () => {
+      const next = await fetchTodayRecommendations();
+      if (userId != null) writeTodayCurationSession(userId, next);
+      return next;
+    },
+    enabled: shouldFetchOnMount,
+    ...(cachedOnLoad != null
+      ? { initialData: cachedOnLoad, initialDataUpdatedAt: 0 }
+      : {}),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   // 팝업은 마운트 이후 실제로 새로 받아온 응답에서만 열기
