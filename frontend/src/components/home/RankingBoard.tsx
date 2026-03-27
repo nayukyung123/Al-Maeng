@@ -82,7 +82,9 @@ export default function RankingBoard() {
       <div className="flex flex-col md:flex-row md:justify-between md:items-end mb-8 gap-4">
         {/* 타이틀 + 기간 탭 (전체|주간) */}
         <div className="flex items-center gap-4">
-          <h2 className="text-xl md:text-3xl font-bold tracking-tight">인기 도서 랭킹</h2>
+          <h2 className="text-2xl md:text-4xl font-black tracking-tighter uppercase italic text-black">
+            TRENDING ON AL-MAENG
+          </h2>
 
           <div className="flex items-center" role="tablist" aria-label="기간 선택">
             {PERIOD_TABS.map((tab, i) => (
