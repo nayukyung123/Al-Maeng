@@ -37,18 +37,18 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
     @Query("SELECT COUNT(cb) FROM CompletedBook cb WHERE cb.user.id = :userId")
     long countByUserId(@Param("userId") Long userId);
 
-    // 완독 도서의 상위 장르 가져오기
+    // 완독 도서의 상위 장르: book_genres에 직접 연결된 장르가 최상위(parent_id IS NULL)인 것만 집계
     @Query(value = """
             SELECT
-                COALESCE(parent.id, g.id) AS genreId,
-                COALESCE(parent.genre_name, g.genre_name) AS genreName,
+                g.id AS genreId,
+                g.genre_name AS genreName,
                 COUNT(DISTINCT cb.id) AS bookCount
             FROM user_completed_books cb
             JOIN book_genres bg ON cb.book_id = bg.book_id
             JOIN genres g ON bg.genre_id = g.id
-            LEFT JOIN genres parent ON g.parent_id = parent.id
             WHERE cb.user_id = :userId
-            GROUP BY COALESCE(parent.id, g.id), COALESCE(parent.genre_name, g.genre_name)
+              AND g.parent_id IS NULL
+            GROUP BY g.id, g.genre_name
             ORDER BY bookCount DESC, genreName ASC
             """, nativeQuery = true)
     List<GenreCountProjection> aggregateTopLevelGenres(@Param("userId") Long userId);
