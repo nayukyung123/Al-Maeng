@@ -37,18 +37,39 @@ public interface CompletedBookRepository extends JpaRepository<CompletedBook, Lo
     @Query("SELECT COUNT(cb) FROM CompletedBook cb WHERE cb.user.id = :userId")
     long countByUserId(@Param("userId") Long userId);
 
-    // 완독 도서의 상위 장르: book_genres에 직접 연결된 장르가 최상위(parent_id IS NULL)인 것만 집계
+    // 완독 도서의 상위 장르: book_genres 장르에서 parent를 따라 parent_id IS NULL인 루트까지 올려 집계
     @Query(value = """
+            WITH RECURSIVE genre_climb AS (
+                SELECT
+                    cb.id AS completed_book_id,
+                    g.id AS current_id,
+                    g.parent_id,
+                    g.genre_name AS current_name
+                FROM user_completed_books cb
+                JOIN book_genres bg ON cb.book_id = bg.book_id
+                JOIN genres g ON bg.genre_id = g.id
+                WHERE cb.user_id = :userId
+                UNION ALL
+                SELECT
+                    gc.completed_book_id,
+                    p.id,
+                    p.parent_id,
+                    p.genre_name
+                FROM genre_climb gc
+                JOIN genres p ON gc.parent_id = p.id
+                WHERE gc.parent_id IS NOT NULL
+            ),
+            roots AS (
+                SELECT completed_book_id, current_id AS root_id, current_name AS root_name
+                FROM genre_climb
+                WHERE parent_id IS NULL
+            )
             SELECT
-                g.id AS genreId,
-                g.genre_name AS genreName,
-                COUNT(DISTINCT cb.id) AS bookCount
-            FROM user_completed_books cb
-            JOIN book_genres bg ON cb.book_id = bg.book_id
-            JOIN genres g ON bg.genre_id = g.id
-            WHERE cb.user_id = :userId
-              AND g.parent_id IS NULL
-            GROUP BY g.id, g.genre_name
+                root_id AS genreId,
+                root_name AS genreName,
+                COUNT(DISTINCT completed_book_id) AS bookCount
+            FROM roots
+            GROUP BY root_id, root_name
             ORDER BY bookCount DESC, genreName ASC
             """, nativeQuery = true)
     List<GenreCountProjection> aggregateTopLevelGenres(@Param("userId") Long userId);
