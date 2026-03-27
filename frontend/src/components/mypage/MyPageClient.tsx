@@ -605,7 +605,7 @@ export default function MyPageClient() {
                 onClick={() => {
                   document.getElementById('wishlist-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl"
+                className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl cursor-pointer"
               >
                 <p className="text-white/80 text-sm md:text-base font-extrabold tracking-tight">찜한 권수</p>
                 <p className="text-right text-4xl md:text-5xl font-black leading-none">
@@ -617,7 +617,7 @@ export default function MyPageClient() {
                 onClick={() => {
                   document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl"
+                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl cursor-pointer"
               >
                 <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
                 <p className="text-right text-4xl md:text-5xl font-black leading-none">
