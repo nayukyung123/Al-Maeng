@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, ChevronRight } from "lucide-react";
 import { CardGallery, getMockGalleryTickets } from "./CardGallery";
 import { TicketBinder } from "./TicketBinder";
@@ -11,7 +11,13 @@ import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteTicket as deleteTicketApi, fetchBinderTickets, fetchGalleryTickets } from "@/api/tickets";
+import {
+  deleteTicket as deleteTicketApi,
+  fetchBinderTickets,
+  fetchGalleryTickets,
+  fetchTicketDetail,
+  TICKET_FOR_BOOK_QUERY_KEY_PREFIX,
+} from "@/api/tickets";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
@@ -31,9 +37,17 @@ export const TicketsClient = () => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const appliedUrlViewRef = useRef(false);
 
   const issueBookId = useMemo(() => {
     const raw = searchParams.get("issueBookId");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [searchParams]);
+
+  const openTicketId = useMemo(() => {
+    const raw = searchParams.get("ticketId");
     if (!raw) return null;
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : null;
@@ -70,10 +84,41 @@ export const TicketsClient = () => {
     router.replace(pathname, { scroll: false });
   }, [issueBookId, pathname, router]);
 
+  useEffect(() => {
+    if (appliedUrlViewRef.current) return;
+    appliedUrlViewRef.current = true;
+    if (searchParams.get("view") === "binder") {
+      setView("binder");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!openTicketId || !isLoggedIn) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ticket = await fetchTicketDetail(openTicketId);
+        if (cancelled) return;
+        setSelectedTicket(ticket);
+        setView("binder");
+        router.replace(pathname, { scroll: false });
+      } catch {
+        if (!cancelled) {
+          alert("티켓을 불러올 수 없습니다.");
+          router.replace(pathname, { scroll: false });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openTicketId, isLoggedIn, pathname, router]);
+
   const handleTicketAdded = async (_newTicket: GalleryTicket) => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
       queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+      queryClient.invalidateQueries({ queryKey: [TICKET_FOR_BOOK_QUERY_KEY_PREFIX] }),
     ]);
   };
 
@@ -93,6 +138,7 @@ export const TicketsClient = () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
       queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+      queryClient.invalidateQueries({ queryKey: [TICKET_FOR_BOOK_QUERY_KEY_PREFIX] }),
     ]);
   };
 
