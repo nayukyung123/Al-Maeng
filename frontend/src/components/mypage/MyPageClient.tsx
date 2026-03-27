@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -110,6 +110,7 @@ export default function MyPageClient() {
   });
 
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const hasHandledEditQueryRef = useRef(false);
 
   useEffect(() => {
     if (!myProfile) return;
@@ -134,8 +135,13 @@ export default function MyPageClient() {
   // URL 기반으로 수정 모달 오픈 제어: /mypage?edit=true
   useEffect(() => {
     const shouldOpen = searchParams.get("edit") === "true";
-    if (!shouldOpen) return;
+    if (!shouldOpen) {
+      hasHandledEditQueryRef.current = false;
+      return;
+    }
+    if (hasHandledEditQueryRef.current) return;
     if (!userData) return; // 프로필 로딩 전에는 오픈하지 않음
+    hasHandledEditQueryRef.current = true;
     setIsEditModalOpen(true);
   }, [searchParams, userData]);
 
@@ -235,6 +241,7 @@ export default function MyPageClient() {
   };
 
   const handleCancelEdit = () => {
+    hasHandledEditQueryRef.current = true;
     setIsEditModalOpen(false);
     setProfileImageFile(null);
     if (userData) setEditFormData(userData);
