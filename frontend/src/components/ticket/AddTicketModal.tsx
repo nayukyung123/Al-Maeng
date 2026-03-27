@@ -404,9 +404,9 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                 <div className="space-y-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">ONE-LINE REVIEW</p>
                   <div className="relative border-b border-black pb-2">
-                    <textarea value={ticketData.review} onChange={(e) => setTicketData({ ...ticketData, review: e.target.value })} placeholder="이 책이 남긴 여운을 한 줄로 적어주세요." maxLength={255} className="w-full text-lg font-medium outline-none placeholder:text-gray-300 resize-none h-16 bg-transparent" />
-                    <span className={cn("absolute bottom-3 right-0 text-[10px] font-bold tabular-nums", ticketData.review.length >= 255 ? "text-red-500" : "text-gray-300")}>
-                      {ticketData.review.length} / 255
+                    <textarea value={ticketData.review} onChange={(e) => setTicketData({ ...ticketData, review: e.target.value })} placeholder="이 책이 남긴 여운을 한 줄로 적어주세요." maxLength={50} className="w-full text-lg font-medium outline-none placeholder:text-gray-300 resize-none h-16 bg-transparent" />
+                    <span className={cn("absolute bottom-3 right-0 text-[10px] font-bold tabular-nums", ticketData.review.length >= 50 ? "text-red-500" : "text-gray-300")}>
+                      {ticketData.review.length} / 50
                     </span>
                   </div>
                 </div>
