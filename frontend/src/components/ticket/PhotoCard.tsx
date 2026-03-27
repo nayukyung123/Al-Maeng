@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { GalleryTicket } from '@/types/ticket';
+import { formatTicketAuthorDisplay } from '@/lib/formatTicketAuthorDisplay';
 import { cn } from '@/lib/utils';
 
 interface PhotoCardProps {
@@ -27,6 +28,8 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
       : style.font === "serif" || style.font == null
         ? "text-base"
         : "text-lg";
+
+  const authorDisplay = formatTicketAuthorDisplay(ticket.author) || ticket.author || "";
 
   return (
     <div
@@ -58,7 +61,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
                 <div className="flex-1 flex flex-col justify-center min-h-0">
                   <div className="space-y-1">
                     <h2 className={cn("text-xl leading-tight font-black uppercase tracking-tight line-clamp-2", templateId === 'minimal' ? 'font-sans normal-case tracking-normal' : '')}>{ticket.title}</h2>
-                    <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {ticket.author}</p>
+                    <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {authorDisplay}</p>
                   </div>
                 </div>
               </div>
@@ -123,7 +126,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
                 {ticket.title}
               </h2>
               <p className="mt-1.5 min-w-0 text-[10px] opacity-60 uppercase tracking-widest font-bold truncate">
-                BY {ticket.author}
+                BY {authorDisplay}
               </p>
             </div>
 
