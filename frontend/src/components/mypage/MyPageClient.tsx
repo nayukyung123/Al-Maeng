@@ -16,7 +16,7 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
-import { ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil, User } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
@@ -370,7 +370,17 @@ export default function MyPageClient() {
             <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                <div className="flex items-center gap-4">
+                  <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    aria-label="프로필 수정 열기"
+                    className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:text-black hover:border-black transition-colors cursor-pointer"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
               </div>
               <MyPageTierSection part="progress" tier={myProfile?.tier} />
               <MyPageTierSection part="message" tier={myProfile?.tier} />
