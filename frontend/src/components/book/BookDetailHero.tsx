@@ -28,6 +28,17 @@ import {
 import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
 import { formatBookContent } from "@/utils/decode";
 import { findTicketForBook, ticketForBookQueryKey } from "@/api/tickets";
+import useToastStore from "@/store/useToastStore";
+
+/** 완독 API 에러 코드 → 사용자 노출 문구 (백엔드 message와 무관하게 프론트에서 통일) */
+const COMPLETED_BOOK_ERROR_USER_MESSAGE: Partial<Record<string, string>> = {
+  T001: "이미 완독 리스트에 추가된 도서입니다.",
+  T002: "완독 리스트에 존재하지 않는 도서입니다.",
+  T006: "먼저 티켓을 삭제해야 완독 리스트에서 제거할 수 있습니다.",
+  ALREADY_COMPLETED_BOOK: "이미 완독 리스트에 추가된 도서입니다.",
+  COMPLETED_BOOK_NOT_FOUND: "완독 리스트에 존재하지 않는 도서입니다.",
+  COMPLETED_BOOK_HAS_TICKET: "먼저 티켓을 삭제해야 완독 리스트에서 제거할 수 있습니다.",
+};
 
 interface BookDetailHeroProps {
   book: BookDetail;
@@ -38,6 +49,7 @@ interface BookDetailHeroProps {
 export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
+  const addToast = useToastStore((s) => s.addToast);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDescriptionToggle, setShowDescriptionToggle] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -80,21 +92,21 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
 
   const handleCompletedError = (error: unknown) => {
     const axiosError = error as AxiosError<ApiResponse<unknown>>;
-    const code = axiosError.response?.data?.code;
+    const data = axiosError.response?.data;
+    const code = data?.code;
+    const serverMessage = data?.message?.trim();
 
-    if (code === "COMPLETED_BOOK_HAS_TICKET") {
-      alert("티켓이 발행된 도서는 완독 리스트에서 제거할 수 없습니다.");
+    const completedBookCopy = code ? COMPLETED_BOOK_ERROR_USER_MESSAGE[code] : undefined;
+    if (completedBookCopy) {
+      addToast(completedBookCopy, "info");
       return;
     }
-    if (code === "ALREADY_COMPLETED_BOOK") {
-      alert("이미 완독 리스트에 추가된 도서입니다.");
-      return;
-    }
-    if (code === "COMPLETED_BOOK_NOT_FOUND") {
-      alert("이미 완독 리스트에서 제거된 도서입니다.");
-      return;
-    }
-    alert("완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+
+    addToast(
+      serverMessage ||
+        "완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      "error"
+    );
   };
 
   const addCompletedMutation = useMutation({
