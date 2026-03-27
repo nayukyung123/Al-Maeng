@@ -95,9 +95,10 @@ export default function MyPageClient() {
     queryKey: ["my-taste-report"],
     queryFn: fetchMyTasteReport,
     enabled: isLoggedIn,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const [editFormData, setEditFormData] = useState<UserData>({
@@ -306,6 +307,8 @@ export default function MyPageClient() {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
     queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+    // 완독 목록 변경 시 취향 리포트도 즉시 최신화
+    queryClient.invalidateQueries({ queryKey: ["my-taste-report"] });
   }, [isLoggedIn, finishedBooks.length, queryClient]);
 
   useEffect(() => {
