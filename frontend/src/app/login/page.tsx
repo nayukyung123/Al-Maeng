@@ -9,7 +9,7 @@ export default function LoginPage() {
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
   const handleComplete = (data: any) => {
-    console.log("Signup completed with data:", data);
+    // Signup completed
   };
 
   if (!clientId || clientId === 'undefined') {
