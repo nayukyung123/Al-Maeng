@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { GalleryTicket } from '@/types/ticket';
+import { formatTicketAuthorDisplay } from '@/lib/formatTicketAuthorDisplay';
 import { cn } from '@/lib/utils';
 
 interface PhotoCardProps {
@@ -21,6 +22,15 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
     mono: "font-gowun",
   }[style.font as string] || "font-noto-serif-kr";
 
+  const verticalTitleSizeClass =
+    templateId === "minimal"
+      ? "text-lg"
+      : style.font === "serif" || style.font == null
+        ? "text-base"
+        : "text-lg";
+
+  const authorDisplay = formatTicketAuthorDisplay(ticket.author) || ticket.author || "";
+
   return (
     <div
       ref={ref}
@@ -40,18 +50,18 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
         <>
           <div className="flex-1 p-6 flex gap-6 relative z-10 rounded-l-lg flex-row">
             <div className={cn("shrink-0 bg-black/5 overflow-hidden border border-current/20 shadow-inner w-32 h-full", templateId === 'modern' ? 'rounded-full' : 'rounded-sm')}>
-              <img src={ticket.ticketImageUrl || ticket.coverImageUrl || `https://picsum.photos/seed/${ticket.id}/400/600`} alt={ticket.title} className="w-full h-full object-cover" crossOrigin="anonymous" />
+              <img src={ticket.ticketImageUrl || ticket.coverImageUrl || `https://picsum.photos/seed/${ticket.id}/400/600`} alt={ticket.title} className="w-full h-full object-cover" crossOrigin="anonymous" draggable={false} />
             </div>
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex flex-col min-h-0">
                 <div className="flex justify-between items-start shrink-0">
-                  <span className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-40">BOOK ADMISSION</span>
+                  <span className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-40">BOOK TICKET</span>
                 </div>
                 {/* 제목/작가를 세로 중앙 근처로 배치 */}
                 <div className="flex-1 flex flex-col justify-center min-h-0">
                   <div className="space-y-1">
                     <h2 className={cn("text-xl leading-tight font-black uppercase tracking-tight line-clamp-2", templateId === 'minimal' ? 'font-sans normal-case tracking-normal' : '')}>{ticket.title}</h2>
-                    <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {ticket.author}</p>
+                    <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {authorDisplay}</p>
                   </div>
                 </div>
               </div>
@@ -87,10 +97,10 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
         </>
       ) : (
         // === 세로형 레이아웃 ===
-        <div className="w-full h-full p-5 sm:p-6 flex flex-col relative z-10 rounded-lg min-h-0">
+        <div className="w-full h-full min-h-0 p-5 sm:p-6 pb-5 sm:pb-6 flex flex-col relative z-10 rounded-lg">
           
           <div className="flex justify-between items-start mb-2 shrink-0">
-            <span className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-40">BOOK ADMISSION</span>
+            <span className="text-[9px] uppercase tracking-[0.3em] font-bold opacity-40">BOOK TICKET</span>
           </div>
 
           <div className={cn(
@@ -102,24 +112,34 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
               alt={ticket.title} 
               className="w-full h-full object-contain object-center"
               crossOrigin="anonymous"
+              draggable={false}
             />
           </div>
 
-          <div className="flex-1 flex flex-col min-h-0 pt-1">
-            <div className="space-y-1 mb-3">
-              <h2 className={cn("text-lg leading-tight font-black uppercase tracking-tight line-clamp-2")}>{ticket.title}</h2>
-              <p className="text-[10px] opacity-60 uppercase tracking-widest font-bold">BY {ticket.author}</p>
+          <div className="flex-1 min-h-0 flex flex-col min-w-0">
+            <div className="shrink-0 min-w-0 pt-1">
+              <h2
+                className={cn(
+                  verticalTitleSizeClass,
+                  "leading-tight font-black uppercase tracking-tight line-clamp-2"
+                )}
+              >
+                {ticket.title}
+              </h2>
+              <p className="mt-1.5 min-w-0 text-[10px] opacity-60 uppercase tracking-widest font-bold truncate">
+                BY {authorDisplay}
+              </p>
             </div>
 
-            <div className="border-t border-current/10 pt-3 pb-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs mb-auto">
-                <div className="flex flex-col gap-0.5">
+            <div className="shrink-0 border-t border-current/10 mt-2 sm:mt-2.5 pt-1.5 sm:pt-2 grid grid-cols-2 gap-x-4 gap-y-2">
+                <div className="flex flex-col gap-0.5 min-w-0">
                     <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold whitespace-nowrap">DATE COMPLETED</p>
-                    <p className="font-mono font-bold text-xs">{ticket.completedAt.replace(/-/g, '.')}</p>
+                    <p className="font-mono font-bold text-[11px]">{ticket.completedAt.replace(/-/g, '.')}</p>
                 </div>
                 {ticket.genre && (
-                    <div className="flex flex-col gap-0.5 text-right overflow-hidden">
+                    <div className="flex flex-col gap-0.5 text-right overflow-hidden min-w-0">
                         <p className="text-[8px] uppercase tracking-widest opacity-40 font-bold whitespace-nowrap">GENRE</p>
-                        <p className="font-mono font-bold text-xs truncate">{ticket.genre.toUpperCase()}</p>
+                        <p className="font-mono font-bold text-[11px] truncate">{ticket.genre.toUpperCase()}</p>
                     </div>
                 )}
             </div>

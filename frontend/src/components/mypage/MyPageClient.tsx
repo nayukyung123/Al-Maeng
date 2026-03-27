@@ -299,7 +299,18 @@ export default function MyPageClient() {
     { genreName: "과학", count: 2 },
     { genreName: "경제", count: 2 },
   ];
-  const TOP_LEVEL_COLORS = ["#0033FF", "#3B82F6", "#60A5FA", "#93C5FD", "#1D4ED8", "#2563EB", "#0EA5E9", "#38BDF8"];
+  const TOP_LEVEL_COLORS = [
+    "#0033FF", // Brand Blue
+    "#111111", // Black
+    "#4D41FF", // Indigo
+    "#444444", // Dark Gray
+    "#0066FF", // Bright Blue
+    "#777777", // Medium Gray
+    "#3399FF", // Sky Blue
+    "#AAAAAA", // Light Gray
+    "#99CCFF", // Light Sky Blue
+    "#E5E7EB", // Very Light Gray
+  ];
 
   const NOVEL_PERSONA_AXES = [
     { dbName: "판타지/환상문학", label: "판타지" },
@@ -415,6 +426,8 @@ export default function MyPageClient() {
                             nameKey="genreName"
                             innerRadius="38%"
                             outerRadius="88%"
+                            startAngle={90}
+                            endAngle={-270}
                             paddingAngle={2}
                             isAnimationActive={false}
                           >
@@ -443,6 +456,8 @@ export default function MyPageClient() {
                         nameKey="genreName"
                         innerRadius="30%"
                         outerRadius="85%"
+                        startAngle={90}
+                        endAngle={-270}
                         paddingAngle={2}
                         isAnimationActive={false}
                       >

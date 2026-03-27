@@ -68,10 +68,18 @@ export function VerticalTicketBackOverlay({
       <div className="shrink-0 px-6 sm:px-8 pb-7 sm:pb-8 pt-2 w-full">
         {showTitle ? (
           <>
-            <p className="font-sans font-black text-2xl leading-tight uppercase tracking-tight line-clamp-2 border-b-2 border-white pb-2 mb-2 italic">
-              {title}
-            </p>
-            <p className="font-mono font-bold text-sm tracking-widest text-white/90 text-right">
+            {/*
+              line-clamp와 pb/border를 한 요소에 두면, 패딩·경계 사이 투명 구간으로 표지 글자가 비침.
+              클립 전용 래퍼 안에는 패딩 없음 → 밑줄은 바로 그 아래에 붙임.
+            */}
+            <div className="mb-2 border-b-2 border-white">
+              <div className="overflow-hidden">
+                <p className="font-sans font-black text-2xl leading-snug uppercase tracking-tight line-clamp-2 italic text-white [overflow-wrap:anywhere]">
+                  {title}
+                </p>
+              </div>
+            </div>
+            <p className="mt-0.5 font-mono font-bold text-sm tracking-widest text-white/90 text-right">
               {dateLine}
             </p>
           </>

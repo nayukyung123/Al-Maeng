@@ -124,6 +124,24 @@ export async function fetchBinderTickets(params: {
   };
 }
 
+/**
+ * 바인더 전체 티켓을 페이지 순회로 모두 수집합니다.
+ * UI 내부 페이징/플립은 프론트에서 처리하기 때문에 전체 목록이 필요합니다.
+ */
+export async function fetchAllBinderTickets(genre?: string | null): Promise<GalleryTicket[]> {
+  const all: GalleryTicket[] = [];
+  let page = 0;
+
+  for (;;) {
+    const slice = await fetchBinderTickets({ page, genre: genre ?? null });
+    all.push(...slice.content);
+    if (slice.last) break;
+    page += 1;
+  }
+
+  return all;
+}
+
 export const TICKET_FOR_BOOK_QUERY_KEY_PREFIX = "ticket-for-book" as const;
 
 export function ticketForBookQueryKey(bookId: number) {
