@@ -290,6 +290,9 @@ export default function MyPageClient() {
     { dbName: "무협소설", label: "무협" },
   ];
 
+  /** 레이더: 실제 권수와 별도로, 얇게만 보이는 축을 방지(툴팁은 count 그대로) */
+  const RADAR_VISUAL_FLOOR = 0.2;
+
   useEffect(() => {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
@@ -367,8 +370,8 @@ export default function MyPageClient() {
                             data={MOCK_TOP_LEVEL_DATA}
                             dataKey="count"
                             nameKey="genreName"
-                            innerRadius="55%"
-                            outerRadius="80%"
+                            innerRadius="38%"
+                            outerRadius="88%"
                             paddingAngle={2}
                             isAnimationActive={false}
                           >
@@ -395,8 +398,8 @@ export default function MyPageClient() {
                         data={tasteReport!.topLevelGenres}
                         dataKey="count"
                         nameKey="genreName"
-                        innerRadius="55%"
-                        outerRadius="80%"
+                        innerRadius="30%"
+                        outerRadius="85%"
                         paddingAngle={2}
                         isAnimationActive={false}
                       >
@@ -495,9 +498,13 @@ export default function MyPageClient() {
                         });
 
                         const maxCount = Math.max(...axisData.map((d) => d.count), 0);
-                        const fullMark = Math.max(maxCount, 5);
+                        const fullMark = Math.max(maxCount + RADAR_VISUAL_FLOOR, 5);
 
-                        return axisData.map((d) => ({ ...d, fullMark }));
+                        return axisData.map((d) => ({
+                          ...d,
+                          displayCount: d.count + RADAR_VISUAL_FLOOR,
+                          fullMark,
+                        }));
                       })()}
                     >
                       <PolarGrid stroke="#f0f0f0" />
@@ -507,7 +514,7 @@ export default function MyPageClient() {
                       />
                       <Radar
                         name="완독 수"
-                        dataKey="count"
+                        dataKey="displayCount"
                         stroke="#0033FF"
                         strokeWidth={2}
                         fill="#0033FF"
@@ -515,9 +522,11 @@ export default function MyPageClient() {
                         isAnimationActive={false}
                       />
                       <Tooltip
-                        formatter={(value: any) => {
-                          const count = typeof value === "number" ? value : Number(value);
-                          return [`${count}권`, "완독 수"];
+                        formatter={(value: any, _name: any, item: any) => {
+                          const real = item?.payload?.count;
+                          const count =
+                            typeof real === "number" ? real : typeof value === "number" ? value : Number(value);
+                          return [`${Number.isFinite(count) ? Math.round(count) : 0}권`, "완독 수"];
                         }}
                       />
                     </RadarChart>
