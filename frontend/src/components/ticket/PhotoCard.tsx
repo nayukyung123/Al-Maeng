@@ -50,7 +50,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
         <>
           <div className="flex-1 p-6 flex gap-6 relative z-10 rounded-l-lg flex-row">
             <div className={cn("shrink-0 bg-black/5 overflow-hidden border border-current/20 shadow-inner w-32 h-full", templateId === 'modern' ? 'rounded-full' : 'rounded-sm')}>
-              <img src={ticket.ticketImageUrl || ticket.coverImageUrl || `https://picsum.photos/seed/${ticket.id}/400/600`} alt={ticket.title} className="w-full h-full object-cover" crossOrigin="anonymous" />
+              <img src={ticket.ticketImageUrl || ticket.coverImageUrl || `https://picsum.photos/seed/${ticket.id}/400/600`} alt={ticket.title} className="w-full h-full object-cover" crossOrigin="anonymous" draggable={false} />
             </div>
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex flex-col min-h-0">
@@ -112,6 +112,7 @@ export const PhotoCard = forwardRef<HTMLDivElement, PhotoCardProps>(({ ticket, c
               alt={ticket.title} 
               className="w-full h-full object-contain object-center"
               crossOrigin="anonymous"
+              draggable={false}
             />
           </div>
 
