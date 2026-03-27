@@ -28,8 +28,10 @@ import MyPageEditModal from "@/components/mypage/MyPageEditModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
+import useToastStore from "@/store/useToastStore";
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
+  const addToast = useToastStore((s) => s.addToast);
   const authHydrated = useAuthStoreHydrated();
   const router = useRouter();
   const pathname = usePathname();
@@ -207,12 +209,13 @@ export default function MyPageClient() {
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
       setProfileImageFile(null);
       setIsEditModalOpen(false);
+      addToast("프로필이 성공적으로 저장되었습니다.", "success");
       // edit=true로 다시 열리는 현상 방지
       router.replace("/mypage", { scroll: false });
     },
     onError: (err) => {
       console.error(err);
-      alert("프로필 저장에 실패했습니다. 다시 시도해주세요.");
+      addToast("프로필 저장에 실패했습니다. 다시 시도해주세요.", "error");
     },
   });
 
@@ -224,17 +227,17 @@ export default function MyPageClient() {
     },
     onError: (err) => {
       console.error(err);
-      alert("회원 탈퇴 처리 중 오류가 발생했습니다.");
+      addToast("회원 탈퇴 처리 중 오류가 발생했습니다.", "error");
     },
   });
 
   const saveProfile = () => {
     if (!editFormData.nickname || editFormData.nickname.length < 2) {
-      alert("닉네임은 2자 이상 입력해주세요.");
+      addToast("닉네임은 2자 이상 입력해주세요.", "error");
       return;
     }
     if (!editFormData.birthday || !editFormData.gender) {
-      alert("출생년도와 성별을 선택해주세요.");
+      addToast("출생년도와 성별을 선택해주세요.", "error");
       return;
     }
     saveProfileMutation.mutate();

@@ -10,6 +10,7 @@ import { VerticalTicketBackOverlay } from "./VerticalTicketBackOverlay";
 import { HorizontalTicketBackOverlay } from "./HorizontalTicketBackOverlay";
 import { TicketExportComposite } from "./TicketExportComposite";
 import { useVerticalBackTitleVisible } from "@/hooks/useVerticalBackTitleVisible";
+import useToastStore from "@/store/useToastStore";
 
 interface TicketDetailModalProps {
   ticket: (GalleryTicket & { rating?: number }) | null;
@@ -25,6 +26,7 @@ export const TicketDetailModal = ({
   onDelete,
   persistBackTitlePreference = false,
 }: TicketDetailModalProps) => {
+  const addToast = useToastStore((s) => s.addToast);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -53,6 +55,7 @@ export const TicketDetailModal = ({
       link.click();
     } catch (err) {
       console.error("Failed to download ticket:", err);
+      addToast("티켓 저장에 실패했습니다. 다시 시도해주세요.", "error");
     } finally {
       setIsDownloading(false);
     }

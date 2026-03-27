@@ -6,6 +6,7 @@ import { Camera, ChevronRight, User, X } from "lucide-react";
 import type { Gender, UserData } from "@/types/mypage";
 import type { GenreResponse } from "@/api/genres";
 import { prepareUploadImage, readFileAsDataUrl } from "@/lib/imageCompression";
+import useToastStore from "@/store/useToastStore";
 
 export default function MyPageEditModal(props: {
   isOpen: boolean;
@@ -25,6 +26,7 @@ export default function MyPageEditModal(props: {
   novelSubGenres: GenreResponse[];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const addToast = useToastStore((s) => s.addToast);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,11 +42,11 @@ export default function MyPageEditModal(props: {
       }));
 
       if (prepared.usedOriginalFallback) {
-        window.alert("이미지 압축에 실패해 원본 파일로 업로드합니다.");
+        addToast("이미지 압축에 실패해 원본 파일로 업로드합니다.", "info");
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.";
-      window.alert(message);
+      addToast(message, "error");
       props.setProfileImageFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }

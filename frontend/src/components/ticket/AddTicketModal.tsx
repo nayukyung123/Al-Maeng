@@ -18,6 +18,7 @@ import {
   prepareUploadImage,
   readFileAsDataUrl,
 } from "@/lib/imageCompression";
+import useToastStore from "@/store/useToastStore";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ const COLOR_PALETTE = [
 
 export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: AddTicketModalProps) => {
   const { show: showVerticalBackTitle, toggle: toggleVerticalBackTitle } = useVerticalBackTitleVisible();
+  const addToast = useToastStore((s) => s.addToast);
   const [step, setStep] = useState<1 | 2>(1);
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -54,7 +56,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
 
   const { data: completedBooks = [] } = useQuery({
@@ -118,7 +119,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const handleIssueTicket = async () => {
     if (!selectedBook) return;
     setIsSubmitting(true);
-    setSubmitError(null);
     try {
       let uploadedImageUrl = ticketData.customImage;
       if (customImageFile) {
@@ -133,7 +133,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
           uploadedImageUrl = imageUrl;
         } catch (uploadErr) {
           // S3 업로드 실패 시 이미지 없이 티켓 생성 진행 (경고만 표시)
-          setSubmitError("이미지 업로드에 실패했습니다. 이미지 없이 티켓을 생성합니다.");
+          addToast("이미지 업로드에 실패했습니다. 이미지 없이 티켓을 생성합니다.", "info");
           uploadedImageUrl = "";
         }
       }
@@ -173,11 +173,11 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
         rating: 4.5 // 임시
       };
       onSuccess(newTicket);
+      addToast("티켓이 발급되었습니다.", "success");
       resetState();
     } catch (e) {
       console.error(e);
-      const message = e instanceof Error ? e.message : "티켓 생성에 실패했습니다.";
-      setSubmitError((prev) => prev ?? message); // 이미 이미지 경고가 있으면 덮어쓰지 않음
+      addToast("티켓 생성에 실패했습니다. 다시 시도해주세요.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -186,7 +186,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const resetState = () => {
     setStep(1);
     setSearchQuery("");
-    setSubmitError(null);
     setTicketData({
       dateRead: new Date().toISOString().split("T")[0],
       startDate: "",
@@ -343,14 +342,12 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                         setCustomImageFile(prepared.file);
                         setTicketData((prev) => ({ ...prev, customImage: previewDataUrl }));
                         if (prepared.usedOriginalFallback) {
-                          setSubmitError("이미지 압축에 실패해 원본 파일로 업로드합니다.");
-                        } else {
-                          setSubmitError(null);
+                          addToast("이미지 압축에 실패해 원본 파일로 업로드합니다.", "info");
                         }
                       } catch (err) {
                         const message =
                           err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.";
-                        setSubmitError(message);
+                        addToast(message, "error");
                         setCustomImageFile(null);
                         setTicketData((prev) => ({ ...prev, customImage: "" }));
                         if (customCoverInputRef.current) customCoverInputRef.current.value = "";
@@ -414,9 +411,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                   </div>
                 </div>
 
-                {submitError && (
-                  <p className="text-xs text-red-500 font-medium mb-2 px-1">{submitError}</p>
-                )}
                 <button onClick={handleIssueTicket} disabled={isSubmitting} className="w-full border-b border-black pb-4 flex items-center justify-between group hover:border-[#0033FF] transition-colors pt-4 disabled:opacity-50">
                   <span className={cn("text-3xl font-black transition-colors", isSubmitting ? "text-gray-400" : "group-hover:text-[#0033FF]")}>
                     {isSubmitting ? "ISSUING TICKET..." : "ISSUE TICKET"}
