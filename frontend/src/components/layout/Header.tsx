@@ -173,7 +173,7 @@ export default function Header() {
                                                     onClick={() => setIsMobileNavOpen(false)}
                                                     aria-current={isActive ? "page" : undefined}
                                                     className={clsx(
-                                                        "block px-4 py-4 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors border border-transparent",
+                                                        "block px-4 py-4 rounded-xl text-base font-bold uppercase tracking-widest transition-colors border border-transparent",
                                                         isActive
                                                             ? "bg-[#0033FF]/10 text-[#0033FF] border-[#0033FF]/20"
                                                             : "text-black hover:bg-gray-50 hover:border-black/5"
@@ -235,7 +235,7 @@ export default function Header() {
                                             href={item.href}
                                             aria-current={isActive ? "page" : undefined}
                                             className={clsx(
-                                                "flex items-center leading-none text-xs font-bold uppercase tracking-widest transition-colors hover:text-[#0033FF] whitespace-nowrap",
+                                                "flex items-center leading-none text-base font-bold uppercase tracking-widest transition-colors hover:text-[#0033FF] whitespace-nowrap",
                                                 isActive ? "text-[#0033FF]" : "text-black"
                                             )}
                                         >
@@ -380,7 +380,7 @@ export default function Header() {
                             <Link
                                 href="/login"
                                 aria-label="로그인 페이지로 이동"
-                                className="flex items-center leading-none text-xs font-bold tracking-widest hover:text-[#0033FF] transition-colors"
+                                className="flex items-center leading-none text-base font-bold tracking-widest hover:text-[#0033FF] transition-colors"
                             >
                                 로그인
                             </Link>
