@@ -25,9 +25,9 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
         <h3 className="text-xl font-black uppercase tracking-tight mb-6">
           이런 책은 어떠세요?
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-12">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="w-full animate-pulse">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-10 mb-12 lg:flex lg:flex-nowrap lg:items-start lg:gap-x-6 lg:gap-y-0">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="w-full min-w-0 animate-pulse lg:flex-1 lg:basis-0">
               <div className="aspect-[2/3] bg-gray-100 mb-4 rounded-sm" />
               <div className="h-3 bg-gray-100 rounded mb-2 w-3/4" />
               <div className="h-2 bg-gray-100 rounded w-1/2" />
@@ -46,7 +46,7 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
         </h3>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-6 gap-y-10">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-6 gap-y-10 lg:flex lg:flex-nowrap lg:items-start lg:gap-x-6 lg:gap-y-0">
         {recommendations.map((rec, i) => {
           const imgSrc = rec.coverImageUrl
             ? rec.coverImageUrl
@@ -56,7 +56,7 @@ export default function RecommendationList({ slug }: RecommendationListProps) {
             <div
               key={rec.id}
               onClick={() => router.push(`/books/${rec.slug}?source=book`)}
-              className="w-full group cursor-pointer"
+              className="w-full min-w-0 group cursor-pointer lg:flex-1 lg:basis-0"
             >
               <div className="aspect-[2/3] w-full bg-gray-50 mb-4 relative overflow-hidden shadow-sm group-hover:shadow-xl transition-all duration-500 rounded-sm">
                 <img
