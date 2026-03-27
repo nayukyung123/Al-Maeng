@@ -293,6 +293,15 @@ export default function MyPageClient() {
   /** 레이더: 실제 권수와 별도로, 얇게만 보이는 축을 방지(툴팁은 count 그대로) */
   const RADAR_VISUAL_FLOOR = 0.2;
 
+  const topLevelWithColor = React.useMemo(
+    () =>
+      (tasteReport?.topLevelGenres ?? []).map((genre, index) => ({
+        ...genre,
+        color: TOP_LEVEL_COLORS[index % TOP_LEVEL_COLORS.length],
+      })),
+    [tasteReport?.topLevelGenres]
+  );
+
   useEffect(() => {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
@@ -378,7 +387,7 @@ export default function MyPageClient() {
                             {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
                               <Cell
                                 key={`${g.genreName}-${idx}`}
-                                fill={g.genreName === "소설" ? "#0033FF" : "#E5E7EB"}
+                                fill={TOP_LEVEL_COLORS[idx % TOP_LEVEL_COLORS.length]}
                               />
                             ))}
                           </Pie>
@@ -395,7 +404,7 @@ export default function MyPageClient() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={tasteReport!.topLevelGenres}
+                        data={topLevelWithColor}
                         dataKey="count"
                         nameKey="genreName"
                         innerRadius="30%"
@@ -403,11 +412,11 @@ export default function MyPageClient() {
                         paddingAngle={2}
                         isAnimationActive={false}
                       >
-                        {tasteReport!.topLevelGenres.map((g) => {
+                        {topLevelWithColor.map((g) => {
                           return (
                             <Cell
                               key={g.genreId}
-                              fill={TOP_LEVEL_COLORS[Math.abs(g.genreId) % TOP_LEVEL_COLORS.length]}
+                              fill={g.color}
                             />
                           );
                         })}
@@ -425,6 +434,24 @@ export default function MyPageClient() {
                   </ResponsiveContainer>
                 )}
               </div>
+              {!isTasteReportLoading && hasTopLevelTasteData && (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                  {topLevelWithColor.map((genre) => (
+                    <div key={`legend-${genre.genreId}`} className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: genre.color }}
+                        />
+                        <span className="font-semibold text-gray-700 truncate">{genre.genreName}</span>
+                      </div>
+                      <span className="text-gray-500 font-semibold shrink-0 ml-2">
+                        {genre.count}권 ({genre.percentage.toFixed(0)}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
