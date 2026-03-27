@@ -225,7 +225,7 @@ export default function TodayCuration({ sectionRef }: TodayCurationProps) {
       {/* 섹션 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-baseline gap-4 flex-wrap">
-          <h2 className="text-2xl md:text-4xl font-black tracking-tighter uppercase text-black">
+          <h2 className="text-2xl md:text-4xl font-black tracking-tighter uppercase italic text-black">
             Today&apos;s Curation
           </h2>
           {isFallback ? (

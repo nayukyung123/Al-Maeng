@@ -81,7 +81,7 @@ export default function ContentCuration({ selectedContentId }: ContentCurationPr
 
   return (
     <section id="section3" className="pt-12 border-t border-black">
-      <h2 className="text-2xl md:text-5xl font-black tracking-tight mb-8 md:mb-12 uppercase italic">
+      <h2 className="text-2xl md:text-4xl font-black tracking-tighter uppercase italic mb-8 md:mb-12">
         Extended Universe
       </h2>
 
