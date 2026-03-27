@@ -16,7 +16,7 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
-import { User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
@@ -35,8 +35,8 @@ export default function MyPageClient() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [wishlistPage] = useState(1);
-  const [finishedPage] = useState(1);
+  const [wishlistPage, setWishlistPage] = useState(1);
+  const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -261,6 +261,8 @@ export default function MyPageClient() {
   };
 
   const itemsPerPage = 10; // 요구사항: 한 번에 최대 10권 (2줄)
+  const wishlistTotalElements = wishlistData?.totalElements ?? 0;
+  const wishlistTotalPages = Math.max(1, Math.ceil(wishlistTotalElements / itemsPerPage));
 
   const finishedBooks: Book[] = completedBooks.map((book) => ({
     bookId: book.bookId,
@@ -270,11 +272,20 @@ export default function MyPageClient() {
     coverImageUrl: book.coverImageUrl,
     dateRead: book.completedAt,
   }));
+  const finishedTotalPages = Math.max(1, Math.ceil(finishedBooks.length / itemsPerPage));
 
   const currentFinishedBooks = finishedBooks.slice(
     (finishedPage - 1) * itemsPerPage,
     finishedPage * itemsPerPage
   );
+
+  useEffect(() => {
+    setWishlistPage((prev) => Math.min(prev, wishlistTotalPages));
+  }, [wishlistTotalPages]);
+
+  useEffect(() => {
+    setFinishedPage((prev) => Math.min(prev, finishedTotalPages));
+  }, [finishedTotalPages]);
 
   const hasTopLevelTasteData = (tasteReport?.topLevelGenres?.length ?? 0) > 0;
   const hasSubTasteData = (tasteReport?.subGenres?.length ?? 0) > 0;
@@ -620,8 +631,33 @@ export default function MyPageClient() {
 
       {/* Wishlist Section */}
       <section id="wishlist-section" className="mt-24 scroll-mt-24">
-        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4 gap-3">
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">Wishlist</h3>
+          {wishlistTotalElements > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setWishlistPage((prev) => Math.max(1, prev - 1))}
+                disabled={wishlistPage <= 1}
+                aria-label="찜 목록 이전 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold tracking-widest text-gray-500 min-w-[68px] text-center">
+                {wishlistPage} / {wishlistTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setWishlistPage((prev) => Math.min(wishlistTotalPages, prev + 1))}
+                disabled={wishlistPage >= wishlistTotalPages}
+                aria-label="찜 목록 다음 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         {isWishlistFetched && (wishlistData?.totalElements ?? 0) === 0 ? (
@@ -665,8 +701,33 @@ export default function MyPageClient() {
 
       {/* COMPLETED Books Section */}
       <section id="completed-section" className="mt-24 scroll-mt-24">
-        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4 gap-3">
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">COMPLETED Books</h3>
+          {finishedBooks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFinishedPage((prev) => Math.max(1, prev - 1))}
+                disabled={finishedPage <= 1}
+                aria-label="완독 목록 이전 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold tracking-widest text-gray-500 min-w-[68px] text-center">
+                {finishedPage} / {finishedTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFinishedPage((prev) => Math.min(finishedTotalPages, prev + 1))}
+                disabled={finishedPage >= finishedTotalPages}
+                aria-label="완독 목록 다음 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
         {finishedBooks.length === 0 ? (
