@@ -75,9 +75,13 @@ export function HorizontalTicketBackOverlay({
       >
         {showTitle ? (
           <div className="h-full flex flex-col justify-end">
-            <p className="font-sans font-black text-lg leading-tight uppercase tracking-tight line-clamp-2 border-b-2 border-current/40 pb-1 mb-1 italic">
-              {title}
-            </p>
+            <div className="mb-1 border-b-2 border-current/40">
+              <div className="overflow-hidden">
+                <p className="font-sans font-black text-lg leading-snug uppercase tracking-tight line-clamp-1 italic text-current [overflow-wrap:anywhere]">
+                  {title}
+                </p>
+              </div>
+            </div>
             <p className="font-mono font-bold text-[11px] tracking-widest text-current/90 text-right">
               {dateLine}
             </p>
