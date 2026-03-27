@@ -124,6 +124,38 @@ export async function fetchBinderTickets(params: {
   };
 }
 
+export const TICKET_FOR_BOOK_QUERY_KEY_PREFIX = "ticket-for-book" as const;
+
+export function ticketForBookQueryKey(bookId: number) {
+  return [TICKET_FOR_BOOK_QUERY_KEY_PREFIX, bookId] as const;
+}
+
+/**
+ * 해당 도서에 연결된 티켓을 찾습니다. 갤러리(최대 7건)에 없으면 바인더를 페이지 순회합니다.
+ * (백엔드 변경 없이 bookId → 티켓 식별용)
+ */
+export async function findTicketForBook(bookId: number): Promise<GalleryTicket | null> {
+  const gallery = await fetchGalleryTickets();
+  const fromGallery = gallery.find((t) => t.bookId === bookId);
+  if (fromGallery) return fromGallery;
+
+  let page = 0;
+  for (;;) {
+    const slice = await fetchBinderTickets({ page, genre: null });
+    const fromBinder = slice.content.find((t) => t.bookId === bookId);
+    if (fromBinder) return fromBinder;
+    if (slice.last) break;
+    page += 1;
+  }
+  return null;
+}
+
+/** GET /api/tickets/{ticketId} — 티켓 상세(모달용) */
+export async function fetchTicketDetail(ticketId: number): Promise<GalleryTicket> {
+  const response = await apiClient.get<ApiResponse<TicketResponseDto>>(`/api/tickets/${ticketId}`);
+  return toGalleryTicket(response.data.data);
+}
+
 export async function createTicket(payload: TicketCreateRequest): Promise<TicketCreateResponse> {
   const response = await apiClient.post<ApiResponse<TicketCreateResponse>>("/api/tickets", payload);
   return response.data.data;

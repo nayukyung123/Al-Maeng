@@ -5,7 +5,16 @@ import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Star, ExternalLink, Heart, BookmarkPlus } from "lucide-react";
+import {
+  Star,
+  ExternalLink,
+  Heart,
+  BookmarkPlus,
+  BookmarkMinus,
+  Loader2,
+  Ticket,
+  TicketPlus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import type { BookDetail } from "@/types/book";
@@ -18,6 +27,18 @@ import {
 } from "@/api/completedBooks";
 import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
 import { formatBookContent } from "@/utils/decode";
+import { findTicketForBook, ticketForBookQueryKey } from "@/api/tickets";
+import useToastStore from "@/store/useToastStore";
+
+/** 완독 API 에러 코드 → 사용자 노출 문구 (백엔드 message와 무관하게 프론트에서 통일) */
+const COMPLETED_BOOK_ERROR_USER_MESSAGE: Partial<Record<string, string>> = {
+  T001: "이미 완독 리스트에 추가된 도서입니다.",
+  T002: "완독 리스트에 존재하지 않는 도서입니다.",
+  T006: "먼저 티켓을 삭제해야 완독 리스트에서 제거할 수 있습니다.",
+  ALREADY_COMPLETED_BOOK: "이미 완독 리스트에 추가된 도서입니다.",
+  COMPLETED_BOOK_NOT_FOUND: "완독 리스트에 존재하지 않는 도서입니다.",
+  COMPLETED_BOOK_HAS_TICKET: "먼저 티켓을 삭제해야 완독 리스트에서 제거할 수 있습니다.",
+};
 
 interface BookDetailHeroProps {
   book: BookDetail;
@@ -28,6 +49,7 @@ interface BookDetailHeroProps {
 export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
+  const addToast = useToastStore((s) => s.addToast);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDescriptionToggle, setShowDescriptionToggle] = useState(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
@@ -58,23 +80,33 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
 
   const isCompleted = completedBooks.some((completedBook) => completedBook.bookId === book.id);
 
+  const {
+    data: ticketForBook,
+    isPending: isTicketLookupPending,
+  } = useQuery({
+    queryKey: ticketForBookQueryKey(book.id),
+    queryFn: () => findTicketForBook(book.id),
+    enabled: isLoggedIn && isCompleted,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const handleCompletedError = (error: unknown) => {
     const axiosError = error as AxiosError<ApiResponse<unknown>>;
-    const code = axiosError.response?.data?.code;
+    const data = axiosError.response?.data;
+    const code = data?.code;
+    const serverMessage = data?.message?.trim();
 
-    if (code === "COMPLETED_BOOK_HAS_TICKET") {
-      alert("티켓이 발행된 도서는 완독 리스트에서 제거할 수 없습니다.");
+    const completedBookCopy = code ? COMPLETED_BOOK_ERROR_USER_MESSAGE[code] : undefined;
+    if (completedBookCopy) {
+      addToast(completedBookCopy, "info");
       return;
     }
-    if (code === "ALREADY_COMPLETED_BOOK") {
-      alert("이미 완독 리스트에 추가된 도서입니다.");
-      return;
-    }
-    if (code === "COMPLETED_BOOK_NOT_FOUND") {
-      alert("이미 완독 리스트에서 제거된 도서입니다.");
-      return;
-    }
-    alert("완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+
+    addToast(
+      serverMessage ||
+        "완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      "error"
+    );
   };
 
   const addCompletedMutation = useMutation({
@@ -115,6 +147,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+      queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
 
@@ -139,6 +172,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+      queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
 
@@ -297,27 +331,75 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
             </AnimatePresence>
           </button>
 
-          {/* 완독 리스트에 추가 */}
-          <button
-            onClick={() =>
-              requireAuth(() => {
-                if (isCompleted) {
-                  deleteCompletedMutation.mutate();
-                  return;
-                }
-                addCompletedMutation.mutate();
-              })
-            }
-            className={cn(
-              "flex-1 text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg cursor-pointer",
-              isCompleted
-                ? "bg-gray-700 hover:bg-gray-800 shadow-gray-700/20"
-                : "bg-[#4D41FF] hover:bg-[#3D31EF] shadow-[#4D41FF]/20"
-            )}
-          >
-            <BookmarkPlus size={20} />
-            {isCompleted ? "완독 리스트에서 제거" : "완독 리스트에 추가"}
-          </button>
+          {/* 완독: 미추가 시 기존 단일 버튼 / 추가 후 제거 + 티켓 */}
+          {!isCompleted ? (
+            <button
+              onClick={() => requireAuth(() => addCompletedMutation.mutate())}
+              disabled={addCompletedMutation.isPending}
+              className={cn(
+                "flex-1 min-h-14 rounded-none text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg cursor-pointer",
+                "bg-[#4D41FF] hover:bg-[#3D31EF] shadow-[#4D41FF]/20",
+                addCompletedMutation.isPending && "opacity-70 pointer-events-none"
+              )}
+            >
+              <BookmarkPlus size={20} />
+              완독 리스트에 추가
+            </button>
+          ) : (
+            <div className="flex flex-1 min-w-0 min-h-14 flex-row gap-3 sm:gap-4">
+              <button
+                type="button"
+                onClick={() => requireAuth(() => deleteCompletedMutation.mutate())}
+                disabled={deleteCompletedMutation.isPending}
+                className={cn(
+                  "flex-1 min-w-0 rounded-none border border-gray-300 bg-gray-700 px-3 text-white font-black text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.15em]",
+                  "flex items-center justify-center gap-2 sm:gap-2.5 shadow-md transition-all cursor-pointer hover:bg-gray-800 hover:border-gray-400",
+                  deleteCompletedMutation.isPending && "opacity-70 pointer-events-none"
+                )}
+              >
+                <BookmarkMinus size={18} className="shrink-0 opacity-90" aria-hidden />
+                <span className="text-center leading-tight">완독 도서 제거</span>
+              </button>
+              {isTicketLookupPending ? (
+                <div
+                  className="flex-1 min-w-0 rounded-none border border-gray-200 bg-white px-3 shadow-md flex items-center justify-center text-gray-400"
+                  aria-busy
+                >
+                  <Loader2 className="animate-spin shrink-0" size={22} aria-label="티켓 여부 확인 중" />
+                </div>
+              ) : ticketForBook ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    requireAuth(() =>
+                      router.push(`/tickets?view=binder&ticketId=${ticketForBook.id}`)
+                    )
+                  }
+                  className={cn(
+                    "flex-1 min-w-0 rounded-none border border-black/15 bg-white px-3 text-black font-black text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.15em]",
+                    "flex items-center justify-center gap-2 sm:gap-2.5 shadow-md transition-all cursor-pointer hover:bg-stone-50 hover:border-black/25"
+                  )}
+                >
+                  <Ticket size={18} className="shrink-0" aria-hidden />
+                  <span className="text-center leading-tight">티켓 보러가기</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    requireAuth(() => router.push(`/tickets?issueBookId=${book.id}`))
+                  }
+                  className={cn(
+                    "flex-1 min-w-0 rounded-none border border-[#3D31EF] bg-[#4D41FF] px-3 text-white font-black text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.15em]",
+                    "flex items-center justify-center gap-2 sm:gap-2.5 shadow-md shadow-[#4D41FF]/25 transition-all cursor-pointer hover:bg-[#3D31EF]"
+                  )}
+                >
+                  <TicketPlus size={18} className="shrink-0 opacity-95" aria-hidden />
+                  <span className="text-center leading-tight">티켓 생성</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </section>

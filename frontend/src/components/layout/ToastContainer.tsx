@@ -9,7 +9,7 @@ export default function ToastContainer() {
   const { toasts, removeToast } = useToastStore();
 
   return (
-    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-3 items-center pointer-events-none w-full max-w-sm px-6">
+    <div className="fixed top-8 left-1/2 z-[200] flex w-full max-w-2xl -translate-x-1/2 flex-col items-center gap-3 px-6 pointer-events-none">
       <AnimatePresence>
         {toasts.map((toast) => (
           <motion.div
@@ -17,7 +17,7 @@ export default function ToastContainer() {
             initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95, y: -20, transition: { duration: 0.2 } }}
-            className="pointer-events-auto flex flex-col w-full bg-white overflow-hidden rounded-lg shadow-[0_4px_24px_rgba(0,0,0,0.12)] border border-gray-100"
+            className="pointer-events-auto flex w-max max-w-full flex-col overflow-hidden rounded-lg border border-gray-100 bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]"
           >
             {/* 상단 포인트 바 */}
             <div
@@ -34,14 +34,15 @@ export default function ToastContainer() {
               {toast.type === "success" && <CheckCircle size={18} className="text-[#4D41FF] shrink-0" />}
               {toast.type === "error" && <AlertCircle size={18} className="text-red-500 shrink-0" />}
               {toast.type === "info" && <Info size={18} className="text-[#0033FF] shrink-0" />}
-              
-              <span className="flex-1 text-sm font-black leading-snug tracking-tight text-black break-keep">
+
+              <span className="min-w-0 max-w-[min(32rem,calc(100vw-5.5rem))] text-sm font-black leading-relaxed tracking-tight text-black break-keep">
                 {toast.message}
               </span>
 
               <button
+                type="button"
                 onClick={() => removeToast(toast.id)}
-                className="text-gray-300 hover:text-black transition-colors shrink-0"
+                className="shrink-0 text-gray-300 transition-colors hover:text-black"
               >
                 <X size={16} />
               </button>
