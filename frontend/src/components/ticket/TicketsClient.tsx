@@ -13,7 +13,7 @@ import useAuthStore from "@/store/useAuthStore";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteTicket as deleteTicketApi,
-  fetchBinderTickets,
+  fetchAllBinderTickets,
   fetchGalleryTickets,
   fetchTicketDetail,
   TICKET_FOR_BOOK_QUERY_KEY_PREFIX,
@@ -30,8 +30,6 @@ export const TicketsClient = () => {
   const [view, setView] = useState<"gallery" | "binder">("gallery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<GalleryTicket | null>(null);
-  const binderPage = 0;
-  const binderGenre: string | null = null;
   const { isLoggedIn } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -62,9 +60,9 @@ export const TicketsClient = () => {
     enabled: isLoggedIn,
   });
 
-  const { data: binderPageData, isLoading: isBinderLoading } = useQuery({
-    queryKey: ["tickets", "binder", binderGenre ?? "ALL", binderPage],
-    queryFn: () => fetchBinderTickets({ page: binderPage, genre: binderGenre }),
+  const { data: binderTickets = [], isLoading: isBinderLoading } = useQuery({
+    queryKey: ["tickets", "binder", "all"],
+    queryFn: () => fetchAllBinderTickets(null),
     enabled: isLoggedIn,
   });
 
@@ -144,16 +142,14 @@ export const TicketsClient = () => {
 
   const guestTickets = useMemo(() => getMockGalleryTickets(), []);
   const shownGalleryTickets = isLoggedIn ? galleryTickets : guestTickets;
-  const shownBinderTickets = isLoggedIn
-    ? (binderPageData?.content ?? [])
-    : guestTickets;
+  const shownBinderTickets = isLoggedIn ? binderTickets : guestTickets;
 
   const resolvedDetailTicket = useMemo(() => {
     if (!selectedTicket) return null;
     const fromGallery = galleryTickets.find((t) => t.id === selectedTicket.id);
-    const fromBinder = binderPageData?.content?.find((t) => t.id === selectedTicket.id);
+    const fromBinder = binderTickets.find((t) => t.id === selectedTicket.id);
     return fromGallery ?? fromBinder ?? selectedTicket;
-  }, [selectedTicket, galleryTickets, binderPageData]);
+  }, [selectedTicket, galleryTickets, binderTickets]);
 
   const isTicketsLoading = isLoggedIn && (isGalleryLoading || isBinderLoading || isCompletedLoading);
   const isEmptyGallery = isLoggedIn && !isTicketsLoading && view === "gallery" && shownGalleryTickets.length === 0;
