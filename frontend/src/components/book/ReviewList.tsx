@@ -140,14 +140,24 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
               </div>
 
               {/* 텍스트 입력 */}
-              <textarea
-                value={editComment}
-                onChange={(e) => setEditComment(e.target.value)}
-                rows={4}
-                disabled={updateMutation.isPending}
-                placeholder="리뷰 내용을 입력해주세요."
-                className="w-full text-base font-medium outline-none resize-none border-b border-gray-100 focus:border-[#4D41FF] transition-all py-2 mb-6 disabled:opacity-50"
-              />
+              <div className="relative">
+                <textarea
+                  value={editComment}
+                  maxLength={500}
+                  onChange={(e) => setEditComment(e.target.value)}
+                  rows={4}
+                  disabled={updateMutation.isPending}
+                  placeholder="리뷰 내용을 입력해주세요."
+                  className="w-full text-base font-medium outline-none resize-none border-b border-gray-100 focus:border-[#4D41FF] transition-all py-2 mb-2 disabled:opacity-50"
+                />
+                
+                {/* 500자 제한 경고 문구 */}
+                {editComment.length >= 500 && (
+                  <p className="mb-4 text-[11px] font-bold text-red-600 animate-in fade-in slide-in-from-top-1 duration-300">
+                    리뷰는 최대 500자까지 입력할 수 있습니다.
+                  </p>
+                )}
+              </div>
 
               {/* 스포일러 토글 */}
               <button
