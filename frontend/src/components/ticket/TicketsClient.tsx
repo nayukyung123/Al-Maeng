@@ -11,13 +11,14 @@ import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteTicket as deleteTicketApi, fetchAllBinderTickets, fetchGalleryTickets, fetchTicketDetail } from "@/api/tickets";
 import {
-  deleteTicket as deleteTicketApi,
-  fetchAllBinderTickets,
-  fetchGalleryTickets,
-  fetchTicketDetail,
-  TICKET_FOR_BOOK_QUERY_KEY_PREFIX,
-} from "@/api/tickets";
+  userCompletedBooksQueryKey,
+  userTicketForBookQueryRoot,
+  userTicketsBinderAllQueryKey,
+  userTicketsBinderQueryKeyPrefix,
+  userTicketsGalleryQueryKey,
+} from "@/lib/userQueryKeys";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
@@ -55,13 +56,13 @@ export const TicketsClient = () => {
     data: galleryTickets = [],
     isLoading: isGalleryLoading,
   } = useQuery({
-    queryKey: ["tickets", "gallery"],
+    queryKey: userTicketsGalleryQueryKey(),
     queryFn: fetchGalleryTickets,
     enabled: isLoggedIn,
   });
 
   const { data: binderTickets = [], isLoading: isBinderLoading } = useQuery({
-    queryKey: ["tickets", "binder", "all"],
+    queryKey: userTicketsBinderAllQueryKey(),
     queryFn: () => fetchAllBinderTickets(null),
     enabled: isLoggedIn,
   });
@@ -70,7 +71,7 @@ export const TicketsClient = () => {
     data: completedBooks = [],
     isLoading: isCompletedLoading,
   } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000,
@@ -114,9 +115,9 @@ export const TicketsClient = () => {
 
   const handleTicketAdded = async (_newTicket: GalleryTicket) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
-      queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
-      queryClient.invalidateQueries({ queryKey: [TICKET_FOR_BOOK_QUERY_KEY_PREFIX] }),
+      queryClient.invalidateQueries({ queryKey: userTicketsGalleryQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: userTicketsBinderQueryKeyPrefix() }),
+      queryClient.invalidateQueries({ queryKey: userTicketForBookQueryRoot() }),
     ]);
   };
 
@@ -134,9 +135,9 @@ export const TicketsClient = () => {
       addToast("삭제 요청 처리 중 오류가 발생했습니다. 목록을 새로고침합니다.", "info");
     }
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
-      queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
-      queryClient.invalidateQueries({ queryKey: [TICKET_FOR_BOOK_QUERY_KEY_PREFIX] }),
+      queryClient.invalidateQueries({ queryKey: userTicketsGalleryQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: userTicketsBinderQueryKeyPrefix() }),
+      queryClient.invalidateQueries({ queryKey: userTicketForBookQueryRoot() }),
     ]);
   };
 

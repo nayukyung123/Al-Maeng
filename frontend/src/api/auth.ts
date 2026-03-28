@@ -3,7 +3,8 @@ import { guessImageContentTypeFromFile, putPresignedObject } from "@/lib/s3Presi
 import type { ApiResponse } from "@/types/api";
 
 export interface SignupRequest {
-  profileImageUrl: string;
+  /** 프로필 사진을 올린 경우에만 전달 */
+  profileImageUrl?: string;
   nickname: string;
   birthYear: number;
   gender: "MALE" | "FEMALE";

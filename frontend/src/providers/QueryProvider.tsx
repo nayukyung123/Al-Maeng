@@ -1,7 +1,8 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { registerQueryClient } from "@/lib/reactQueryClientHolder";
 
 /**
  * React 19 + Next.js 16 호환 QueryClientProvider
@@ -30,6 +31,11 @@ export default function QueryProvider({
         },
       })
   );
+
+  useEffect(() => {
+    registerQueryClient(queryClient);
+    return () => registerQueryClient(null);
+  }, [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
