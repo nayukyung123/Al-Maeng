@@ -16,7 +16,7 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
-import { ChevronLeft, ChevronRight, Pencil, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Pencil, User } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
@@ -25,10 +25,14 @@ import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import MyPageTierSection from "@/components/mypage/MyPageTierSection";
 import MyPageEditModal from "@/components/mypage/MyPageEditModal";
+import TierRoadmapModal from "@/components/mypage/TierRoadmapModal";
+import TierPromotionModal from "@/components/book/TierPromotionModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
 import useToastStore from "@/store/useToastStore";
+import { TIER_ROADMAP, getTierPromotionPreviewBooks } from "@/lib/tierRoadmap";
+import { getTierDisplayLabel } from "@/lib/tierProgressGradient";
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const addToast = useToastStore((s) => s.addToast);
@@ -41,6 +45,11 @@ export default function MyPageClient() {
   const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [tierRoadmapOpen, setTierRoadmapOpen] = useState(false);
+  const [tierPromotionPreviewOpen, setTierPromotionPreviewOpen] = useState(false);
+  /** 승급 알림 미리보기에서 어떤 티어 스타일을 볼지 (실제 승급 플로우와 동일 컴포넌트) */
+  const [tierPromotionPreviewCode, setTierPromotionPreviewCode] = useState("GOLD");
+  const tierPreviewSyncedFromProfileRef = useRef(false);
 
   // 찜 목록 조회 (실제 API)
   const { data: wishlistData, isFetched: isWishlistFetched } = useMyWishlists(
@@ -71,6 +80,12 @@ export default function MyPageClient() {
     refetchOnMount: "always",
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (tierPreviewSyncedFromProfileRef.current || !myProfile?.tier?.tierName) return;
+    setTierPromotionPreviewCode(getTierDisplayLabel(myProfile.tier.tierName));
+    tierPreviewSyncedFromProfileRef.current = true;
+  }, [myProfile?.tier?.tierName]);
 
   const {
     data: genres = [],
@@ -381,8 +396,16 @@ export default function MyPageClient() {
             <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 md:gap-4">
                   <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                  <button
+                    type="button"
+                    onClick={() => setTierRoadmapOpen(true)}
+                    aria-label="Rank Progression 안내"
+                    className="text-gray-300 hover:text-gray-600 transition-colors p-1 rounded-full"
+                  >
+                    <Info size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(true)}
@@ -395,6 +418,30 @@ export default function MyPageClient() {
               </div>
               <MyPageTierSection part="progress" tier={myProfile?.tier} />
               <MyPageTierSection part="message" tier={myProfile?.tier} />
+              <div className="mt-2 flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                <label htmlFor="tier-promotion-preview" className="sr-only">
+                  승급 알림 미리보기 티어
+                </label>
+                <select
+                  id="tier-promotion-preview"
+                  value={tierPromotionPreviewCode}
+                  onChange={(e) => setTierPromotionPreviewCode(e.target.value)}
+                  className="text-[10px] font-bold uppercase tracking-widest border border-gray-200 rounded-sm px-2 py-1.5 bg-white text-gray-700 cursor-pointer"
+                >
+                  {TIER_ROADMAP.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.code}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setTierPromotionPreviewOpen(true)}
+                  className="text-[10px] font-bold text-gray-400 hover:text-[#0033FF] uppercase tracking-widest transition-colors"
+                >
+                  승급 알림 미리보기
+                </button>
+              </div>
             </div>
           </section>
 
@@ -803,6 +850,20 @@ export default function MyPageClient() {
           </div>
         )}
       </section>
+
+      <TierRoadmapModal
+        open={tierRoadmapOpen}
+        onClose={() => setTierRoadmapOpen(false)}
+        completedCount={myProfile?.completedCount ?? 0}
+        currentTierName={myProfile?.tier?.tierName ?? null}
+      />
+
+      <TierPromotionModal
+        open={tierPromotionPreviewOpen}
+        onClose={() => setTierPromotionPreviewOpen(false)}
+        tierName={tierPromotionPreviewCode}
+        completedCount={getTierPromotionPreviewBooks(tierPromotionPreviewCode)}
+      />
 
       {/* Edit Profile Modal */}
       <MyPageEditModal
