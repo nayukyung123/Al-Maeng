@@ -61,6 +61,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const [showDescriptionToggle, setShowDescriptionToggle] = useState(false);
   const [tierPromotionOpen, setTierPromotionOpen] = useState(false);
   const [promotionTierName, setPromotionTierName] = useState("");
+  const [promotionCompletedCount, setPromotionCompletedCount] = useState(0);
   const descriptionRef = useRef<HTMLDivElement>(null);
 
   // 설명글이 3줄을 초과하는지 체크 (더보기 버튼 표시 여부 결정)
@@ -158,6 +159,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
       const newTierId = newProfile?.tier?.id ?? null;
       if (oldTierId != null && newTierId != null && newTierId > oldTierId) {
         setPromotionTierName(newProfile?.tier?.tierName ?? "");
+        setPromotionCompletedCount(newProfile?.completedCount ?? 0);
         setTierPromotionOpen(true);
       }
     },
@@ -429,6 +431,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
       <TierPromotionModal
         open={tierPromotionOpen}
         tierName={promotionTierName}
+        completedCount={promotionCompletedCount}
         onClose={() => setTierPromotionOpen(false)}
       />
     </section>
