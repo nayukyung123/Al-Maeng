@@ -23,11 +23,3 @@ export function getTierRoadmapLinePercent(completedCount: number): number {
   if (completedCount <= 0) return 0;
   return Math.min(100, (completedCount / TIER_ROADMAP_MAX_BOOKS) * 100);
 }
-
-/** 승급 알림 미리보기용 완독 권수(해당 티어 기준 권수, 승급 직후 느낌) */
-export function getTierPromotionPreviewBooks(code: string): number {
-  const row = TIER_ROADMAP.find((t) => t.code === code);
-  if (!row) return 0;
-  if (row.minBooks === 0) return 1;
-  return row.minBooks;
-}
