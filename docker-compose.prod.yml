@@ -27,7 +27,7 @@ services:
     restart: always
     command: redis-server --save 60 1 --loglevel warning
     volumes:
-      - ./prod-redis-data:/data
+      - redis_data:/data
     networks:
       - almaeng-network
 
@@ -104,3 +104,6 @@ services:
 networks:
   almaeng-network:
     driver: bridge
+
+volumes:
+  redis_data:
