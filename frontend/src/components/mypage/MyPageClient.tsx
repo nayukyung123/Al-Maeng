@@ -29,6 +29,11 @@ import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
 import useToastStore from "@/store/useToastStore";
+import {
+  userCompletedBooksQueryKey,
+  userProfileQueryKey,
+  userTasteReportQueryKey,
+} from "@/lib/userQueryKeys";
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const addToast = useToastStore((s) => s.addToast);
@@ -51,7 +56,7 @@ export default function MyPageClient() {
   const wishlistItems = wishlistData?.content ?? [];
 
   const { data: completedBooks = [] } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000,
@@ -62,7 +67,7 @@ export default function MyPageClient() {
   const {
     data: myProfile,
   } = useQuery({
-    queryKey: ["my-profile"],
+    queryKey: userProfileQueryKey(),
     queryFn: fetchMyProfile,
     enabled: isLoggedIn,
     // 완독 권수/티어는 자주 바뀔 수 있어 캐시로 고정되면 UX가 나빠짐
@@ -94,7 +99,7 @@ export default function MyPageClient() {
     data: tasteReport,
     isLoading: isTasteReportLoading,
   } = useQuery({
-    queryKey: ["my-taste-report"],
+    queryKey: userTasteReportQueryKey(),
     queryFn: fetchMyTasteReport,
     enabled: isLoggedIn,
     staleTime: 1000 * 30,
@@ -206,7 +211,7 @@ export default function MyPageClient() {
     onSuccess: ({ nickname, profileImageUrl }) => {
       // 헤더 즉시 반영 (zustand store 갱신)
       updateUser({ nickname, profileImageUrl });
-      queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+      queryClient.invalidateQueries({ queryKey: userProfileQueryKey() });
       setProfileImageFile(null);
       setIsEditModalOpen(false);
       addToast("프로필이 성공적으로 저장되었습니다.", "success");
@@ -338,9 +343,9 @@ export default function MyPageClient() {
   useEffect(() => {
     if (!isLoggedIn) return;
     // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
-    queryClient.invalidateQueries({ queryKey: ["my-profile"] });
+    queryClient.invalidateQueries({ queryKey: userProfileQueryKey() });
     // 완독 목록 변경 시 취향 리포트도 즉시 최신화
-    queryClient.invalidateQueries({ queryKey: ["my-taste-report"] });
+    queryClient.invalidateQueries({ queryKey: userTasteReportQueryKey() });
   }, [isLoggedIn, finishedBooks.length, queryClient]);
 
   useEffect(() => {

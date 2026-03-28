@@ -12,6 +12,7 @@ import { useVerticalBackTitleVisible } from "@/hooks/useVerticalBackTitleVisible
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { createTicket, fetchTicketImagePresignedUrl, fetchGalleryTickets, type TicketStyleDataDto } from "@/api/tickets";
+import { userCompletedBooksQueryKey, userTicketsGalleryQueryKey } from "@/lib/userQueryKeys";
 import { putPresignedObject } from "@/lib/s3PresignedPut";
 import {
   getFileExtensionForPresigned,
@@ -59,13 +60,13 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
 
   const { data: completedBooks = [] } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isOpen,
   });
 
   const { data: existingTickets = [] } = useQuery({
-    queryKey: ["tickets", "gallery"],
+    queryKey: userTicketsGalleryQueryKey(),
     queryFn: fetchGalleryTickets,
     enabled: isOpen,
   });

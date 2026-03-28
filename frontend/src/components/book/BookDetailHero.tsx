@@ -29,6 +29,7 @@ import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
 import { formatBookContent } from "@/utils/decode";
 import { findTicketForBook, ticketForBookQueryKey } from "@/api/tickets";
 import useToastStore from "@/store/useToastStore";
+import { userCompletedBooksQueryKey } from "@/lib/userQueryKeys";
 
 /** 완독 API 에러 코드 → 사용자 노출 문구 (백엔드 message와 무관하게 프론트에서 통일) */
 const COMPLETED_BOOK_ERROR_USER_MESSAGE: Partial<Record<string, string>> = {
@@ -64,13 +65,14 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
     }
   }, [book.description]);
   const queryClient = useQueryClient();
+  const completedBooksQueryKey = userCompletedBooksQueryKey();
 
   // 찜하기 상태 및 뮤테이션 (진입 source 그대로 전달)
   const { data: isWishlisted = false } = useWishlistStatus(book.id, isLoggedIn);
   const { addWishlist, removeWishlist } = useWishlistMutation(book.id, source);
 
   const { data: completedBooks = [] } = useQuery<CompletedBook[]>({
-    queryKey: ["completed-books"],
+    queryKey: completedBooksQueryKey,
     queryFn: fetchCompletedBooks,
     enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000,
@@ -116,10 +118,10 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
         source,
       }),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["completed-books"] });
-      const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
+      await queryClient.cancelQueries({ queryKey: completedBooksQueryKey });
+      const previous = queryClient.getQueryData<CompletedBook[]>(completedBooksQueryKey) ?? [];
 
-      queryClient.setQueryData<CompletedBook[]>(["completed-books"], (old = []) => {
+      queryClient.setQueryData<CompletedBook[]>(completedBooksQueryKey, (old = []) => {
         if (old.some((item) => item.bookId === book.id)) return old;
         return [
           {
@@ -141,12 +143,12 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["completed-books"], context.previous);
+        queryClient.setQueryData(completedBooksQueryKey, context.previous);
       }
       handleCompletedError(error);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+      queryClient.invalidateQueries({ queryKey: completedBooksQueryKey });
       queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
@@ -154,11 +156,11 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const deleteCompletedMutation = useMutation({
     mutationFn: () => deleteCompletedBook(book.id, source),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["completed-books"] });
-      const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
+      await queryClient.cancelQueries({ queryKey: completedBooksQueryKey });
+      const previous = queryClient.getQueryData<CompletedBook[]>(completedBooksQueryKey) ?? [];
 
       queryClient.setQueryData<CompletedBook[]>(
-        ["completed-books"],
+        completedBooksQueryKey,
         (old = []) => old.filter((item) => item.bookId !== book.id)
       );
 
@@ -166,12 +168,12 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["completed-books"], context.previous);
+        queryClient.setQueryData(completedBooksQueryKey, context.previous);
       }
       handleCompletedError(error);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+      queryClient.invalidateQueries({ queryKey: completedBooksQueryKey });
       queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
