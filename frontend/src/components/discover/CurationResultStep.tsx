@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import useDiscoverStore from "@/store/useDiscoverStore";
 import type { CurationBook, CurationSection } from "@/api/curation";
 
@@ -98,7 +99,7 @@ function TagSection({ section }: { section: CurationSection }) {
 // 메인 결과 컴포넌트
 // ─────────────────────────────────────────────────────────────
 export default function CurationResultStep() {
-  const { curationResult, reset } = useDiscoverStore();
+  const { curationResult, reset, prevStep } = useDiscoverStore();
 
   // 유효한 섹션만 필터링 (books가 1개 이상인 섹션만)
   const validSections = curationResult.filter(
@@ -107,6 +108,15 @@ export default function CurationResultStep() {
 
   return (
     <div className="animate-in fade-in duration-1000 w-full">
+      <button
+        type="button"
+        onClick={prevStep}
+        className="mb-8 flex items-center gap-2 text-gray-400 hover:text-black transition-colors text-sm font-bold uppercase tracking-widest"
+      >
+        <ArrowRight size={16} className="rotate-180" aria-hidden />
+        Back
+      </button>
+
       {/* 헤더 */}
       <div className="text-left mb-8 md:mb-12">
         <h1 className="text-4xl md:text-6xl font-serif font-bold tracking-tighter leading-tight mb-4">
