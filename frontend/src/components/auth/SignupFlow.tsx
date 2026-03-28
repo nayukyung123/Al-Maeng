@@ -65,29 +65,30 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
 
   const authMutation = useMutation({
     mutationFn: async () => {
-      // 1. 프로필 이미지 설정 (더미 또는 S3 업로드)
-      let finalImageUrl = "https://example.com/dummy.jpg";
+      let profileImageUrl: string | undefined;
 
       if (formData.profileImageFile && user?.id) {
-        // 백엔드 API 호출로 presignedUrl 받아오기
         const ext = getFileExtensionForPresigned(formData.profileImageFile);
         const uploadInfo = await getPresignedUrl(user.id, `.${ext}`);
-        
-        if (uploadInfo && uploadInfo.presignedUrl) {
-          await uploadImageToS3(uploadInfo.presignedUrl, formData.profileImageFile, uploadInfo.contentType);
-          finalImageUrl = uploadInfo.imageUrl;
+
+        if (uploadInfo?.presignedUrl) {
+          await uploadImageToS3(
+            uploadInfo.presignedUrl,
+            formData.profileImageFile,
+            uploadInfo.contentType
+          );
+          profileImageUrl = uploadInfo.imageUrl;
         }
       }
 
-      // 2. SignupRequest 매핑
       const genreIds = formData.selectedGenreIds;
 
       const requestData = {
-        profileImageUrl: finalImageUrl,
         nickname: formData.nickname,
         birthYear: parseInt(formData.birthYear, 10),
         gender: formData.gender === "남성" ? "MALE" : "FEMALE" as "MALE" | "FEMALE",
         genreIds: genreIds.length > 0 ? genreIds : [1], // 최소 1개 필수
+        ...(profileImageUrl ? { profileImageUrl } : {}),
       };
 
       // 3. 회원가입 API 호출 

@@ -75,11 +75,6 @@ export default function ReviewInput({ slug }: ReviewInputProps) {
     createMutation.mutate();
   };
 
-  /** 프로필 이미지 */
-  const profileSrc = user?.profileImageUrl
-    ? user.profileImageUrl
-    : `https://picsum.photos/seed/${user?.id ?? "myprofile"}/200/200`;
-
   return (
     <>
     {/* ── 에러 토스트 ── */}

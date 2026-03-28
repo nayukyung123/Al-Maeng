@@ -33,6 +33,7 @@ import {
   userProfileQueryKey,
   userTasteReportQueryKey,
 } from "@/lib/userQueryKeys";
+import { displayProfileImageUrl } from "@/lib/profileImageUrl";
 
 /** Recharts ResponsiveContainer는 부모 높이 0일 때 콘솔 경고(-1)를 내므로, 고정 높이 + 측정 너비로 직접 전달 */
 const TASTE_CHART_HEIGHT_PX = 280;
@@ -164,7 +165,7 @@ export default function MyPageClient() {
       gender: (myProfile.gender ?? '') as Gender,
       preferences: myProfile.tasteData ?? [],
       birthday: myProfile.birthYear ? String(myProfile.birthYear) : '',
-      profileImage: myProfile.profileImageUrl ?? '',
+      profileImage: displayProfileImageUrl(myProfile.profileImageUrl) ?? '',
     };
 
     setUserData(mapped);
@@ -247,7 +248,10 @@ export default function MyPageClient() {
     },
     onSuccess: ({ nickname, profileImageUrl }) => {
       // 헤더 즉시 반영 (zustand store 갱신)
-      updateUser({ nickname, profileImageUrl });
+      updateUser({
+        nickname,
+        profileImageUrl: displayProfileImageUrl(profileImageUrl) ?? undefined,
+      });
       queryClient.invalidateQueries({ queryKey: userProfileQueryKey() });
       setProfileImageFile(null);
       setIsEditModalOpen(false);

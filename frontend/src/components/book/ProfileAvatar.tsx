@@ -1,6 +1,7 @@
 "use client";
 
 import { User } from "lucide-react";
+import { displayProfileImageUrl } from "@/lib/profileImageUrl";
 import { cn } from "@/lib/utils";
 
 interface ProfileAvatarProps {
@@ -19,8 +20,9 @@ export default function ProfileAvatar({
 }: ProfileAvatarProps) {
   const dim = size === "sm" ? "h-12 w-12" : "h-14 w-14";
   const iconSize = size === "sm" ? 22 : 26;
+  const resolvedUrl = displayProfileImageUrl(imageUrl);
 
-  if (imageUrl) {
+  if (resolvedUrl) {
     return (
       <div
         className={cn(
@@ -30,7 +32,7 @@ export default function ProfileAvatar({
         )}
       >
         <img
-          src={imageUrl}
+          src={resolvedUrl}
           alt={alt}
           className="h-full w-full object-cover"
           referrerPolicy="no-referrer"
