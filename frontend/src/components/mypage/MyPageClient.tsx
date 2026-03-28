@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -10,7 +10,6 @@ import {
   RadarChart,
   PolarGrid,
   PolarAngleAxis,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
@@ -34,6 +33,44 @@ import {
   userProfileQueryKey,
   userTasteReportQueryKey,
 } from "@/lib/userQueryKeys";
+
+/** Recharts ResponsiveContainer는 부모 높이 0일 때 콘솔 경고(-1)를 내므로, 고정 높이 + 측정 너비로 직접 전달 */
+const TASTE_CHART_HEIGHT_PX = 280;
+
+function TasteChartSlot({
+  className,
+  children,
+}: {
+  className?: string;
+  children: (size: { width: number; height: number }) => React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = Math.floor(el.getBoundingClientRect().width);
+      if (w > 0) setWidth(w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ width: "100%", height: TASTE_CHART_HEIGHT_PX }}
+    >
+      {width > 0 ? children({ width, height: TASTE_CHART_HEIGHT_PX }) : null}
+    </div>
+  );
+}
+
 export default function MyPageClient() {
   const { isLoggedIn, user, logout, updateUser } = useAuthStore();
   const addToast = useToastStore((s) => s.addToast);
@@ -404,47 +441,55 @@ export default function MyPageClient() {
           </section>
 
         {/* Taste Reports (left column) */}
-        <section className="h-full flex flex-col">
+        <section className="h-full min-h-0 min-w-0 flex flex-col">
           <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
             <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
               TASTE REPORTS
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
-            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-w-0 min-h-0">
+            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm min-w-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm md:text-base font-extrabold tracking-tight">나의 독서 스펙트럼</h3>
               </div>
 
-              <div className="aspect-square w-full">
+              <div className="w-full min-w-0 max-w-full">
                 {isTasteReportLoading ? (
-                  <div className="w-full h-full rounded-lg bg-gray-50 animate-pulse" />
+                  <div
+                    className="w-full rounded-lg bg-gray-50 animate-pulse"
+                    style={{ height: TASTE_CHART_HEIGHT_PX }}
+                  />
                 ) : !hasTopLevelTasteData ? (
-                  <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-100">
-                    <div className="w-full h-full opacity-35 blur-[1.5px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={MOCK_TOP_LEVEL_DATA}
-                            dataKey="count"
-                            nameKey="genreName"
-                            innerRadius="38%"
-                            outerRadius="88%"
-                            startAngle={90}
-                            endAngle={-270}
-                            paddingAngle={2}
-                            isAnimationActive={false}
-                          >
-                            {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
-                              <Cell
-                                key={`${g.genreName}-${idx}`}
-                                fill={TOP_LEVEL_COLORS[idx % TOP_LEVEL_COLORS.length]}
-                              />
-                            ))}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
+                  <div
+                    className="relative w-full rounded-lg overflow-hidden border border-gray-100"
+                    style={{ minHeight: TASTE_CHART_HEIGHT_PX }}
+                  >
+                    <div className="opacity-35 blur-[1.5px] pointer-events-none">
+                      <TasteChartSlot>
+                        {({ width, height }) => (
+                          <PieChart width={width} height={height}>
+                            <Pie
+                              data={MOCK_TOP_LEVEL_DATA}
+                              dataKey="count"
+                              nameKey="genreName"
+                              innerRadius="38%"
+                              outerRadius="88%"
+                              startAngle={90}
+                              endAngle={-270}
+                              paddingAngle={2}
+                              isAnimationActive={false}
+                            >
+                              {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
+                                <Cell
+                                  key={`${g.genreName}-${idx}`}
+                                  fill={TOP_LEVEL_COLORS[idx % TOP_LEVEL_COLORS.length]}
+                                />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        )}
+                      </TasteChartSlot>
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center text-center px-6">
                       <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
@@ -453,39 +498,41 @@ export default function MyPageClient() {
                     </div>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={topLevelWithColor}
-                        dataKey="count"
-                        nameKey="genreName"
-                        innerRadius="30%"
-                        outerRadius="85%"
-                        startAngle={90}
-                        endAngle={-270}
-                        paddingAngle={2}
-                        isAnimationActive={false}
-                      >
-                        {topLevelWithColor.map((g) => {
-                          return (
-                            <Cell
-                              key={g.genreId}
-                              fill={g.color}
-                            />
-                          );
-                        })}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: any, name: any, props: any) => {
-                          const count = typeof value === "number" ? value : Number(value);
-                          const percent = props?.payload?.percentage;
-                          const percentText =
-                            typeof percent === "number" ? ` (${percent.toFixed(1)}%)` : "";
-                          return [`${count}권${percentText}`, name];
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <TasteChartSlot className="rounded-lg">
+                    {({ width, height }) => (
+                      <PieChart width={width} height={height}>
+                        <Pie
+                          data={topLevelWithColor}
+                          dataKey="count"
+                          nameKey="genreName"
+                          innerRadius="30%"
+                          outerRadius="85%"
+                          startAngle={90}
+                          endAngle={-270}
+                          paddingAngle={2}
+                          isAnimationActive={false}
+                        >
+                          {topLevelWithColor.map((g) => {
+                            return (
+                              <Cell
+                                key={g.genreId}
+                                fill={g.color}
+                              />
+                            );
+                          })}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: any, name: any, props: any) => {
+                            const count = typeof value === "number" ? value : Number(value);
+                            const percent = props?.payload?.percentage;
+                            const percentText =
+                              typeof percent === "number" ? ` (${percent.toFixed(1)}%)` : "";
+                            return [`${count}권${percentText}`, name];
+                          }}
+                        />
+                      </PieChart>
+                    )}
+                  </TasteChartSlot>
                 )}
               </div>
               {!isTasteReportLoading && hasTopLevelTasteData && (
@@ -508,51 +555,58 @@ export default function MyPageClient() {
               )}
             </div>
 
-            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm">
+            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm min-w-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm md:text-base font-extrabold tracking-tight">문학적 페르소나</h3>
               </div>
 
-              <div className="aspect-square w-full">
+              <div className="w-full min-w-0 max-w-full">
                 {isTasteReportLoading ? (
-                  <div className="w-full h-full rounded-lg bg-gray-50 animate-pulse" />
+                  <div
+                    className="w-full rounded-lg bg-gray-50 animate-pulse"
+                    style={{ height: TASTE_CHART_HEIGHT_PX }}
+                  />
                 ) : !hasTopLevelTasteData ? (
-                  <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-100">
-                    <div className="w-full h-full opacity-35 blur-[1.5px]">
-                      {(() => {
-                        const mockCounts = [5, 3, 4, 2, 5, 3, 2, 4];
-                        const mockRadarData = NOVEL_PERSONA_AXES.map((axis, index) => ({
-                          subject: axis.label,
-                          count: mockCounts[index % mockCounts.length],
-                          fullMark: 5,
-                        }));
-
-                        return (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RadarChart
-                          cx="50%"
-                          cy="50%"
-                          outerRadius="70%"
-                          data={mockRadarData}
-                        >
-                          <PolarGrid stroke="#f0f0f0" />
-                          <PolarAngleAxis
-                            dataKey="subject"
-                            tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
-                          />
-                          <Radar
-                            name="완독 수"
-                            dataKey="count"
-                            stroke="#0033FF"
-                            strokeWidth={2}
-                            fill="#0033FF"
-                            fillOpacity={0.15}
-                            isAnimationActive={false}
-                          />
-                        </RadarChart>
-                      </ResponsiveContainer>
-                        );
-                      })()}
+                  <div
+                    className="relative w-full rounded-lg overflow-hidden border border-gray-100"
+                    style={{ minHeight: TASTE_CHART_HEIGHT_PX }}
+                  >
+                    <div className="opacity-35 blur-[1.5px] pointer-events-none">
+                      <TasteChartSlot>
+                        {({ width, height }) => {
+                          const mockCounts = [5, 3, 4, 2, 5, 3, 2, 4];
+                          const mockRadarData = NOVEL_PERSONA_AXES.map((axis, index) => ({
+                            subject: axis.label,
+                            count: mockCounts[index % mockCounts.length],
+                            fullMark: 5,
+                          }));
+                          return (
+                            <RadarChart
+                              width={width}
+                              height={height}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius="70%"
+                              data={mockRadarData}
+                            >
+                              <PolarGrid stroke="#f0f0f0" />
+                              <PolarAngleAxis
+                                dataKey="subject"
+                                tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                              />
+                              <Radar
+                                name="완독 수"
+                                dataKey="count"
+                                stroke="#0033FF"
+                                strokeWidth={2}
+                                fill="#0033FF"
+                                fillOpacity={0.15}
+                                isAnimationActive={false}
+                              />
+                            </RadarChart>
+                          );
+                        }}
+                      </TasteChartSlot>
                     </div>
                     <div className="absolute inset-0 flex items-center justify-center text-center px-6">
                       <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
@@ -561,57 +615,61 @@ export default function MyPageClient() {
                     </div>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart
-                      cx="50%"
-                      cy="50%"
-                      outerRadius="70%"
-                      data={(() => {
-                        const statMap = new Map(
-                          (tasteReport?.subGenres ?? []).map((s) => [s.genreName, s])
-                        );
-                        const axisData = NOVEL_PERSONA_AXES.map((axis) => {
-                          const stat = statMap.get(axis.dbName);
-                          return {
-                            subject: axis.label,
-                            count: stat?.count ?? 0,
-                          };
-                        });
+                  <TasteChartSlot className="rounded-lg">
+                    {({ width, height }) => (
+                      <RadarChart
+                        width={width}
+                        height={height}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="70%"
+                        data={(() => {
+                          const statMap = new Map(
+                            (tasteReport?.subGenres ?? []).map((s) => [s.genreName, s])
+                          );
+                          const axisData = NOVEL_PERSONA_AXES.map((axis) => {
+                            const stat = statMap.get(axis.dbName);
+                            return {
+                              subject: axis.label,
+                              count: stat?.count ?? 0,
+                            };
+                          });
 
-                        const maxCount = Math.max(...axisData.map((d) => d.count), 0);
-                        const fullMark = Math.max(maxCount + RADAR_VISUAL_FLOOR, 5);
+                          const maxCount = Math.max(...axisData.map((d) => d.count), 0);
+                          const fullMark = Math.max(maxCount + RADAR_VISUAL_FLOOR, 5);
 
-                        return axisData.map((d) => ({
-                          ...d,
-                          displayCount: d.count + RADAR_VISUAL_FLOOR,
-                          fullMark,
-                        }));
-                      })()}
-                    >
-                      <PolarGrid stroke="#f0f0f0" />
-                      <PolarAngleAxis
-                        dataKey="subject"
-                        tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
-                      />
-                      <Radar
-                        name="완독 수"
-                        dataKey="displayCount"
-                        stroke="#0033FF"
-                        strokeWidth={2}
-                        fill="#0033FF"
-                        fillOpacity={0.15}
-                        isAnimationActive={false}
-                      />
-                      <Tooltip
-                        formatter={(value: any, _name: any, item: any) => {
-                          const real = item?.payload?.count;
-                          const count =
-                            typeof real === "number" ? real : typeof value === "number" ? value : Number(value);
-                          return [`${Number.isFinite(count) ? Math.round(count) : 0}권`, "완독 수"];
-                        }}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                          return axisData.map((d) => ({
+                            ...d,
+                            displayCount: d.count + RADAR_VISUAL_FLOOR,
+                            fullMark,
+                          }));
+                        })()}
+                      >
+                        <PolarGrid stroke="#f0f0f0" />
+                        <PolarAngleAxis
+                          dataKey="subject"
+                          tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                        />
+                        <Radar
+                          name="완독 수"
+                          dataKey="displayCount"
+                          stroke="#0033FF"
+                          strokeWidth={2}
+                          fill="#0033FF"
+                          fillOpacity={0.15}
+                          isAnimationActive={false}
+                        />
+                        <Tooltip
+                          formatter={(value: any, _name: any, item: any) => {
+                            const real = item?.payload?.count;
+                            const count =
+                              typeof real === "number" ? real : typeof value === "number" ? value : Number(value);
+                            return [`${Number.isFinite(count) ? Math.round(count) : 0}권`, "완독 수"];
+                          }}
+                        />
+                      </RadarChart>
+                    )}
+                  </TasteChartSlot>
                 )}
               </div>
 
