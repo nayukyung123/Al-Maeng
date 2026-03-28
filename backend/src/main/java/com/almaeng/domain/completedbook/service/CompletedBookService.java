@@ -9,6 +9,7 @@ import com.almaeng.domain.completedbook.repository.CompletedBookRepository;
 import com.almaeng.domain.log.event.UserActionEvent;
 import com.almaeng.domain.ticket.repository.TicketRepository;
 import com.almaeng.domain.user.entity.User;
+import com.almaeng.domain.user.event.UserTierUpdateEvent;
 import com.almaeng.domain.user.repository.UserRepository;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
@@ -51,8 +52,12 @@ public class CompletedBookService {
                 .build();
 
         completedBookRepository.save(newCompletedBook);
-
+        
+        // 로그 이벤트
         eventPublisher.publishEvent(new UserActionEvent(userId, request.bookId(), request.source(), "complete"));
+        
+        // 티어 동기화 이벤트
+        eventPublisher.publishEvent(new UserTierUpdateEvent(userId));
     }
 
     // 완독 도서 조회
@@ -75,7 +80,11 @@ public class CompletedBookService {
         }
 
         completedBookRepository.delete(completedBook);
-
+        
+        // 로그 이벤트
         eventPublisher.publishEvent(new UserActionEvent(userId, bookId, source, "complete_cancel"));
+    
+        // 티어 동기화 이벤트
+        eventPublisher.publishEvent(new UserTierUpdateEvent(userId));
     }
 }

@@ -1,6 +1,5 @@
 package com.almaeng.domain.user.entity;
 
-import org.hibernate.annotations.ColumnTransformer;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
 import jakarta.persistence.*;
@@ -9,7 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -115,6 +113,16 @@ public class User {
         // 프론트가 빈 문자열("")을 보내면 null로 처리해 이미지 삭제
         if (profileImageUrl != null) {
             this.profileImageUrl = profileImageUrl.isBlank() ? null : profileImageUrl;
+        }
+    }
+
+    // 완독 권수 및 티어 동기화 메서드
+    public void updateTierAndCount(Tier newTier, Integer newCompletedCount) {
+        if (newTier != null) {
+            this.tier = newTier;
+        }
+        if (newCompletedCount != null) {
+            this.completedCount = newCompletedCount;
         }
     }
 }
