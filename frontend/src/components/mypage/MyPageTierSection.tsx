@@ -1,5 +1,6 @@
 import React from "react";
 import type { UserProfileResponse } from "@/api/mypage";
+import { getTierProgressGradientClass } from "@/lib/tierProgressGradient";
 
 type Tier = UserProfileResponse["tier"];
 
@@ -38,9 +39,14 @@ export default function MyPageTierSection({
     </span>
   );
 
+  const progressGradientClass = getTierProgressGradientClass(tier?.tierName ?? null);
+
   const progressEl = (
     <div className="w-full max-w-sm bg-gray-100 h-2 rounded-full overflow-hidden mb-2 mx-auto md:mx-0">
-      <div className="bg-[#0033FF] h-full" style={{ width: `${pct}%` }} />
+      <div
+        className={`h-full rounded-full ${progressGradientClass}`}
+        style={{ width: `${pct}%` }}
+      />
     </div>
   );
 

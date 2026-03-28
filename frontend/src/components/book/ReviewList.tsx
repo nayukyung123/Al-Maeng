@@ -8,6 +8,7 @@ import useAuthStore from "@/store/useAuthStore";
 import { deleteReview, updateReview } from "@/api/bookDetail";
 import type { Review } from "@/types/book";
 import ProfileAvatar from "./ProfileAvatar";
+import ReviewTierBadge from "./ReviewTierBadge";
 
 interface ReviewListProps {
   reviews: Review[];
@@ -254,10 +255,15 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
               />
 
               <div className="flex-1">
-                {/* 닉네임 · 날짜 */}
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="font-black text-sm">{review.nickname}</span>
-                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                {/* 닉네임 · 티어 · 날짜 */}
+                <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-2">
+                  <span className="font-black text-sm text-black shrink-0">
+                    {review.nickname}
+                  </span>
+                  {review.tierName ? (
+                    <ReviewTierBadge tierName={review.tierName} />
+                  ) : null}
+                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest ml-2 md:ml-3">
                     {formattedDate}
                   </span>
                 </div>

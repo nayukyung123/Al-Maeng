@@ -649,7 +649,8 @@ export default function MyPageClient() {
               >
                 <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
                 <p className="text-right text-4xl md:text-5xl font-black leading-none">
-                  {finishedBooks.length}<span className="text-base md:text-lg font-bold ml-1">권</span>
+                  {myProfile?.completedCount ?? 0}
+                  <span className="text-base md:text-lg font-bold ml-1">권</span>
                 </p>
               </button>
             </div>
