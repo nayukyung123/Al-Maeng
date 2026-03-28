@@ -15,7 +15,7 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
-import { ChevronLeft, ChevronRight, Pencil, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Info, Pencil, User } from 'lucide-react';
 import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
@@ -24,6 +24,7 @@ import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import MyPageTierSection from "@/components/mypage/MyPageTierSection";
 import MyPageEditModal from "@/components/mypage/MyPageEditModal";
+import TierRoadmapModal from "@/components/mypage/TierRoadmapModal";
 import { useMyWishlists } from '@/hooks/useWishlist';
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { formatBookContent } from '@/utils/decode';
@@ -84,6 +85,7 @@ export default function MyPageClient() {
   const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [tierRoadmapOpen, setTierRoadmapOpen] = useState(false);
 
   // 찜 목록 조회 (실제 API)
   const { data: wishlistData, isFetched: isWishlistFetched } = useMyWishlists(
@@ -427,8 +429,16 @@ export default function MyPageClient() {
             <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 md:gap-4">
                   <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                  <button
+                    type="button"
+                    onClick={() => setTierRoadmapOpen(true)}
+                    aria-label="Rank Progression 안내"
+                    className="text-gray-300 hover:text-gray-600 transition-colors p-1 rounded-full"
+                  >
+                    <Info size={16} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(true)}
@@ -716,7 +726,8 @@ export default function MyPageClient() {
               >
                 <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
                 <p className="text-right text-4xl md:text-5xl font-black leading-none">
-                  {finishedBooks.length}<span className="text-base md:text-lg font-bold ml-1">권</span>
+                  {myProfile?.completedCount ?? 0}
+                  <span className="text-base md:text-lg font-bold ml-1">권</span>
                 </p>
               </button>
             </div>
@@ -869,6 +880,13 @@ export default function MyPageClient() {
           </div>
         )}
       </section>
+
+      <TierRoadmapModal
+        open={tierRoadmapOpen}
+        onClose={() => setTierRoadmapOpen(false)}
+        completedCount={myProfile?.completedCount ?? 0}
+        currentTierName={myProfile?.tier?.tierName ?? null}
+      />
 
       {/* Edit Profile Modal */}
       <MyPageEditModal

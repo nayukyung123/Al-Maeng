@@ -28,8 +28,18 @@ import {
 import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
 import { formatBookContent } from "@/utils/decode";
 import { findTicketForBook, ticketForBookQueryKey } from "@/api/tickets";
+import type { UserProfileResponse } from "@/api/mypage";
 import useToastStore from "@/store/useToastStore";
-import { userCompletedBooksQueryKey } from "@/lib/userQueryKeys";
+import TierPromotionModal from "./TierPromotionModal";
+import {
+  userCompletedBooksQueryKey,
+  userProfileQueryKey,
+} from "@/lib/userQueryKeys";
+
+type AddCompletedContext = {
+  previous: CompletedBook[];
+  previousTierId: number | null;
+};
 
 /** 완독 API 에러 코드 → 사용자 노출 문구 (백엔드 message와 무관하게 프론트에서 통일) */
 const COMPLETED_BOOK_ERROR_USER_MESSAGE: Partial<Record<string, string>> = {
@@ -53,6 +63,9 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const addToast = useToastStore((s) => s.addToast);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDescriptionToggle, setShowDescriptionToggle] = useState(false);
+  const [tierPromotionOpen, setTierPromotionOpen] = useState(false);
+  const [promotionTierName, setPromotionTierName] = useState("");
+  const [promotionCompletedCount, setPromotionCompletedCount] = useState(0);
   const descriptionRef = useRef<HTMLDivElement>(null);
 
   // 설명글이 3줄을 초과하는지 체크 (더보기 버튼 표시 여부 결정)
@@ -66,6 +79,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   }, [book.description]);
   const queryClient = useQueryClient();
   const completedBooksQueryKey = userCompletedBooksQueryKey();
+  const profileQueryKey = userProfileQueryKey();
 
   // 찜하기 상태 및 뮤테이션 (진입 source 그대로 전달)
   const { data: isWishlisted = false } = useWishlistStatus(book.id, isLoggedIn);
@@ -117,9 +131,12 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
         bookId: book.id,
         source,
       }),
-    onMutate: async () => {
+    onMutate: async (): Promise<AddCompletedContext> => {
+      const previousTierId =
+        queryClient.getQueryData<UserProfileResponse>(profileQueryKey)?.tier?.id ?? null;
       await queryClient.cancelQueries({ queryKey: completedBooksQueryKey });
-      const previous = queryClient.getQueryData<CompletedBook[]>(completedBooksQueryKey) ?? [];
+      const previous =
+        queryClient.getQueryData<CompletedBook[]>(completedBooksQueryKey) ?? [];
 
       queryClient.setQueryData<CompletedBook[]>(completedBooksQueryKey, (old = []) => {
         if (old.some((item) => item.bookId === book.id)) return old;
@@ -139,7 +156,19 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
         ];
       });
 
-      return { previous };
+      return { previous, previousTierId };
+    },
+    onSuccess: async (_data, _variables, context) => {
+      const oldTierId = context?.previousTierId ?? null;
+      await new Promise((r) => setTimeout(r, 500));
+      await queryClient.refetchQueries({ queryKey: profileQueryKey });
+      const newProfile = queryClient.getQueryData<UserProfileResponse>(profileQueryKey);
+      const newTierId = newProfile?.tier?.id ?? null;
+      if (oldTierId != null && newTierId != null && newTierId > oldTierId) {
+        setPromotionTierName(newProfile?.tier?.tierName ?? "");
+        setPromotionCompletedCount(newProfile?.completedCount ?? 0);
+        setTierPromotionOpen(true);
+      }
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
@@ -174,6 +203,7 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: completedBooksQueryKey });
+      queryClient.invalidateQueries({ queryKey: profileQueryKey });
       queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
@@ -404,6 +434,13 @@ export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
           )}
         </div>
       </div>
+
+      <TierPromotionModal
+        open={tierPromotionOpen}
+        tierName={promotionTierName}
+        completedCount={promotionCompletedCount}
+        onClose={() => setTierPromotionOpen(false)}
+      />
     </section>
   );
 }
