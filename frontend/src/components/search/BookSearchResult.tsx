@@ -3,17 +3,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useInView } from "react-intersection-observer";
 import { Search, X, ArrowLeft, Loader2, BookOpen, ArrowUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { fetchBooks } from "@/api/books";
+import { fetchBooks, fetchBookSuggestions } from "@/api/books";
+import BookSearchSuggestions from "@/components/search/BookSearchSuggestions";
 import {
   MAX_SEARCH_KEYWORD_LENGTH,
   SEARCH_KEYWORD_LENGTH_HINT,
   clampSearchKeyword,
 } from "@/lib/searchKeyword";
-import type { Book } from "@/types/home";
+import type { Book, BookSuggestion } from "@/types/home";
 
 // ─────────────────────────────────────────────────────────────
 // 개별 도서 카드
@@ -94,12 +95,10 @@ type SortValue = (typeof SORT_OPTIONS)[number]["value"];
 // ─────────────────────────────────────────────────────────────
 interface BookSearchResultProps {
   initialQuery: string;
-  initialAutoFocus?: boolean;
 }
 
 export default function BookSearchResult({
   initialQuery,
-  initialAutoFocus = false,
 }: BookSearchResultProps) {
   const router = useRouter();
   const initialClamped = clampSearchKeyword(initialQuery);
@@ -107,6 +106,29 @@ export default function BookSearchResult({
   // 실제로 API에 날리는 쿼리 (제출 시에만 변경)
   const [committedQuery, setCommittedQuery] = useState(initialClamped);
   const [sortType, setSortType] = useState<SortValue>("accuracy");
+  const [debouncedInput, setDebouncedInput] = useState(initialClamped);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedInput(inputValue), 300);
+    return () => window.clearTimeout(t);
+  }, [inputValue]);
+
+  const { data: suggestions = [] } = useQuery<BookSuggestion[]>({
+    queryKey: ["suggestions", debouncedInput],
+    queryFn: () => fetchBookSuggestions(debouncedInput),
+    enabled: debouncedInput.trim().length > 0,
+    staleTime: 30_000,
+  });
+
+  /** URL로 결과 화면에 들어온 직후에는 숨김 — 검색창을 다시 클릭·포커스할 때만 표시 */
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [suggestionsUnlocked, setSuggestionsUnlocked] = useState(false);
+
+  const showSuggestions =
+    suggestionsUnlocked &&
+    isSearchFocused &&
+    debouncedInput.trim().length > 0 &&
+    suggestions.length > 0;
 
   // ── 스크롤 감지 → TOP 버튼 표시 여부 ───────────────────
   const [showTopBtn, setShowTopBtn] = useState(false);
@@ -120,17 +142,17 @@ export default function BookSearchResult({
     window.scrollTo({ top: 0, behavior: "smooth" });
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!initialAutoFocus) return;
-    const t = window.setTimeout(() => inputRef.current?.focus(), 0);
-    return () => window.clearTimeout(t);
-  }, [initialAutoFocus]);
-
-  // URL이 바뀌면 committedQuery도 동기화 (뒤로가기 등)
+  // URL이 바뀌면 committedQuery 동기화 + 검색창 포커스 제거 (결과 화면 진입 시 키보드가 뜨지 않도록)
   useEffect(() => {
     const q = clampSearchKeyword(initialQuery);
     setInputValue(q);
     setCommittedQuery(q);
+    setSuggestionsUnlocked(false);
+    setIsSearchFocused(false);
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.blur();
+    });
+    return () => cancelAnimationFrame(id);
   }, [initialQuery]);
 
   // ── 무한 스크롤 데이터 ───────────────────────────────────
@@ -166,13 +188,26 @@ export default function BookSearchResult({
     }
   }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  // ── 검색 제출 ────────────────────────────────────────────
+  // ── 검색 제출 / 자동완성 선택 ────────────────────────────
+  const navigateToSearch = useCallback(
+    (raw: string) => {
+      const trimmed = clampSearchKeyword(raw.trim());
+      if (!trimmed) return;
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+    },
+    [router]
+  );
+
   const handleSubmit = useCallback(() => {
-    const trimmed = clampSearchKeyword(inputValue.trim());
-    if (!trimmed) return;
-    router.push(`/search?q=${encodeURIComponent(trimmed)}`);
-    // URL 변경으로 인해 initialQuery prop이 바뀌면 useEffect에서 반영됨
-  }, [inputValue, router]);
+    navigateToSearch(inputValue);
+  }, [inputValue, navigateToSearch]);
+
+  const handlePickSuggestionTitle = useCallback(
+    (title: string) => {
+      navigateToSearch(title);
+    },
+    [navigateToSearch]
+  );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSubmit();
@@ -184,10 +219,24 @@ export default function BookSearchResult({
     inputRef.current?.focus();
   };
 
+  const handleSearchInputPointerDown = () => {
+    setSuggestionsUnlocked(true);
+  };
+
+  const handleSearchInputFocus = () => {
+    setIsSearchFocused(true);
+    setSuggestionsUnlocked(true);
+  };
+
+  const handleSearchInputBlur = () => {
+    setIsSearchFocused(false);
+    setSuggestionsUnlocked(false);
+  };
+
   return (
     <div className="min-h-screen bg-white pt-16">
       {/* ── Sticky 검색바 ── */}
-      <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm border-b border-black/10">
+      <div className="sticky top-16 z-30 overflow-visible bg-white/95 backdrop-blur-sm border-b border-black/10">
         <div className="max-w-7xl mx-auto px-6 md:px-12 py-4 flex items-center gap-4">
           {/* 뒤로가기 */}
           <button
@@ -199,57 +248,70 @@ export default function BookSearchResult({
             <ArrowLeft size={22} aria-hidden="true" />
           </button>
 
-          {/* 검색 입력 */}
+          {/* 검색 입력 + 자동완성 */}
           <div className="flex min-w-0 flex-1 flex-col">
-            <div className="relative flex items-center gap-3 border-b-2 border-black/10 pb-1 transition-colors focus-within:border-[#0033FF]">
-              <input
-                ref={inputRef}
-                type="text"
-                value={inputValue}
-                maxLength={MAX_SEARCH_KEYWORD_LENGTH}
-                onChange={(e) =>
-                  setInputValue(clampSearchKeyword(e.target.value))
-                }
-                onKeyDown={handleKeyDown}
-                placeholder="제목, 작가, 키워드 검색"
-                aria-label="도서 검색어 입력"
-                aria-describedby={
-                  inputValue.length >= MAX_SEARCH_KEYWORD_LENGTH
-                    ? "search-keyword-length-hint"
-                    : undefined
-                }
-                className="min-w-0 flex-1 py-2 text-lg font-bold italic placeholder:text-gray-200 focus:outline-none md:text-2xl bg-transparent"
+            <div className="relative w-full min-w-0">
+              <div className="relative flex items-center gap-3 border-b-2 border-black/10 pb-1 transition-colors focus-within:border-[#0033FF]">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  maxLength={MAX_SEARCH_KEYWORD_LENGTH}
+                  onPointerDown={handleSearchInputPointerDown}
+                  onFocus={handleSearchInputFocus}
+                  onBlur={handleSearchInputBlur}
+                  onChange={(e) =>
+                    setInputValue(clampSearchKeyword(e.target.value))
+                  }
+                  onKeyDown={handleKeyDown}
+                  placeholder="제목, 작가, 키워드 검색"
+                  aria-label="도서 검색어 입력"
+                  aria-describedby={
+                    inputValue.length >= MAX_SEARCH_KEYWORD_LENGTH
+                      ? "search-keyword-length-hint"
+                      : undefined
+                  }
+                  className="min-w-0 flex-1 py-2 text-lg font-bold italic placeholder:text-gray-200 focus:outline-none md:text-2xl bg-transparent"
+                />
+
+                {/* 지우기 버튼 */}
+                <AnimatePresence>
+                  {inputValue && (
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      type="button"
+                      onClick={handleClear}
+                      aria-label="검색어 지우기"
+                      className="shrink-0 text-gray-300 hover:text-black transition-colors"
+                    >
+                      <X size={20} aria-hidden="true" />
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+
+                {/* 검색 버튼 */}
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!inputValue.trim()}
+                  aria-label="검색"
+                  className="shrink-0 text-black hover:text-[#0033FF] transition-colors disabled:opacity-20"
+                >
+                  <Search size={24} aria-hidden="true" />
+                </button>
+              </div>
+
+              <BookSearchSuggestions
+                variant="sticky"
+                show={showSuggestions}
+                suggestions={suggestions}
+                onPickTitle={handlePickSuggestionTitle}
               />
-
-              {/* 지우기 버튼 */}
-              <AnimatePresence>
-                {inputValue && (
-                  <motion.button
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ duration: 0.15 }}
-                    type="button"
-                    onClick={handleClear}
-                    aria-label="검색어 지우기"
-                    className="shrink-0 text-gray-300 hover:text-black transition-colors"
-                  >
-                    <X size={20} aria-hidden="true" />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-
-              {/* 검색 버튼 */}
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!inputValue.trim()}
-                aria-label="검색"
-                className="shrink-0 text-black hover:text-[#0033FF] transition-colors disabled:opacity-20"
-              >
-                <Search size={24} aria-hidden="true" />
-              </button>
             </div>
+
             {inputValue.length >= MAX_SEARCH_KEYWORD_LENGTH && (
               <p
                 id="search-keyword-length-hint"
