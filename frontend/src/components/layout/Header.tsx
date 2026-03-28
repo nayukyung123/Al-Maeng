@@ -12,6 +12,7 @@ import useToastStore from "@/store/useToastStore";
 import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
 import { logout as logoutApi } from "@/api/auth";
 import { fetchMyProfile } from "@/api/mypage";
+import { displayProfileImageUrl } from "@/lib/profileImageUrl";
 
 /** 메인 네비게이션 항목 정의 */
 const NAV_ITEMS = [
@@ -41,6 +42,7 @@ export default function Header() {
     const authHydrated = useAuthStoreHydrated();
     const { isLoggedIn, user, logout, updateUser } = useAuthStore();
     const { addToast } = useToastStore();
+    const headerProfileImageSrc = displayProfileImageUrl(user?.profileImageUrl);
 
     /** 로그인 응답에 프로필이 없어 store만으로는 이미지/닉네임이 비는 경우 — 서버 프로필과 맞춤 */
     useEffect(() => {
@@ -52,7 +54,8 @@ export default function Header() {
                 if (cancelled) return;
                 updateUser({
                     nickname: profile.nickname,
-                    profileImageUrl: profile.profileImageUrl ?? undefined,
+                    profileImageUrl:
+                        displayProfileImageUrl(profile.profileImageUrl) ?? undefined,
                 });
             } catch {
                 // 401 등은 axios 인터셉터가 처리; 그 외는 무시
@@ -280,10 +283,10 @@ export default function Header() {
                                             : "border-black/10 hover:border-black text-black"
                                     )}
                                 >
-                                    {user?.profileImageUrl ? (
+                                    {headerProfileImageSrc ? (
                                         <img
-                                            src={user.profileImageUrl}
-                                            alt={`${user.nickname} 프로필 사진`}
+                                            src={headerProfileImageSrc}
+                                            alt={`${user?.nickname ?? "사용자"} 프로필 사진`}
                                             className="w-full h-full object-cover"
                                             referrerPolicy="no-referrer"
                                         />

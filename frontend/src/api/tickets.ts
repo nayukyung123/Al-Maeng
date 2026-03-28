@@ -1,4 +1,8 @@
 import apiClient from "@/lib/axios";
+import {
+  USER_TICKET_FOR_BOOK_SEGMENT,
+  userTicketForBookQueryKey,
+} from "@/lib/userQueryKeys";
 import type { ApiResponse, SliceResponse } from "@/types/api";
 import type { CardStyle, GalleryTicket } from "@/types/ticket";
 
@@ -142,11 +146,10 @@ export async function fetchAllBinderTickets(genre?: string | null): Promise<Gall
   return all;
 }
 
-export const TICKET_FOR_BOOK_QUERY_KEY_PREFIX = "ticket-for-book" as const;
+/** @deprecated 무효화 시 `userTicketForBookQueryRoot()` 사용 */
+export const TICKET_FOR_BOOK_QUERY_KEY_PREFIX = USER_TICKET_FOR_BOOK_SEGMENT;
 
-export function ticketForBookQueryKey(bookId: number) {
-  return [TICKET_FOR_BOOK_QUERY_KEY_PREFIX, bookId] as const;
-}
+export { userTicketForBookQueryKey as ticketForBookQueryKey };
 
 /**
  * 해당 도서에 연결된 티켓을 찾습니다. 갤러리(최대 7건)에 없으면 바인더를 페이지 순회합니다.

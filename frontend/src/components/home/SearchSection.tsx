@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ArrowRight, ArrowLeft, X } from "lucide-react";
+import { Search, ArrowLeft, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchBookSuggestions, fetchKeywordRankings } from "@/api/books";
 import type { BookSuggestion } from "@/types/home";
+import BookSearchSuggestions from "@/components/search/BookSearchSuggestions";
 import {
   clearSearchOverlayReturnTo,
   consumeSearchOverlayReturnTo,
@@ -196,41 +197,12 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
                     </button>
                   )}
 
-                  {/* 자동완성 드롭다운 */}
-                  <AnimatePresence>
-                    {showSuggestions && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        role="listbox"
-                        aria-label="검색 자동완성"
-                        className="absolute left-0 right-0 top-full z-[60] mt-3 overflow-hidden rounded-sm border border-gray-100 bg-white shadow-2xl"
-                      >
-                        {suggestions.map((book) => (
-                          <div
-                            key={book.bookId}
-                            role="option"
-                            aria-selected="false"
-                            onClick={() => handleSearchSubmit(book.title)}
-                            className="flex cursor-pointer items-center justify-between border-b border-gray-50 px-4 py-3 last:border-0 hover:bg-gray-50 group md:px-6 md:py-4"
-                          >
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-base font-bold transition-colors group-hover:text-[#0033FF] md:text-lg">
-                                {book.title}
-                              </span>
-                              <span className="text-sm text-gray-400">{book.author}</span>
-                            </div>
-                            <ArrowRight
-                              size={20}
-                              aria-hidden="true"
-                              className="shrink-0 text-gray-300 transition-colors group-hover:text-[#0033FF]"
-                            />
-                          </div>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <BookSearchSuggestions
+                    variant="overlay"
+                    show={showSuggestions}
+                    suggestions={suggestions}
+                    onPickTitle={handleSearchSubmit}
+                  />
                 </div>
 
                 {searchQuery.length >= MAX_SEARCH_KEYWORD_LENGTH && (

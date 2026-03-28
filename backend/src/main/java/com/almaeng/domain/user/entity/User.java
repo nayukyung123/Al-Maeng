@@ -100,9 +100,21 @@ public class User {
     // 온보딩 완료를 위한 비즈니스 메서드
     public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.nickname = nickname;
-        this.profileImageUrl = profileImageUrl;
+        this.profileImageUrl = normalizeProfileImageUrlForStorage(profileImageUrl);
         this.birthYear = birthYear;
         this.gender = gender;
+    }
+
+    // 가입한 사용자 중 프로필 이미지가 더미데이터로 들어간 경우 기본 이미지로 보이도록 하는 메서드
+    private static String normalizeProfileImageUrlForStorage(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if ("https://example.com/dummy.jpg".equals(trimmed)) {
+            return null;
+        }
+        return url;
     }
 
     // 프로필 수정을 위한 메서드
@@ -112,7 +124,7 @@ public class User {
         if (gender != null) this.gender = gender;
         // 프론트가 빈 문자열("")을 보내면 null로 처리해 이미지 삭제
         if (profileImageUrl != null) {
-            this.profileImageUrl = profileImageUrl.isBlank() ? null : profileImageUrl;
+            this.profileImageUrl = normalizeProfileImageUrlForStorage(profileImageUrl);
         }
     }
 

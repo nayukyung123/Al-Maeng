@@ -5,7 +5,6 @@ import jakarta.validation.constraints.*;
 import java.util.List;
 
 public record SignupRequest(
-        @NotBlank(message = "프로필 이미지 URL은 필수입니다.")
         String profileImageUrl,
 
         @NotBlank(message = "닉네임은 필수입니다.")

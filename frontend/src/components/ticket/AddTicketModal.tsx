@@ -12,6 +12,7 @@ import { useVerticalBackTitleVisible } from "@/hooks/useVerticalBackTitleVisible
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { createTicket, fetchTicketImagePresignedUrl, fetchGalleryTickets, type TicketStyleDataDto } from "@/api/tickets";
+import { userCompletedBooksQueryKey, userTicketsGalleryQueryKey } from "@/lib/userQueryKeys";
 import { putPresignedObject } from "@/lib/s3PresignedPut";
 import {
   getFileExtensionForPresigned,
@@ -59,13 +60,13 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
 
   const { data: completedBooks = [] } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isOpen,
   });
 
   const { data: existingTickets = [] } = useQuery({
-    queryKey: ["tickets", "gallery"],
+    queryKey: userTicketsGalleryQueryKey(),
     queryFn: fetchGalleryTickets,
     enabled: isOpen,
   });
@@ -329,7 +330,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
 
                 {/* 2. 데이터 입력 컨트롤 */}
                 <div className="space-y-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">CUSTOM COVER (선택)</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">CUSTOM IMAGE (나만의 이미지)</p>
                   <label className="flex items-center justify-center w-full h-12 border border-dashed border-gray-300 hover:border-black hover:bg-stone-50 transition-colors cursor-pointer rounded-sm group disabled:opacity-50">
                     <ImageIcon className="text-gray-400 group-hover:text-black mr-2" size={20} />
                     <span className="text-xs font-bold text-gray-500 group-hover:text-black tracking-widest">UPLOAD IMAGE</span>
@@ -363,14 +364,14 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                           {ticketData.customImage ? (
                             <img
                               src={ticketData.customImage}
-                              alt="Custom cover preview"
+                              alt="Custom image preview"
                               className="w-full h-full object-cover"
                             />
                           ) : null}
                         </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-stone-700 truncate">
-                            {customImageFile?.name ?? "CUSTOM COVER"}
+                            {customImageFile?.name ?? "나만의 이미지"}
                           </p>
                           {customImageFile && (
                             <p className="text-[10px] text-stone-400 font-mono">
