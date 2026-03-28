@@ -8,10 +8,7 @@ import com.almaeng.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -22,9 +19,7 @@ public class UserTierEventListener {
     private final TierRepository tierRepository;
     private final CompletedBookRepository completedBookRepository;
 
-    @Async
     @EventListener
-    @Transactional(propagation = Propagation.REQUIRES_NEW) // 메인 트랜잭션과 분리
     public void handleUserTierUpdate(UserTierUpdateEvent event) {
         try {
             Long userId = event.userId();
