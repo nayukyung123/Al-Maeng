@@ -143,7 +143,12 @@ export async function fetchAllBinderTickets(genre?: string | null): Promise<Gall
     page += 1;
   }
 
-  return all;
+  const seen = new Set<number>();
+  return all.filter((t) => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
 }
 
 /** @deprecated 무효화 시 `userTicketForBookQueryRoot()` 사용 */

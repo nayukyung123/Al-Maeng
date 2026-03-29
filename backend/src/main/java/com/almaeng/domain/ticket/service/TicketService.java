@@ -174,9 +174,13 @@ public class TicketService {
     }
 
     // 완독 티켓 바인더 조회 - 장르 필터, 4개씩 페이징
+    // 완독일 오름차순(오래된 것 앞) + id로 동률 시 순서 고정(페이지 경계 중복/누락 방지)
     @Transactional(readOnly = true)
     public Page<TicketResponse> getBinderTickets(Long userId, String genreName, int page) {
-        Pageable pageable = PageRequest.of(page, 4, Sort.by(Sort.Direction.DESC, "completedBook.completedAt"));
+        Sort binderSort = Sort.by(
+                Sort.Order.asc("completedBook.completedAt"),
+                Sort.Order.asc("id"));
+        Pageable pageable = PageRequest.of(page, 4, binderSort);
 
         if (genreName == null || genreName.trim().isEmpty()) {
             return ticketRepository.findBinderTicketsAll(userId, pageable)
