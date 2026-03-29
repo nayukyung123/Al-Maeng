@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import useDiscoverStore from "@/store/useDiscoverStore";
 import ContentSearchStep from "./ContentSearchStep";
 import LengthSelectStep from "./LengthSelectStep";
@@ -19,17 +19,12 @@ import CurationResultStep, {
  *
  * 단계 간 공유 상태는 모두 useDiscoverStore(Zustand)에서 관리
  *
- * /discover 를 벗어날 때 스토어를 초기화한다. Zustand가 전역이라
- * 다른 탭으로 갔다 오면 이전 step·결과가 남는 문제를 막기 위함.
+ * 언마운트 시 reset 하지 않는다. 도서 상세 등으로 이동했다가 브라우저 뒤로가기로
+ * /discover 돌아올 때 step·큐레이션 결과가 유지되도록 유지한다.
+ * 초기화는 화면의「다시 찾기」「처음부터 다시 찾기」에서만 수행한다.
  */
 export default function TasteDiscoveryFlow() {
   const step = useDiscoverStore((s) => s.step);
-
-  useEffect(() => {
-    return () => {
-      useDiscoverStore.getState().reset();
-    };
-  }, []);
 
   return (
     <div className="min-h-[80vh] flex flex-col pt-12 md:pt-20 pb-24 px-6 md:px-12 max-w-4xl mx-auto animate-in fade-in duration-500 relative">
