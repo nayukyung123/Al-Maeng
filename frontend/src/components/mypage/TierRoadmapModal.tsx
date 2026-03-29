@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TIER_ROADMAP, getTierRoadmapLinePercent } from "@/lib/tierRoadmap";
+import { TIER_ROADMAP, getTierRoadmapSpinePercent } from "@/lib/tierRoadmap";
 import {
   getTierBadgeSolidClass,
   getTierDisplayLabel,
@@ -43,7 +43,7 @@ export default function TierRoadmapModal({
   const currentCode = currentTierName
     ? getTierDisplayLabel(currentTierName)
     : "";
-  const linePct = getTierRoadmapLinePercent(completedCount);
+  const linePct = getTierRoadmapSpinePercent(currentCode, completedCount);
 
   if (!mounted) return null;
 
@@ -156,14 +156,10 @@ export default function TierRoadmapModal({
                             {!isPassed ? (
                               <Lock size={14} className="text-gray-400" aria-hidden />
                             ) : isCurrent ? (
-                              <span className="bg-black text-white text-[9px] font-black px-2 py-1 uppercase tracking-widest rounded-sm animate-pulse">
+                              <span className="bg-black text-white text-[9px] font-black px-2 py-1 uppercase tracking-widest rounded-sm">
                                 NOW
                               </span>
-                            ) : (
-                              <span className="text-[9px] text-gray-400 border border-gray-200 px-2 py-1 uppercase tracking-widest rounded-sm font-bold">
-                                ON
-                              </span>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>
