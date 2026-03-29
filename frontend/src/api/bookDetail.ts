@@ -51,3 +51,15 @@ export async function deleteReview(slug: string, reviewId: number): Promise<void
   // 백엔드 ReviewController: @DeleteMapping("/api/reviews/{reviewId}")
   await apiClient.delete(`/api/reviews/${reviewId}`);
 }
+
+/**
+ * 도서 상세 진입 시 조회 로그를 기록합니다.
+ * 백엔드 POST /api/logs/views
+ * 비로그인 유저는 백엔드에서 무시하므로 항상 호출해도 안전합니다.
+ *
+ * @param bookId 조회한 도서 ID
+ * @param source 유입 경로 (예: "BOOK_DETAIL", "RANKING", "SEARCH", "TODAY_CURATION" 등)
+ */
+export async function logBookView(bookId: number, source: string): Promise<void> {
+  await apiClient.post("/api/logs/views", { bookId, source });
+}

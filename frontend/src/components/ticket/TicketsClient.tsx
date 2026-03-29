@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, ChevronRight } from "lucide-react";
 import { CardGallery, getMockGalleryTickets } from "./CardGallery";
 import { TicketBinder } from "./TicketBinder";
@@ -11,26 +11,42 @@ import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
 import useAuthStore from "@/store/useAuthStore";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteTicket as deleteTicketApi, fetchBinderTickets, fetchGalleryTickets } from "@/api/tickets";
+import { deleteTicket as deleteTicketApi, fetchAllBinderTickets, fetchGalleryTickets, fetchTicketDetail } from "@/api/tickets";
+import {
+  userCompletedBooksQueryKey,
+  userTicketForBookQueryRoot,
+  userTicketsBinderAllQueryKey,
+  userTicketsBinderQueryKeyPrefix,
+  userTicketsGalleryQueryKey,
+} from "@/lib/userQueryKeys";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fetchCompletedBooks } from "@/api/completedBooks";
+import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
 import { EmptyTicketState } from "./EmptyTicketState";
 import { Loader2 } from "lucide-react";
+import useToastStore from "@/store/useToastStore";
 
 export const TicketsClient = () => {
+  const addToast = useToastStore((s) => s.addToast);
   const [view, setView] = useState<"gallery" | "binder">("gallery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<GalleryTicket | null>(null);
-  const binderPage = 0;
-  const binderGenre: string | null = null;
   const { isLoggedIn } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const appliedUrlViewRef = useRef(false);
 
   const issueBookId = useMemo(() => {
     const raw = searchParams.get("issueBookId");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [searchParams]);
+
+  const openTicketId = useMemo(() => {
+    const raw = searchParams.get("ticketId");
     if (!raw) return null;
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : null;
@@ -40,14 +56,14 @@ export const TicketsClient = () => {
     data: galleryTickets = [],
     isLoading: isGalleryLoading,
   } = useQuery({
-    queryKey: ["tickets", "gallery"],
+    queryKey: userTicketsGalleryQueryKey(),
     queryFn: fetchGalleryTickets,
     enabled: isLoggedIn,
   });
 
-  const { data: binderPageData, isLoading: isBinderLoading } = useQuery({
-    queryKey: ["tickets", "binder", binderGenre ?? "ALL", binderPage],
-    queryFn: () => fetchBinderTickets({ page: binderPage, genre: binderGenre }),
+  const { data: binderTickets = [], isLoading: isBinderLoading } = useQuery({
+    queryKey: userTicketsBinderAllQueryKey(),
+    queryFn: () => fetchAllBinderTickets(null),
     enabled: isLoggedIn,
   });
 
@@ -55,7 +71,7 @@ export const TicketsClient = () => {
     data: completedBooks = [],
     isLoading: isCompletedLoading,
   } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000,
@@ -67,10 +83,41 @@ export const TicketsClient = () => {
     router.replace(pathname, { scroll: false });
   }, [issueBookId, pathname, router]);
 
+  useEffect(() => {
+    if (appliedUrlViewRef.current) return;
+    appliedUrlViewRef.current = true;
+    if (searchParams.get("view") === "binder") {
+      setView("binder");
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!openTicketId || !isLoggedIn) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ticket = await fetchTicketDetail(openTicketId);
+        if (cancelled) return;
+        setSelectedTicket(ticket);
+        setView("binder");
+        router.replace(pathname, { scroll: false });
+      } catch {
+        if (!cancelled) {
+          alert("티켓을 불러올 수 없습니다.");
+          router.replace(pathname, { scroll: false });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openTicketId, isLoggedIn, pathname, router]);
+
   const handleTicketAdded = async (_newTicket: GalleryTicket) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
-      queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+      queryClient.invalidateQueries({ queryKey: userTicketsGalleryQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: userTicketsBinderQueryKeyPrefix() }),
+      queryClient.invalidateQueries({ queryKey: userTicketForBookQueryRoot() }),
     ]);
   };
 
@@ -82,20 +129,28 @@ export const TicketsClient = () => {
   const handleDeleteTicket = async (ticketId: number) => {
     try {
       await deleteTicketApi(ticketId);
+      addToast("티켓이 삭제되었습니다.", "success");
     } catch {
-      // 500이어도 DB에서 이미 삭제됐을 수 있으므로 쿼리를 무조건 갱신
+      // 500이어도 DB에서 이미 삭제됐을 수 있어 정보성 안내 후 쿼리를 갱신
+      addToast("삭제 요청 처리 중 오류가 발생했습니다. 목록을 새로고침합니다.", "info");
     }
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["tickets", "gallery"] }),
-      queryClient.invalidateQueries({ queryKey: ["tickets", "binder"] }),
+      queryClient.invalidateQueries({ queryKey: userTicketsGalleryQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: userTicketsBinderQueryKeyPrefix() }),
+      queryClient.invalidateQueries({ queryKey: userTicketForBookQueryRoot() }),
     ]);
   };
 
   const guestTickets = useMemo(() => getMockGalleryTickets(), []);
   const shownGalleryTickets = isLoggedIn ? galleryTickets : guestTickets;
-  const shownBinderTickets = isLoggedIn
-    ? (binderPageData?.content ?? [])
-    : guestTickets;
+  const shownBinderTickets = isLoggedIn ? binderTickets : guestTickets;
+
+  const resolvedDetailTicket = useMemo(() => {
+    if (!selectedTicket) return null;
+    const fromGallery = galleryTickets.find((t) => t.id === selectedTicket.id);
+    const fromBinder = binderTickets.find((t) => t.id === selectedTicket.id);
+    return fromGallery ?? fromBinder ?? selectedTicket;
+  }, [selectedTicket, galleryTickets, binderTickets]);
 
   const isTicketsLoading = isLoggedIn && (isGalleryLoading || isBinderLoading || isCompletedLoading);
   const isEmptyGallery = isLoggedIn && !isTicketsLoading && view === "gallery" && shownGalleryTickets.length === 0;
@@ -199,7 +254,9 @@ export const TicketsClient = () => {
             primaryLabel={emptyVariant === "newUser" ? "첫 완독 도서 검색하기" : "첫 티켓 발급하기"}
             onPrimaryAction={() => {
               if (emptyVariant === "newUser") {
-                router.push("/search?focus=true");
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+                router.push("/?openSearch=1");
               } else {
                 setIsAddModalOpen(true);
               }
@@ -227,10 +284,11 @@ export const TicketsClient = () => {
       />
 
       {/* 3D 플립 티켓 상세조회 (다운로드 지원) 모달 */}
-      <TicketDetailModal 
-        ticket={selectedTicket} 
-        onClose={() => setSelectedTicket(null)} 
+      <TicketDetailModal
+        ticket={resolvedDetailTicket}
+        onClose={() => setSelectedTicket(null)}
         onDelete={isLoggedIn ? handleDeleteTicket : undefined}
+        persistBackTitlePreference={isLoggedIn}
       />
     </div>
   );

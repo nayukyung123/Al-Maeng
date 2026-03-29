@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { createCuration } from "@/api/curation";
 import useDiscoverStore, { type BookLength } from "@/store/useDiscoverStore";
+import useToastStore from "@/store/useToastStore";
 
 const LENGTH_OPTIONS: { id: BookLength; label: string; desc: string }[] = [
   { id: "LIGHT", label: "짧은 분량", desc: "단숨에 읽기 좋은" },
@@ -25,6 +26,7 @@ export default function LengthSelectStep() {
     prevStep,
     setStep,
   } = useDiscoverStore();
+  const addToast = useToastStore((s) => s.addToast);
 
   const { mutate, isPending } = useMutation({
     mutationFn: createCuration,
@@ -34,6 +36,10 @@ export default function LengthSelectStep() {
     },
     onError: (err) => {
       console.error("큐레이션 생성 실패:", err);
+      addToast(
+        "추천을 준비하지 못했어요. 잠시 후 다시 시도해주세요.",
+        "error"
+      );
     },
   });
 

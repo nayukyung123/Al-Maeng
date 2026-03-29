@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchBanners, type BannerResponse } from "@/api/banners";
+import { formatBookContent } from "@/utils/decode";
 
 interface HeroSliderProps {
   /** 배너 클릭 시 해당 배너의 contentId를 부모로 전달 (ContentCuration 동기화 용) */
@@ -47,25 +48,27 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
       }}
       className="cursor-pointer group relative w-full h-[60vh] md:h-[500px] bg-black overflow-hidden"
     >
-      {/* 슬라이드 트랙 */}
+      {/* 슬라이드 트랙 — 슬라이드당 100% 너비(양옆 검정 여백 없음) */}
       <div
-        className="flex w-full h-full transition-transform duration-700 ease-in-out gap-4"
+        className="flex h-full transition-transform duration-700 ease-in-out"
         style={{
-          transform: `translateX(calc(-${currentSlide * 88}% - ${currentSlide * 16}px + 6%))`,
+          width: `${banners.length * 100}%`,
+          transform: `translateX(-${(currentSlide * 100) / banners.length}%)`,
         }}
       >
         {banners.map((slide, index) => (
           <div
             key={slide.contentId}
-            className={`w-[88%] h-full shrink-0 relative text-white flex flex-col justify-end p-8 md:p-16 transition-all duration-700 ${
+            className={`relative flex h-full shrink-0 flex-col justify-end p-8 text-white transition-all duration-700 md:p-16 ${
               currentSlide === index ? "scale-100" : "scale-[0.98]"
             }`}
+            style={{ width: `${100 / banners.length}%` }}
           >
             {slide.bannerPosterUrl ? (
               <img
                 src={slide.bannerPosterUrl}
                 alt={slide.title}
-                className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 mix-blend-luminosity ${
+                className={`absolute inset-0 h-full w-full object-cover object-center transition-all duration-700 mix-blend-luminosity ${
                   currentSlide === index
                     ? "opacity-40"
                     : "opacity-10 brightness-[0.3]"
@@ -93,14 +96,14 @@ export default function HeroSlider({ onBannerClick }: HeroSliderProps) {
                   : "opacity-0 translate-y-4"
               }`}
             >
-              <p className="text-[#0033FF] font-mono text-sm md:text-base mb-4 tracking-widest uppercase">
+              <p className="text-[#0033FF] font-mono text-xs md:text-base mb-3 md:mb-4 tracking-widest uppercase">
                 Curation of the Day
               </p>
-              <h2 className="text-4xl md:text-6xl font-black leading-[1.1] tracking-tight mb-6 break-keep">
-                <span className="italic font-serif font-light">{slide.title}</span>,
+              <h2 className="text-2xl sm:text-4xl md:text-6xl font-black leading-[1.1] tracking-tight mb-4 md:mb-6 break-keep">
+                <span className="italic font-serif font-light">{formatBookContent(slide.title)}</span>,
                 <br />이 작품은 어떠신가요?
               </h2>
-              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest group-hover:text-[#0033FF] transition-colors">
+              <div className="flex items-center gap-2 text-xs md:text-sm font-bold uppercase tracking-widest group-hover:text-[#0033FF] transition-colors">
                 Discover <ArrowRight size={16} aria-hidden="true" />
               </div>
             </div>

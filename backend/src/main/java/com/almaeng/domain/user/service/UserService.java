@@ -3,10 +3,13 @@ package com.almaeng.domain.user.service;
 import com.almaeng.domain.auth.service.AuthService;
 import com.almaeng.domain.genre.entity.Genre;
 import com.almaeng.domain.genre.repository.GenreRepository;
+import com.almaeng.domain.user.dto.TierInfo;
 import com.almaeng.domain.user.dto.UserProfileResponse;
 import com.almaeng.domain.user.dto.UserProfileUpdateRequest;
+import com.almaeng.domain.user.entity.Tier;
 import com.almaeng.domain.user.entity.User;
 import com.almaeng.domain.user.entity.UserGenre;
+import com.almaeng.domain.user.repository.TierRepository;
 import com.almaeng.domain.user.repository.UserGenreRepository;
 import com.almaeng.domain.user.repository.UserRepository;
 import com.almaeng.global.error.ApiException;
@@ -16,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -28,6 +32,7 @@ public class UserService {
     private final UserGenreRepository userGenreRepository;
     private final GenreRepository genreRepository;
     private final AuthService authService;
+    private final TierRepository tierRepository;
 
     // 프로필 조회
     @Transactional(readOnly = true)
@@ -39,12 +44,31 @@ public class UserService {
                 .map(userGenre -> userGenre.getGenre().getId())
                 .toList();
 
+        Integer storedCount = user.getCompletedCount();
+        int completedCount = storedCount != null ? storedCount : 0;
+        int exp = completedCount; // 경험치 = 완독 권수 (요구사항에 맞게 조정 가능)
+
+        Tier currentTier = user.getTier();
+        Integer nextMinExp = tierRepository.findFirstByMinExpGreaterThanOrderByMinExpAsc(exp)
+                .map(Tier::getMinExp)
+                .orElse(null);
+
+        TierInfo tierInfo = new TierInfo(
+                currentTier != null ? currentTier.getId() : null,
+                currentTier != null ? currentTier.getTierName() : null,
+                currentTier != null ? currentTier.getMinExp() : 0,
+                nextMinExp,
+                exp
+        );
+
         return new UserProfileResponse(
                 user.getNickname(),
                 user.getProfileImageUrl(),
                 user.getBirthYear(),
                 user.getGender(),
-                tasteData
+                tasteData,
+                completedCount,
+                tierInfo
         );
     }
 
@@ -105,6 +129,9 @@ public class UserService {
         } catch (Exception e) {
             log.warn("invalidateSession failed while deleting user. userId={}, accessTokenPresent={}", userId, accessToken != null, e);
         }
-        userRepository.delete(user);
+        String anonymousNickname = "DELETED_" + user.getId() + "_" + UUID.randomUUID().toString().substring(0, 8);
+        user.deactivate(anonymousNickname);
+
+        userRepository.save(user); // save()를 지시하여 연동 계정 삭제 및 닉네임/is_deleted 업데이트 유도
     }
 }

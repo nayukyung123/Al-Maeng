@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import useDiscoverStore from "@/store/useDiscoverStore";
 import ContentSearchStep from "./ContentSearchStep";
 import LengthSelectStep from "./LengthSelectStep";
@@ -18,9 +18,18 @@ import CurationResultStep, {
  * - step 3 : CurationResultStep (추천 결과 렌더링)
  *
  * 단계 간 공유 상태는 모두 useDiscoverStore(Zustand)에서 관리
+ *
+ * /discover 를 벗어날 때 스토어를 초기화한다. Zustand가 전역이라
+ * 다른 탭으로 갔다 오면 이전 step·결과가 남는 문제를 막기 위함.
  */
 export default function TasteDiscoveryFlow() {
   const step = useDiscoverStore((s) => s.step);
+
+  useEffect(() => {
+    return () => {
+      useDiscoverStore.getState().reset();
+    };
+  }, []);
 
   return (
     <div className="min-h-[80vh] flex flex-col pt-12 md:pt-20 pb-24 px-6 md:px-12 max-w-4xl mx-auto animate-in fade-in duration-500 relative">

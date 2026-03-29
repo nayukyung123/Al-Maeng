@@ -1,6 +1,5 @@
 package com.almaeng.domain.user.entity;
 
-import org.hibernate.annotations.ColumnTransformer;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
 import jakarta.persistence.*;
@@ -9,7 +8,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -71,9 +69,6 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SocialAccount> socialAccounts = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<UserTasteReportGenre> tasteReports = new ArrayList<>();
-
     @Builder
     public User(Tier tier, String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.tier = tier;
@@ -84,6 +79,13 @@ public class User {
         this.completedCount = 0;
         this.preferenceCount = 0;
         this.isDeleted = false;
+    }
+
+    // 회원 탈퇴를 위한 메타데이터 익명화 및 소셜 연동 해제
+    public void deactivate(String anonymousNickname) {
+        this.nickname = anonymousNickname;
+        this.socialAccounts.clear();
+        this.isDeleted = true;
     }
 
     // 처음 소셜 로그인 시 NOT NULL을 피하기 위한 임시 유저 생성기
@@ -98,9 +100,21 @@ public class User {
     // 온보딩 완료를 위한 비즈니스 메서드
     public void completeOnboarding(String nickname, String profileImageUrl, Integer birthYear, Gender gender) {
         this.nickname = nickname;
-        this.profileImageUrl = profileImageUrl;
+        this.profileImageUrl = normalizeProfileImageUrlForStorage(profileImageUrl);
         this.birthYear = birthYear;
         this.gender = gender;
+    }
+
+    // 가입한 사용자 중 프로필 이미지가 더미데이터로 들어간 경우 기본 이미지로 보이도록 하는 메서드
+    private static String normalizeProfileImageUrlForStorage(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        String trimmed = url.trim();
+        if ("https://example.com/dummy.jpg".equals(trimmed)) {
+            return null;
+        }
+        return url;
     }
 
     // 프로필 수정을 위한 메서드
@@ -110,7 +124,17 @@ public class User {
         if (gender != null) this.gender = gender;
         // 프론트가 빈 문자열("")을 보내면 null로 처리해 이미지 삭제
         if (profileImageUrl != null) {
-            this.profileImageUrl = profileImageUrl.isBlank() ? null : profileImageUrl;
+            this.profileImageUrl = normalizeProfileImageUrlForStorage(profileImageUrl);
+        }
+    }
+
+    // 완독 권수 및 티어 동기화 메서드
+    public void updateTierAndCount(Tier newTier, Integer newCompletedCount) {
+        if (newTier != null) {
+            this.tier = newTier;
+        }
+        if (newCompletedCount != null) {
+            this.completedCount = newCompletedCount;
         }
     }
 }

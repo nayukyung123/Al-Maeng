@@ -1,9 +1,10 @@
-import axios from "axios";
 import apiClient from "@/lib/axios";
+import { guessImageContentTypeFromFile, putPresignedObject } from "@/lib/s3PresignedPut";
 import type { ApiResponse } from "@/types/api";
 
 export interface SignupRequest {
-  profileImageUrl: string;
+  /** 프로필 사진을 올린 경우에만 전달 */
+  profileImageUrl?: string;
   nickname: string;
   birthYear: number;
   gender: "MALE" | "FEMALE";
@@ -53,27 +54,30 @@ export async function loginWithProvider(provider: string, accessToken: string) {
   return response.data.data;
 }
 
-export async function signup(data: SignupRequest) {
-  const response = await apiClient.post<ApiResponse<SignupResponse>>("/api/auth/signup", data);
-  return response.data.data;
-}
-
-export async function getPresignedUrl(userId: number, fileExtension: string) {
-  const response = await apiClient.post<ApiResponse<{ presignedUrl: string; imageUrl: string }>>(
-    "/api/tickets/image-url",
-    { fileExtension },
-    { params: { userId } }
-  );
-  return response.data.data;
-}
-
-export async function uploadImageToS3(presignedUrl: string, file: File) {
-  // 기본 axios 객체를 사용하여 S3에 직접 업로드 (CORS 및 불필요한 헤더 방지)
-  await axios.put(presignedUrl, file, {
-    headers: {
-      "Content-Type": file.type,
-    },
+export async function signup(data: SignupRequest, token?: string) {
+  const response = await apiClient.post<ApiResponse<SignupResponse>>("/api/auth/signup", data, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
+  return response.data.data;
+}
+
+export async function getPresignedUrl(userId: number, fileExtension: string, token?: string) {
+  const response = await apiClient.post<
+    ApiResponse<{ presignedUrl: string; imageUrl: string; contentType?: string }>
+  >("/api/tickets/image-url", { fileExtension }, { 
+    params: { userId },
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return response.data.data;
+}
+
+export async function uploadImageToS3(
+  presignedUrl: string,
+  file: File,
+  contentType: string | undefined
+) {
+  const ct = contentType?.trim() || guessImageContentTypeFromFile(file);
+  await putPresignedObject(presignedUrl, file, ct);
 }
 
 export async function checkNickname(nickname: string) {

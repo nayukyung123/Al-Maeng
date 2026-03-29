@@ -82,7 +82,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @Query(value = "SELECT b.* FROM books b " +
             "JOIN book_similarity s ON b.id = s.similar_book_id " +
             "WHERE s.book_id = :bookId " +
-            "ORDER BY s.similarity_score DESC LIMIT 6", nativeQuery = true)
+            "ORDER BY s.similarity_score DESC LIMIT 5", nativeQuery = true)
     List<Book> findSimilarBooks(@Param("bookId") Long bookId);
 
     // [오늘의 추천] 신규 유저 또는 데이터 갱신 지연 시 폴백용으로 쓸 '전체 인기 도서 TOP 50'

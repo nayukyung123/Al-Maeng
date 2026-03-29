@@ -6,6 +6,8 @@ export interface CardStyle {
   textColor: string;
   font: 'serif' | 'sans' | 'mono';
   orientation?: 'horizontal' | 'vertical';
+  /** false면 세로형 뒷면 제목 오버레이 숨김. 미정(구티켓)은 제목 표시로 간주 */
+  showBackTitle?: boolean;
 }
 
 export interface GalleryTicket {

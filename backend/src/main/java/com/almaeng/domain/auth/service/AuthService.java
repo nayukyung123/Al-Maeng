@@ -63,9 +63,10 @@ public class AuthService {
     }
 
     // 로그인 처리
-    // Registered: TRUE
+    // 온보딩 완료 여부(birthYear 존재 여부)를 기준으로 정식 가입 여부 판단
     private LoginResponse handleExistingUser(User user) {
-        return createLoginResponse(user, true);
+        boolean isRegistered = user.getBirthYear() != null;
+        return createLoginResponse(user, isRegistered);
     }
 
     // 회원가입, 초기 세팅

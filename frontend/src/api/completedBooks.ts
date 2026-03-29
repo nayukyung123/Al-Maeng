@@ -11,6 +11,8 @@ export async function addCompletedBook(body: AddCompletedBookRequest): Promise<v
   await apiClient.post<ApiResponse<void>>("/api/completed-books", body);
 }
 
-export async function deleteCompletedBook(bookId: number): Promise<void> {
-  await apiClient.delete<ApiResponse<void>>(`/api/completed-books/${bookId}`);
+export async function deleteCompletedBook(bookId: number, source: string = "none"): Promise<void> {
+  await apiClient.delete<ApiResponse<void>>(`/api/completed-books/${bookId}`, {
+    data: { source },
+  });
 }

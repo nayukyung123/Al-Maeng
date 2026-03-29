@@ -1,9 +1,20 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
+import { motion, AnimatePresence } from "framer-motion";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Star, ExternalLink, Heart, BookmarkPlus } from "lucide-react";
+import {
+  Star,
+  ExternalLink,
+  Heart,
+  BookmarkPlus,
+  BookmarkMinus,
+  Loader2,
+  Ticket,
+  TicketPlus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import type { BookDetail } from "@/types/book";
@@ -15,22 +26,67 @@ import {
   fetchCompletedBooks,
 } from "@/api/completedBooks";
 import { useWishlistStatus, useWishlistMutation } from "@/hooks/useWishlist";
+import { formatBookContent } from "@/utils/decode";
+import { findTicketForBook, ticketForBookQueryKey } from "@/api/tickets";
+import type { UserProfileResponse } from "@/api/mypage";
+import useToastStore from "@/store/useToastStore";
+import TierPromotionModal from "./TierPromotionModal";
+import {
+  userCompletedBooksQueryKey,
+  userProfileQueryKey,
+} from "@/lib/userQueryKeys";
+
+type AddCompletedContext = {
+  previous: CompletedBook[];
+  previousTierId: number | null;
+};
+
+/** 완독 API 에러 코드 → 사용자 노출 문구 (백엔드 message와 무관하게 프론트에서 통일) */
+const COMPLETED_BOOK_ERROR_USER_MESSAGE: Partial<Record<string, string>> = {
+  T001: "이미 완독 리스트에 추가된 도서입니다.",
+  T002: "완독 리스트에 존재하지 않는 도서입니다.",
+  T006: "먼저 티켓을 삭제해야 완독 리스트에서 제거할 수 있습니다.",
+  ALREADY_COMPLETED_BOOK: "이미 완독 리스트에 추가된 도서입니다.",
+  COMPLETED_BOOK_NOT_FOUND: "완독 리스트에 존재하지 않는 도서입니다.",
+  COMPLETED_BOOK_HAS_TICKET: "먼저 티켓을 삭제해야 완독 리스트에서 제거할 수 있습니다.",
+};
 
 interface BookDetailHeroProps {
   book: BookDetail;
+  /** 도서 상세 진입 시 유입 경로 — 찜/완독 로그에도 동일하게 사용 */
+  source: string;
 }
 
-export default function BookDetailHero({ book }: BookDetailHeroProps) {
+export default function BookDetailHero({ book, source }: BookDetailHeroProps) {
   const router = useRouter();
   const { isLoggedIn } = useAuthStore();
-  const queryClient = useQueryClient();
+  const addToast = useToastStore((s) => s.addToast);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showDescriptionToggle, setShowDescriptionToggle] = useState(false);
+  const [tierPromotionOpen, setTierPromotionOpen] = useState(false);
+  const [promotionTierName, setPromotionTierName] = useState("");
+  const [promotionCompletedCount, setPromotionCompletedCount] = useState(0);
+  const descriptionRef = useRef<HTMLDivElement>(null);
 
-  // 찜하기 상태 및 뮤테이션
+  // 설명글이 3줄을 초과하는지 체크 (더보기 버튼 표시 여부 결정)
+  useEffect(() => {
+    if (descriptionRef.current) {
+      const { scrollHeight, clientHeight } = descriptionRef.current;
+      if (scrollHeight > clientHeight) {
+        setShowDescriptionToggle(true);
+      }
+    }
+  }, [book.description]);
+  const queryClient = useQueryClient();
+  const completedBooksQueryKey = userCompletedBooksQueryKey();
+  const profileQueryKey = userProfileQueryKey();
+
+  // 찜하기 상태 및 뮤테이션 (진입 source 그대로 전달)
   const { data: isWishlisted = false } = useWishlistStatus(book.id, isLoggedIn);
-  const { addWishlist, removeWishlist } = useWishlistMutation(book.id);
+  const { addWishlist, removeWishlist } = useWishlistMutation(book.id, source);
 
   const { data: completedBooks = [] } = useQuery<CompletedBook[]>({
-    queryKey: ["completed-books"],
+    queryKey: completedBooksQueryKey,
     queryFn: fetchCompletedBooks,
     enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000,
@@ -40,36 +96,49 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
 
   const isCompleted = completedBooks.some((completedBook) => completedBook.bookId === book.id);
 
+  const {
+    data: ticketForBook,
+    isPending: isTicketLookupPending,
+  } = useQuery({
+    queryKey: ticketForBookQueryKey(book.id),
+    queryFn: () => findTicketForBook(book.id),
+    enabled: isLoggedIn && isCompleted,
+    staleTime: 2 * 60 * 1000,
+  });
+
   const handleCompletedError = (error: unknown) => {
     const axiosError = error as AxiosError<ApiResponse<unknown>>;
-    const code = axiosError.response?.data?.code;
+    const data = axiosError.response?.data;
+    const code = data?.code;
+    const serverMessage = data?.message?.trim();
 
-    if (code === "COMPLETED_BOOK_HAS_TICKET") {
-      alert("티켓이 발행된 도서는 완독 리스트에서 제거할 수 없습니다.");
+    const completedBookCopy = code ? COMPLETED_BOOK_ERROR_USER_MESSAGE[code] : undefined;
+    if (completedBookCopy) {
+      addToast(completedBookCopy, "info");
       return;
     }
-    if (code === "ALREADY_COMPLETED_BOOK") {
-      alert("이미 완독 리스트에 추가된 도서입니다.");
-      return;
-    }
-    if (code === "COMPLETED_BOOK_NOT_FOUND") {
-      alert("이미 완독 리스트에서 제거된 도서입니다.");
-      return;
-    }
-    alert("완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+
+    addToast(
+      serverMessage ||
+        "완독 리스트 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      "error"
+    );
   };
 
   const addCompletedMutation = useMutation({
     mutationFn: () =>
       addCompletedBook({
         bookId: book.id,
-        readDate: new Date().toISOString().slice(0, 10),
+        source,
       }),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["completed-books"] });
-      const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
+    onMutate: async (): Promise<AddCompletedContext> => {
+      const previousTierId =
+        queryClient.getQueryData<UserProfileResponse>(profileQueryKey)?.tier?.id ?? null;
+      await queryClient.cancelQueries({ queryKey: completedBooksQueryKey });
+      const previous =
+        queryClient.getQueryData<CompletedBook[]>(completedBooksQueryKey) ?? [];
 
-      queryClient.setQueryData<CompletedBook[]>(["completed-books"], (old = []) => {
+      queryClient.setQueryData<CompletedBook[]>(completedBooksQueryKey, (old = []) => {
         if (old.some((item) => item.bookId === book.id)) return old;
         return [
           {
@@ -87,27 +156,40 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
         ];
       });
 
-      return { previous };
+      return { previous, previousTierId };
+    },
+    onSuccess: async (_data, _variables, context) => {
+      const oldTierId = context?.previousTierId ?? null;
+      await new Promise((r) => setTimeout(r, 500));
+      await queryClient.refetchQueries({ queryKey: profileQueryKey });
+      const newProfile = queryClient.getQueryData<UserProfileResponse>(profileQueryKey);
+      const newTierId = newProfile?.tier?.id ?? null;
+      if (oldTierId != null && newTierId != null && newTierId > oldTierId) {
+        setPromotionTierName(newProfile?.tier?.tierName ?? "");
+        setPromotionCompletedCount(newProfile?.completedCount ?? 0);
+        setTierPromotionOpen(true);
+      }
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["completed-books"], context.previous);
+        queryClient.setQueryData(completedBooksQueryKey, context.previous);
       }
       handleCompletedError(error);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+      queryClient.invalidateQueries({ queryKey: completedBooksQueryKey });
+      queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
 
   const deleteCompletedMutation = useMutation({
-    mutationFn: () => deleteCompletedBook(book.id),
+    mutationFn: () => deleteCompletedBook(book.id, source),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ["completed-books"] });
-      const previous = queryClient.getQueryData<CompletedBook[]>(["completed-books"]) ?? [];
+      await queryClient.cancelQueries({ queryKey: completedBooksQueryKey });
+      const previous = queryClient.getQueryData<CompletedBook[]>(completedBooksQueryKey) ?? [];
 
       queryClient.setQueryData<CompletedBook[]>(
-        ["completed-books"],
+        completedBooksQueryKey,
         (old = []) => old.filter((item) => item.bookId !== book.id)
       );
 
@@ -115,12 +197,14 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
     },
     onError: (error, _variables, context) => {
       if (context?.previous) {
-        queryClient.setQueryData(["completed-books"], context.previous);
+        queryClient.setQueryData(completedBooksQueryKey, context.previous);
       }
       handleCompletedError(error);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["completed-books"] });
+      queryClient.invalidateQueries({ queryKey: completedBooksQueryKey });
+      queryClient.invalidateQueries({ queryKey: profileQueryKey });
+      queryClient.invalidateQueries({ queryKey: ticketForBookQueryKey(book.id) });
     },
   });
 
@@ -166,22 +250,42 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
           )}
           <div className="flex items-center gap-1">
             <Star size={12} fill="#111" className="text-black" />
-            <span className="text-xs font-black">{book.averageRating.toFixed(1)}</span>
+            <span className="text-xs font-black">
+              {Number(book.averageRating ?? 0).toFixed(1)}
+            </span>
           </div>
         </div>
 
         {/* 제목 · 저자 */}
         <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-3 leading-[1.1] break-keep">
-          {book.title}
+          {formatBookContent(book.title)}
         </h2>
         <p className="text-lg text-gray-400 font-serif italic mb-6">
-          {book.author}
+          {formatBookContent(book.author)}
         </p>
 
-        {/* 책 소개 */}
-        <div className="text-sm leading-relaxed text-gray-600 mb-8 max-w-xl break-keep font-medium">
-          {book.description}
-        </div>
+        {/* 상세 설명 (3줄 요약 + 더보기 토글) */}
+        {book.description && (
+          <div className="mb-8 max-w-xl">
+            <div
+              ref={descriptionRef}
+              className={cn(
+                "text-sm leading-relaxed text-gray-600 break-keep font-medium mb-1 transition-all duration-300",
+                !isExpanded && "line-clamp-3"
+              )}
+            >
+              {formatBookContent(book.description)}
+            </div>
+            {showDescriptionToggle && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs font-bold text-gray-400 hover:text-black transition-colors uppercase tracking-wider cursor-pointer"
+              >
+                {isExpanded ? "[접기]" : "[더보기]"}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* 구매 링크 */}
         <div className="flex flex-wrap gap-2 mb-6">
@@ -189,7 +293,7 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
             href={book.purchaseUrl ?? "https://www.aladin.co.kr"}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-3 border border-black bg-white text-[11px] font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-3 group shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
+            className="px-6 py-3 border border-black bg-white text-[11px] font-black uppercase tracking-widest hover:bg-gray-50 transition-all flex items-center gap-3 group shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] cursor-pointer"
           >
             <img
               src="https://www.aladin.co.kr/favicon.ico"
@@ -217,38 +321,126 @@ export default function BookDetailHero({ book }: BookDetailHeroProps) {
             }
             aria-label={isWishlisted ? "찜 해제" : "찜하기"}
             className={cn(
-              "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all",
+              "w-14 h-14 border border-gray-200 flex items-center justify-center transition-all relative cursor-pointer",
               isWishlisted
                 ? "bg-red-50 border-red-200 text-red-500"
                 : "hover:border-black"
             )}
           >
-            <Heart size={24} fill={isWishlisted ? "currentColor" : "none"} />
+            <motion.div
+              key={isWishlisted ? "active" : "inactive"}
+              initial={{ scale: 1 }}
+              animate={isWishlisted ? { 
+                scale: [1, 1.5, 1],
+                rotate: [0, 10, -10, 0] 
+              } : { scale: 1 }}
+              transition={{ duration: 0.4, ease: "backOut" }}
+            >
+              <Heart size={24} fill={isWishlisted ? "currentColor" : "none"} />
+            </motion.div>
+            
+            {/* 뾰로롱 스파클링 효과 (찜했을 때만) */}
+            <AnimatePresence>
+              {isWishlisted && (
+                <>
+                  {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+                    <motion.div
+                      key={angle}
+                      initial={{ opacity: 1, scale: 0, x: 0, y: 0 }}
+                      animate={{ 
+                        opacity: 0, 
+                        scale: 1, 
+                        x: Math.cos((angle * Math.PI) / 180) * 20,
+                        y: Math.sin((angle * Math.PI) / 180) * 20 
+                      }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="absolute w-1 h-1 bg-red-400 rounded-full"
+                    />
+                  ))}
+                </>
+              )}
+            </AnimatePresence>
           </button>
 
-          {/* 완독 리스트에 추가 */}
-          <button
-            onClick={() =>
-              requireAuth(() => {
-                if (isCompleted) {
-                  deleteCompletedMutation.mutate();
-                  return;
-                }
-                addCompletedMutation.mutate();
-              })
-            }
-            className={cn(
-              "flex-1 text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg",
-              isCompleted
-                ? "bg-gray-700 hover:bg-gray-800 shadow-gray-700/20"
-                : "bg-[#4D41FF] hover:bg-[#3D31EF] shadow-[#4D41FF]/20"
-            )}
-          >
-            <BookmarkPlus size={20} />
-            {isCompleted ? "완독 리스트에서 제거" : "완독 리스트에 추가"}
-          </button>
+          {/* 완독: 미추가 시 기존 단일 버튼 / 추가 후 제거 + 티켓 */}
+          {!isCompleted ? (
+            <button
+              onClick={() => requireAuth(() => addCompletedMutation.mutate())}
+              disabled={addCompletedMutation.isPending}
+              className={cn(
+                "flex-1 min-h-14 rounded-none text-white font-black text-sm uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-lg cursor-pointer",
+                "bg-[#4D41FF] hover:bg-[#3D31EF] shadow-[#4D41FF]/20",
+                addCompletedMutation.isPending && "opacity-70 pointer-events-none"
+              )}
+            >
+              <BookmarkPlus size={20} />
+              완독 리스트에 추가
+            </button>
+          ) : (
+            <div className="flex flex-1 min-w-0 min-h-14 flex-row gap-3 sm:gap-4">
+              <button
+                type="button"
+                onClick={() => requireAuth(() => deleteCompletedMutation.mutate())}
+                disabled={deleteCompletedMutation.isPending}
+                className={cn(
+                  "flex-1 min-w-0 rounded-none border border-gray-300 bg-gray-700 px-3 text-white font-black text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.15em]",
+                  "flex items-center justify-center gap-2 sm:gap-2.5 shadow-md transition-all cursor-pointer hover:bg-gray-800 hover:border-gray-400",
+                  deleteCompletedMutation.isPending && "opacity-70 pointer-events-none"
+                )}
+              >
+                <BookmarkMinus size={18} className="shrink-0 opacity-90" aria-hidden />
+                <span className="text-center leading-tight">완독 도서 제거</span>
+              </button>
+              {isTicketLookupPending ? (
+                <div
+                  className="flex-1 min-w-0 rounded-none border border-gray-200 bg-white px-3 shadow-md flex items-center justify-center text-gray-400"
+                  aria-busy
+                >
+                  <Loader2 className="animate-spin shrink-0" size={22} aria-label="티켓 여부 확인 중" />
+                </div>
+              ) : ticketForBook ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    requireAuth(() =>
+                      router.push(`/tickets?view=binder&ticketId=${ticketForBook.id}`)
+                    )
+                  }
+                  className={cn(
+                    "flex-1 min-w-0 rounded-none border border-black/15 bg-white px-3 text-black font-black text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.15em]",
+                    "flex items-center justify-center gap-2 sm:gap-2.5 shadow-md transition-all cursor-pointer hover:bg-stone-50 hover:border-black/25"
+                  )}
+                >
+                  <Ticket size={18} className="shrink-0" aria-hidden />
+                  <span className="text-center leading-tight">티켓 보러가기</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() =>
+                    requireAuth(() => router.push(`/tickets?issueBookId=${book.id}`))
+                  }
+                  className={cn(
+                    "flex-1 min-w-0 rounded-none border border-[#3D31EF] bg-[#4D41FF] px-3 text-white font-black text-xs sm:text-sm uppercase tracking-[0.12em] sm:tracking-[0.15em]",
+                    "flex items-center justify-center gap-2 sm:gap-2.5 shadow-md shadow-[#4D41FF]/25 transition-all cursor-pointer hover:bg-[#3D31EF]"
+                  )}
+                >
+                  <TicketPlus size={18} className="shrink-0 opacity-95" aria-hidden />
+                  <span className="text-center leading-tight">티켓 생성</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      <TierPromotionModal
+        open={tierPromotionOpen}
+        tierName={promotionTierName}
+        completedCount={promotionCompletedCount}
+        onClose={() => setTierPromotionOpen(false)}
+      />
     </section>
   );
 }

@@ -1,6 +1,7 @@
 package com.almaeng.domain.completedbook.controller;
 
 import com.almaeng.domain.completedbook.dto.CompletedBookAddRequest;
+import com.almaeng.domain.completedbook.dto.CompletedBookDeleteRequest;
 import com.almaeng.domain.completedbook.dto.CompletedBookResponse;
 import com.almaeng.domain.completedbook.service.CompletedBookService;
 import com.almaeng.global.common.ApiResponse;
@@ -43,8 +44,9 @@ public class CompletedBookController {
     // 완독 도서 삭제
     @DeleteMapping("/{bookId}")
     public ApiResponse<Void> deleteCompletedBook(@AuthenticationPrincipal Long userId,
-                                                 @PathVariable Long bookId) {
-        completedBookService.deleteCompletedBook(userId, bookId);
+                                                 @PathVariable Long bookId,
+                                                 @Valid @RequestBody CompletedBookDeleteRequest request) {
+        completedBookService.deleteCompletedBook(userId, bookId, request.source());
 
         return ApiResponse.success();
     }
