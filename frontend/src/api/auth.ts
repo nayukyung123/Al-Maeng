@@ -54,15 +54,20 @@ export async function loginWithProvider(provider: string, accessToken: string) {
   return response.data.data;
 }
 
-export async function signup(data: SignupRequest) {
-  const response = await apiClient.post<ApiResponse<SignupResponse>>("/api/auth/signup", data);
+export async function signup(data: SignupRequest, token?: string) {
+  const response = await apiClient.post<ApiResponse<SignupResponse>>("/api/auth/signup", data, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
   return response.data.data;
 }
 
-export async function getPresignedUrl(userId: number, fileExtension: string) {
+export async function getPresignedUrl(userId: number, fileExtension: string, token?: string) {
   const response = await apiClient.post<
     ApiResponse<{ presignedUrl: string; imageUrl: string; contentType?: string }>
-  >("/api/tickets/image-url", { fileExtension }, { params: { userId } });
+  >("/api/tickets/image-url", { fileExtension }, { 
+    params: { userId },
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
   return response.data.data;
 }
 
