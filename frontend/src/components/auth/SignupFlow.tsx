@@ -37,6 +37,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   const { user, login } = useAuthStore();
   
   const [step, setStep] = useState(1);
+  const [tempToken, setTempToken] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nickname: "",
     birthYear: "",
@@ -67,9 +68,14 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     mutationFn: async () => {
       let profileImageUrl: string | undefined;
 
-      if (formData.profileImageFile && user?.id) {
+      // [REFAC] localStorage 대신 메모리에 보관된 임시 토큰을 사용합니다.
+      const currentToken = tempToken;
+      if (!currentToken) throw new Error("Authentication token is missing");
+      const currentUserId = parseUserIdFromToken(currentToken);
+
+      if (formData.profileImageFile && currentUserId) {
         const ext = getFileExtensionForPresigned(formData.profileImageFile);
-        const uploadInfo = await getPresignedUrl(user.id, `.${ext}`);
+        const uploadInfo = await getPresignedUrl(currentUserId, `.${ext}`, currentToken);
 
         if (uploadInfo?.presignedUrl) {
           await uploadImageToS3(
@@ -92,8 +98,8 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
       };
 
       // 3. 회원가입 API 호출 
-      // 현재 apiClient 인터셉터에 의해 localStorage의 임시 토큰이 Authorization으로 함께 넘어갑니다.
-      const res = await signup(requestData);
+      // 임시 토큰을 직접 전송하여 Authorization 헤더를 명시적으로 설정합니다.
+      const res = await signup(requestData, currentToken);
       return res;
     },
     onSuccess: (res) => {
@@ -147,11 +153,9 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
       login({ id: userId, email: "", nickname: "" }, data.accessToken, data.refreshToken);
       router.push("/");
     } else {
-      // 신규 회원: 온보딩 단계로 이동 (최종 가입 시 userId 재설정)
-      localStorage.setItem("accessToken", data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken);
-      }
+      // 신규 회원: 온보딩 단계로 이동
+      // [REFAC] localStorage를 오염시키지 않고 컴포넌트 내부 상태(useState)에만 보관합니다.
+      setTempToken(data.accessToken);
       setStep(2);
     }
   };
