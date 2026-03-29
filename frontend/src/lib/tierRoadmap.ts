@@ -1,8 +1,6 @@
 /**
  * DB `tiers.min_exp` 및 V20 마이그레이션과 동일한 티어 로드맵 (완독 권수 기준)
  */
-export const TIER_ROADMAP_MAX_BOOKS = 200;
-
 export const TIER_ROADMAP = [
   { code: "IRON", minBooks: 0 },
   { code: "BRONZE", minBooks: 3 },
@@ -18,8 +16,24 @@ export const TIER_ROADMAP = [
 
 export type TierRoadmapCode = (typeof TIER_ROADMAP)[number]["code"];
 
-/** 타임라인 검은 진행선 높이 비율(%) */
-export function getTierRoadmapLinePercent(completedCount: number): number {
-  if (completedCount <= 0) return 0;
-  return Math.min(100, (completedCount / TIER_ROADMAP_MAX_BOOKS) * 100);
+/**
+ * 로드맵 세로 진행선 높이(%). 티어 행을 동일 높이로 보고 현재 티어 행 중심까지 이어짐.
+ * `currentTierCode`가 비어 있으면 `completedCount`로 달성한 최고 티어를 사용.
+ */
+export function getTierRoadmapSpinePercent(
+  currentTierCode: string,
+  completedCount: number
+): number {
+  const n = TIER_ROADMAP.length;
+  if (n === 0) return 0;
+  let idx = currentTierCode
+    ? TIER_ROADMAP.findIndex((t) => t.code === currentTierCode)
+    : -1;
+  if (idx < 0) {
+    idx = 0;
+    for (let i = 0; i < TIER_ROADMAP.length; i++) {
+      if (completedCount >= TIER_ROADMAP[i].minBooks) idx = i;
+    }
+  }
+  return ((idx + 0.5) / n) * 100;
 }
