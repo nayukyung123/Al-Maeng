@@ -87,7 +87,7 @@ export default function ContentCuration({ selectedContentId }: ContentCurationPr
 
       {/* 로딩 스켈레톤 */}
       {isLoading && (
-        <div className="flex flex-col md:flex-row gap-12 md:gap-24 animate-pulse">
+        <div className="flex flex-col md:flex-row md:items-start gap-12 md:gap-24 animate-pulse">
           <div className="w-full md:w-1/3 shrink-0">
             <div className="aspect-[2/3] bg-gray-100 rounded-sm" />
           </div>
@@ -111,7 +111,7 @@ export default function ContentCuration({ selectedContentId }: ContentCurationPr
 
       {/* 데이터 정상 표시 */}
       {!isLoading && current && (
-        <div className="flex flex-col md:flex-row gap-12 md:gap-24">
+        <div className="flex flex-col md:flex-row md:items-start gap-12 md:gap-24">
           {/* 영상 포스터 + 네비게이션 */}
           <div className="w-full md:w-1/3 shrink-0 flex items-center gap-4">
             <button
