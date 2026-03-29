@@ -25,7 +25,6 @@ export function getTierRoadmapSpinePercent(
   completedCount: number
 ): number {
   const n = TIER_ROADMAP.length;
-  if (n === 0) return 0;
   let idx = currentTierCode
     ? TIER_ROADMAP.findIndex((t) => t.code === currentTierCode)
     : -1;
