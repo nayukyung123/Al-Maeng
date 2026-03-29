@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, ChevronRight } from "lucide-react";
 import { CardGallery, getMockGalleryTickets } from "./CardGallery";
 import { TicketBinder } from "./TicketBinder";
@@ -31,6 +31,7 @@ export const TicketsClient = () => {
   const [view, setView] = useState<"gallery" | "binder">("gallery");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<GalleryTicket | null>(null);
+  const [binderFocusTicketId, setBinderFocusTicketId] = useState<number | null>(null);
   const { isLoggedIn } = useAuthStore();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -113,12 +114,18 @@ export const TicketsClient = () => {
     };
   }, [openTicketId, isLoggedIn, pathname, router]);
 
-  const handleTicketAdded = async (_newTicket: GalleryTicket) => {
+  const clearBinderFocus = useCallback(() => {
+    setBinderFocusTicketId(null);
+  }, []);
+
+  const handleTicketAdded = async (newTicket: GalleryTicket) => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: userTicketsGalleryQueryKey() }),
-      queryClient.invalidateQueries({ queryKey: userTicketsBinderQueryKeyPrefix() }),
+      queryClient.refetchQueries({ queryKey: userTicketsGalleryQueryKey() }),
+      queryClient.refetchQueries({ queryKey: userTicketsBinderAllQueryKey() }),
       queryClient.invalidateQueries({ queryKey: userTicketForBookQueryRoot() }),
     ]);
+    setView("binder");
+    setBinderFocusTicketId(newTicket.id);
   };
 
   const handleModalClose = () => {
@@ -245,6 +252,8 @@ export const TicketsClient = () => {
               isLoadingExternal={isLoggedIn && isBinderLoading}
               onOpenBook={setSelectedTicket}
               onAddTicket={() => setIsAddModalOpen(true)}
+              focusTicketId={isLoggedIn ? binderFocusTicketId : null}
+              onFocusTicketApplied={clearBinderFocus}
             />
           ))}
 
