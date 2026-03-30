@@ -34,11 +34,11 @@ spring:
     baseline-on-migrate: true
     clean-disabled: true
 
-# Mattermost Webhook
+# Mattermost Webhook (URL은 .env 등의 MATTERMOST_WEBHOOK_URL)
 notification:
   mattermost:
     enabled: true
-    webhook-url: https://meeting.ssafy.com/hooks/4ahsa54oh3geiboxzc9yazwh8o
+    webhook-url: ${MATTERMOST_WEBHOOK_URL:}
     channel:
     pretext: "@here 🚨 서버 에러 발생 🚨"
     color: "#ff5d52"
