@@ -1,6 +1,7 @@
 package com.almaeng.domain.wishlist.controller;
 
 import com.almaeng.domain.wishlist.dto.WishlistAddRequest;
+import com.almaeng.domain.wishlist.dto.WishlistDeleteRequest;
 import com.almaeng.domain.wishlist.dto.WishlistResponse;
 import com.almaeng.domain.wishlist.service.WishlistService;
 import com.almaeng.global.common.ApiResponse;
@@ -40,9 +41,19 @@ public class WishlistController {
     @DeleteMapping("/{bookId}")
     public ApiResponse<Void> deleteWishlist(
             @AuthenticationPrincipal Long userId,
+            @PathVariable Long bookId,
+            @Valid @RequestBody WishlistDeleteRequest request
+    ) {
+        wishlistService.deleteWishlist(userId, bookId, request.getSource());
+        return ApiResponse.success();
+    }
+
+    @GetMapping("/{bookId}/status")
+    public ApiResponse<Boolean> checkWishlistStatus(
+            @AuthenticationPrincipal Long userId,
             @PathVariable Long bookId
     ) {
-        wishlistService.deleteWishlist(userId, bookId);
-        return ApiResponse.success();
+        boolean isWished = wishlistService.isWished(userId, bookId);
+        return ApiResponse.success(isWished);
     }
 }

@@ -63,9 +63,10 @@ public class AuthService {
     }
 
     // 로그인 처리
-    // Registered: TRUE
+    // 온보딩 완료 여부(birthYear 존재 여부)를 기준으로 정식 가입 여부 판단
     private LoginResponse handleExistingUser(User user) {
-        return createLoginResponse(user, true);
+        boolean isRegistered = user.getBirthYear() != null;
+        return createLoginResponse(user, isRegistered);
     }
 
     // 회원가입, 초기 세팅
@@ -111,20 +112,35 @@ public class AuthService {
         return new LoginResponse(accessToken, refreshToken, isRegistered);
     }
 
-    // 닉네임이 시스템 정책(금칙어, 임시 패턴)에 위배되지 않는지 검사
-    public boolean checkNicknameAvailability(String nickname) {
+    private void assertNicknamePolicy(String nickname) {
         String lowerNickname = nickname.toLowerCase();
-        // 예약어 보호
         if (RESERVED_WORDS.contains(lowerNickname)) {
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        // 임시 닉네임 패턴 차단
         if (lowerNickname.startsWith(TEMP_NICKNAME_PREFIX)) {
             throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        // DB 중복 검사
+    }
+
+    // 닉네임이 시스템 정책(금칙어, 임시 패턴)에 위배되지 않는지 검사
+    public boolean checkNicknameAvailability(String nickname) {
+        assertNicknamePolicy(nickname);
         boolean exists = userRepository.existsByNickname(nickname);
         return !exists;
+    }
+
+    // 닉네임 변경 검증 - null이면 닉네임 필드 미변경으로 간주, 현재와 동일하면 스킵.
+    public void validateNicknameForProfileUpdate(Long userId, String newNickname, String currentNickname) {
+        if (newNickname == null) {
+            return;
+        }
+        if (newNickname.equals(currentNickname)) {
+            return;
+        }
+        assertNicknamePolicy(newNickname);
+        if (userRepository.existsByNicknameAndIdNot(newNickname, userId)) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     // 회원가입 시 정보입력
@@ -205,22 +221,31 @@ public class AuthService {
         return new TokenResponse(newAccessToken, newRefreshToken);
     }
 
-    // 로그아웃
+     // 리프레시토큰 삭제 + 현재 액세스 토큰 블랙리스트 (로그아웃, 회원 탈퇴 공통 적용)
     @Transactional
-    public void logout(String accessToken, Long userId) {
-        // 1. Redis에서 해당 유저의 Refresh Token 삭제
+    public void invalidateSession(String accessToken, Long userId) {
         if (Boolean.TRUE.equals(redisTemplate.hasKey("RT:" + userId))) {
             redisTemplate.delete("RT:" + userId);
         }
 
-        // 2. Access Token의 남은 유효시간 계산
-        Long expiration = jwtTokenProvider.getExpiration(accessToken);
+        // 토큰 만료 시점/파싱 이슈로 인해 getExpiration()에서 예외가 나도 로그아웃/탈퇴가 500으로 터지지 않게 방어
+        try {
+            Long expiration = jwtTokenProvider.getExpiration(accessToken);
+            if (expiration != null && expiration > 0) {
+                redisTemplate.opsForValue().set(
+                        "BL:" + accessToken,
+                        "logout",
+                        Duration.ofMillis(expiration)
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Failed to invalidate access session. userId={}, accessTokenPresent={}", userId, accessToken != null, e);
+        }
+    }
 
-        // 3. Access Token을 블랙리스트에 저장
-        redisTemplate.opsForValue().set(
-                "BL:" + accessToken,
-                "logout",
-                Duration.ofMillis(expiration)
-        );
+    // 로그아웃
+    @Transactional
+    public void logout(String accessToken, Long userId) {
+        invalidateSession(accessToken, userId);
     }
 }

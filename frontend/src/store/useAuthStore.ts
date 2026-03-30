@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { clearReactQueryCache } from "@/lib/reactQueryClientHolder";
 
 /** 유저 정보 타입 (백엔드 응답에 맞게 확장) */
 export interface UserInfo {
@@ -46,6 +47,7 @@ const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        clearReactQueryCache();
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         set({ isLoggedIn: false, user: null, accessToken: null, refreshToken: null });

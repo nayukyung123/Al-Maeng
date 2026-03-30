@@ -1,14 +1,25 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { X, Search, Plus, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
+import { X, Search, Check, Loader2, ChevronRight, Image as ImageIcon } from "lucide-react";
 import { GalleryTicket } from "@/types/ticket";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { PhotoCard } from "./PhotoCard";
+import { VerticalTicketBackOverlay } from "./VerticalTicketBackOverlay";
+import { HorizontalTicketBackOverlay } from "./HorizontalTicketBackOverlay";
+import { useVerticalBackTitleVisible } from "@/hooks/useVerticalBackTitleVisible";
 import { useQuery } from "@tanstack/react-query";
 import { fetchCompletedBooks } from "@/api/completedBooks";
 import { createTicket, fetchTicketImagePresignedUrl, fetchGalleryTickets, type TicketStyleDataDto } from "@/api/tickets";
+import { userCompletedBooksQueryKey, userTicketsGalleryQueryKey } from "@/lib/userQueryKeys";
+import { putPresignedObject } from "@/lib/s3PresignedPut";
+import {
+  getFileExtensionForPresigned,
+  prepareUploadImage,
+  readFileAsDataUrl,
+} from "@/lib/imageCompression";
+import useToastStore from "@/store/useToastStore";
 
 interface AddTicketModalProps {
   isOpen: boolean;
@@ -26,10 +37,13 @@ const COLOR_PALETTE = [
 ];
 
 export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: AddTicketModalProps) => {
+  const { show: showVerticalBackTitle, toggle: toggleVerticalBackTitle } = useVerticalBackTitleVisible();
+  const addToast = useToastStore((s) => s.addToast);
   const [step, setStep] = useState<1 | 2>(1);
   const [searchQuery, setSearchQuery] = useState("");
   
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
+  const customCoverInputRef = useRef<HTMLInputElement | null >(null);
   
   const [ticketData, setTicketData] = useState({
     dateRead: new Date().toISOString().split("T")[0],
@@ -43,17 +57,16 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const [customImageFile, setCustomImageFile] = useState<File | null>(null);
 
   const { data: completedBooks = [] } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isOpen,
   });
 
   const { data: existingTickets = [] } = useQuery({
-    queryKey: ["gallery-tickets"],
+    queryKey: userTicketsGalleryQueryKey(),
     queryFn: fetchGalleryTickets,
     enabled: isOpen,
   });
@@ -107,29 +120,21 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const handleIssueTicket = async () => {
     if (!selectedBook) return;
     setIsSubmitting(true);
-    setSubmitError(null);
     try {
       let uploadedImageUrl = ticketData.customImage;
       if (customImageFile) {
         try {
-          const ext = (customImageFile.name.split(".").pop()?.toLowerCase() || "jpg");
-          const mimeType = customImageFile.type || (ext === "jpg" ? "image/jpeg" : `image/${ext}`);
-          const { presignedUrl, imageUrl } = await fetchTicketImagePresignedUrl(ext);
-          const s3Response = await fetch(presignedUrl, {
-            method: "PUT",
-            headers: {
-              "Content-Type": mimeType,
-            },
-            body: customImageFile,
-          });
-          if (!s3Response.ok) {
-            throw new Error(`이미지 업로드 실패 (${s3Response.status})`);
-          }
+          const ext = getFileExtensionForPresigned(customImageFile);
+          const { presignedUrl, imageUrl, contentType } = await fetchTicketImagePresignedUrl(ext);
+          // 서명은 PUT + Content-Type 고정. undefined/리다이렉트 후 GET으로 바뀌면 S3가 SignatureDoesNotMatch(GET)를 반환함
+          const putContentType =
+            contentType?.trim() ||
+            (ext === "jpg" || ext === "jpeg" || ext === "jpe" ? "image/jpeg" : `image/${ext}`);
+          await putPresignedObject(presignedUrl, customImageFile, putContentType);
           uploadedImageUrl = imageUrl;
         } catch (uploadErr) {
           // S3 업로드 실패 시 이미지 없이 티켓 생성 진행 (경고만 표시)
-          console.warn("S3 이미지 업로드 실패, 이미지 없이 티켓을 생성합니다:", uploadErr);
-          setSubmitError("이미지 업로드에 실패했습니다. 이미지 없이 티켓을 생성합니다.");
+          addToast("이미지 업로드에 실패했습니다. 이미지 없이 티켓을 생성합니다.", "info");
           uploadedImageUrl = "";
         }
       }
@@ -139,6 +144,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
         coverShape: ticketData.imageLayout,
         typography: ticketData.font,
         ticketColor: ticketData.background,
+        showBackTitle: showVerticalBackTitle,
       };
       const created = await createTicket({
         bookId: parseInt(selectedBook.id, 10),
@@ -156,22 +162,23 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
         completedAt: ticketData.dateRead,
         comment: ticketData.review,
         templateId: ticketData.imageLayout, // 레이아웃 매핑
-        style: { 
-          font: ticketData.font as 'serif' | 'sans' | 'mono', 
-          background: ticketData.background, 
-          textColor: 'text-stone-900',
-          orientation: ticketData.orientation 
+        style: {
+          font: ticketData.font as "serif" | "sans" | "mono",
+          background: ticketData.background,
+          textColor: "text-stone-900",
+          orientation: ticketData.orientation,
+          showBackTitle: showVerticalBackTitle,
         },
         coverImageUrl: selectedBook.coverImageUrl,
         ticketImageUrl: uploadedImageUrl || selectedBook.coverImageUrl || `https://picsum.photos/seed/${selectedBook.id}/400/600`,
         rating: 4.5 // 임시
       };
       onSuccess(newTicket);
+      addToast("티켓이 발급되었습니다.", "success");
       resetState();
     } catch (e) {
       console.error(e);
-      const message = e instanceof Error ? e.message : "티켓 생성에 실패했습니다.";
-      setSubmitError((prev) => prev ?? message); // 이미 이미지 경고가 있으면 덮어쓰지 않음
+      addToast("티켓 생성에 실패했습니다. 다시 시도해주세요.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +187,6 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
   const resetState = () => {
     setStep(1);
     setSearchQuery("");
-    setSubmitError(null);
     setTicketData({
       dateRead: new Date().toISOString().split("T")[0],
       startDate: "",
@@ -193,6 +199,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
     });
     setSelectedBook(null);
     setCustomImageFile(null);
+    if (customCoverInputRef.current) customCoverInputRef.current.value = "";
     onClose();
   };
 
@@ -203,7 +210,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
     author: selectedBook?.author || 'AUTHOR',
     genre: selectedBook?.genre || 'GENRE',
     completedAt: ticketData.dateRead,
-    comment: ticketData.review || '이 책이 남긴 여운을 한 줄로 적어주세요.',
+    comment: ticketData.review || undefined,
     templateId: ticketData.imageLayout,
     style: { 
       font: ticketData.font as 'serif' | 'sans' | 'mono', 
@@ -211,7 +218,9 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
       textColor: 'text-stone-900',
       orientation: ticketData.orientation
     },
-    ticketImageUrl: ticketData.customImage || `https://picsum.photos/seed/${selectedBook?.id}/400/600`,
+    /** 업로드 시에만 설정. 없으면 PhotoCard가 coverImageUrl(책 표지) 사용 */
+    ticketImageUrl: ticketData.customImage || undefined,
+    coverImageUrl: selectedBook?.coverImageUrl,
     rating: 4.5
   };
 
@@ -256,7 +265,7 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                     searchResults.map((book, idx) => (
                       <div key={book.id} onClick={() => handleSelectBook(book)} className={cn("flex items-center p-4 cursor-pointer transition-all border border-transparent rounded-lg group", idx === 0 ? "bg-stone-50 border-stone-200 shadow-sm" : "hover:bg-stone-50")}>
                         <div className="w-12 h-16 bg-stone-200 mr-6 overflow-hidden shadow-sm group-hover:scale-105 transition-transform">
-                          <img src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/200/300`} alt="Cover" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" crossOrigin="anonymous"/>
+                          <img src={book.coverImageUrl || `https://picsum.photos/seed/${book.id}/200/300`} alt="Cover" className="w-full h-full object-cover" crossOrigin="anonymous"/>
                         </div>
                         <div className="flex-1">
                           <p className="font-black text-lg tracking-tight group-hover:text-[#0033FF] transition-colors">{book.title}</p>
@@ -321,20 +330,69 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
 
                 {/* 2. 데이터 입력 컨트롤 */}
                 <div className="space-y-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">CUSTOM COVER (선택)</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">CUSTOM IMAGE (나만의 이미지)</p>
                   <label className="flex items-center justify-center w-full h-12 border border-dashed border-gray-300 hover:border-black hover:bg-stone-50 transition-colors cursor-pointer rounded-sm group disabled:opacity-50">
                     <ImageIcon className="text-gray-400 group-hover:text-black mr-2" size={20} />
                     <span className="text-xs font-bold text-gray-500 group-hover:text-black tracking-widest">UPLOAD IMAGE</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    <input ref={customCoverInputRef} type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        setCustomImageFile(file);
-                        const reader = new FileReader();
-                        reader.onloadend = () => setTicketData({ ...ticketData, customImage: reader.result as string });
-                        reader.readAsDataURL(file);
+                      if (!file) return;
+                      try {
+                        const prepared = await prepareUploadImage(file, "ticket");
+                        const previewDataUrl = await readFileAsDataUrl(prepared.file);
+                        setCustomImageFile(prepared.file);
+                        setTicketData((prev) => ({ ...prev, customImage: previewDataUrl }));
+                        if (prepared.usedOriginalFallback) {
+                          addToast("이미지 압축에 실패해 원본 파일로 업로드합니다.", "info");
+                        }
+                      } catch (err) {
+                        const message =
+                          err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.";
+                        addToast(message, "error");
+                        setCustomImageFile(null);
+                        setTicketData((prev) => ({ ...prev, customImage: "" }));
+                        if (customCoverInputRef.current) customCoverInputRef.current.value = "";
                       }
                     }} />
                   </label>
+
+                  {(customImageFile || ticketData.customImage) && (
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-stone-200 bg-white p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-sm overflow-hidden border border-stone-200 bg-stone-50 shrink-0">
+                          {/* dataURL(방금 업로드) or 빈 값 방지 */}
+                          {ticketData.customImage ? (
+                            <img
+                              src={ticketData.customImage}
+                              alt="Custom image preview"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-stone-700 truncate">
+                            {customImageFile?.name ?? "나만의 이미지"}
+                          </p>
+                          {customImageFile && (
+                            <p className="text-[10px] text-stone-400 font-mono">
+                              {(customImageFile.size / 1024).toFixed(0)} KB
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomImageFile(null);
+                          setTicketData({ ...ticketData, customImage: "" });
+                          if (customCoverInputRef.current) customCoverInputRef.current.value = "";
+                        }}
+                        className="text-[10px] font-black uppercase tracking-widest text-stone-500 hover:text-black border border-stone-200 rounded-full px-3 py-1 transition-colors shrink-0"
+                      >
+                        DELETE
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
@@ -347,16 +405,13 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                 <div className="space-y-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">ONE-LINE REVIEW</p>
                   <div className="relative border-b border-black pb-2">
-                    <textarea value={ticketData.review} onChange={(e) => setTicketData({ ...ticketData, review: e.target.value })} placeholder="이 책이 남긴 여운을 한 줄로 적어주세요." maxLength={255} className="w-full text-lg font-medium outline-none placeholder:text-gray-300 resize-none h-16 bg-transparent" />
-                    <span className={cn("absolute bottom-3 right-0 text-[10px] font-bold tabular-nums", ticketData.review.length >= 255 ? "text-red-500" : "text-gray-300")}>
-                      {ticketData.review.length} / 255
+                    <textarea value={ticketData.review} onChange={(e) => setTicketData({ ...ticketData, review: e.target.value })} placeholder="이 책이 남긴 여운을 한 줄로 적어주세요." maxLength={50} className="w-full text-lg font-medium outline-none placeholder:text-gray-300 resize-none h-16 bg-transparent" />
+                    <span className={cn("absolute bottom-3 right-0 text-[10px] font-bold tabular-nums", ticketData.review.length >= 50 ? "text-red-500" : "text-gray-300")}>
+                      {ticketData.review.length} / 50
                     </span>
                   </div>
                 </div>
 
-                {submitError && (
-                  <p className="text-xs text-red-500 font-medium mb-2 px-1">{submitError}</p>
-                )}
                 <button onClick={handleIssueTicket} disabled={isSubmitting} className="w-full border-b border-black pb-4 flex items-center justify-between group hover:border-[#0033FF] transition-colors pt-4 disabled:opacity-50">
                   <span className={cn("text-3xl font-black transition-colors", isSubmitting ? "text-gray-400" : "group-hover:text-[#0033FF]")}>
                     {isSubmitting ? "ISSUING TICKET..." : "ISSUE TICKET"}
@@ -373,9 +428,9 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                 <div className={cn("flex w-full items-center justify-center", isHorizontal ? "flex-col gap-6" : "flex-row gap-8")}>
                   
                   {/* 앞면 (Front) */}
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center relative">
                     <div className="scale-[0.6] xl:scale-[0.8] origin-center drop-shadow-xl">
-                      <PhotoCard ticket={previewTicket} holeColor="bg-[#f5f2ed]" rating={4.5} />
+                      <PhotoCard ticket={previewTicket} holeColor="bg-[#f5f2ed]" />
                     </div>
                     <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mt-[-10px]">FRONT SIDE</span>
                   </div>
@@ -385,14 +440,15 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                     <div className="scale-[0.6] xl:scale-[0.8] origin-center drop-shadow-xl">
                       
                       {isHorizontal ? (
-                        /* 가로형 뒷면 미리보기 */
                         <div className={cn("w-[480px] h-[240px] flex flex-row-reverse shadow-2xl rounded-lg overflow-hidden relative", previewTicket.style?.background, previewTicket.style?.textColor)}>
-                          <div className="flex-1 p-6 flex flex-col items-center justify-center relative z-10 rounded-r-lg">
-                            <div className="absolute top-6 left-6 font-mono text-[10px] font-bold opacity-40">NO. PREVIEW</div>
-                            <div className="border-[4px] border-red-600/70 text-red-600 px-6 py-4 flex flex-col items-center justify-center -rotate-6 opacity-80 backdrop-blur-sm shadow-sm">
-                              <p className="font-sans font-black text-4xl tracking-tighter uppercase leading-none border-b-[3px] border-red-600/70 pb-2 mb-2">AL-MAENG</p>
-                              <p className="font-sans font-bold text-sm tracking-[0.4em] uppercase">Archive</p>
-                            </div>
+                          <div className="flex-1 relative z-10 min-w-0 rounded-r-lg overflow-hidden">
+                            <HorizontalTicketBackOverlay
+                              title={previewTicket.title}
+                              completedAt={previewTicket.completedAt}
+                              comment={previewTicket.comment}
+                              showTitle={showVerticalBackTitle}
+                              templateId={previewTicket.templateId}
+                            />
                           </div>
                           <div className="relative border-dashed border-current opacity-20 flex justify-between z-30 w-px h-full border-l-2 py-2 -mx-px flex-col">
                             <div className="absolute rounded-full shadow-[inset_0_2px_4px_rgba(0,0,0,0.1)] bg-black/90 w-6 h-6 -top-3 -left-[11px]" />
@@ -410,11 +466,19 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
                         /* 세로형 뒷면 미리보기 */
                         <div className={cn("w-[240px] h-[480px] flex flex-col shadow-2xl rounded-lg overflow-hidden relative", previewTicket.style?.background, previewTicket.style?.textColor)}>
                           <div className="w-full h-full relative z-10 rounded-lg overflow-hidden">
-                            <img src={previewTicket.ticketImageUrl} alt="Back" className="w-full h-full object-cover" crossOrigin="anonymous" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-10 flex flex-col justify-end text-white">
-                                <p className="font-sans font-black text-3xl leading-tight uppercase tracking-tight line-clamp-2 border-b-2 border-white pb-2 mb-2 italic">{previewTicket.title}</p>
-                                <p className="font-sans font-bold text-sm tracking-[0.4em] uppercase">Archive</p>
-                            </div>
+                            <img
+                              src={previewTicket.ticketImageUrl || previewTicket.coverImageUrl || `https://picsum.photos/seed/${selectedBook?.id}/400/600`}
+                              alt="Back"
+                              className="w-full h-full object-cover"
+                              crossOrigin="anonymous"
+                            />
+                            <VerticalTicketBackOverlay
+                              title={previewTicket.title}
+                              completedAt={previewTicket.completedAt}
+                              comment={previewTicket.comment}
+                              showTitle={showVerticalBackTitle}
+                              templateId={previewTicket.templateId}
+                            />
                           </div>
                           <div className="absolute inset-0 pointer-events-none opacity-[0.05] mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/paper-fibers.png')] z-40" />
                         </div>
@@ -422,6 +486,13 @@ export const AddTicketModal = ({ isOpen, onClose, onSuccess, initialBookId }: Ad
 
                     </div>
                     <span className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mt-[-10px]">BACK SIDE</span>
+                    <button
+                      type="button"
+                      onClick={() => toggleVerticalBackTitle()}
+                      className="absolute left-1/2 -translate-x-1/2 top-full mt-2 text-[10px] tracking-widest uppercase font-bold text-stone-500 hover:text-black border border-stone-200 rounded-full px-3 py-1 transition-colors"
+                    >
+                      제목/완독일자 {showVerticalBackTitle ? "끄기" : "켜기"}
+                    </button>
                   </div>
 
                 </div>

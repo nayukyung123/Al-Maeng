@@ -38,6 +38,15 @@ public class TicketController {
         return ApiResponse.success();
     }
 
+    @PatchMapping("/{ticketId}/show-back-title")
+    public ApiResponse<Void> updateShowBackTitle(@AuthenticationPrincipal Long userId,
+                                                 @PathVariable Long ticketId,
+                                                 @Valid @RequestBody TicketShowBackTitleRequest request) {
+        ticketService.updateShowBackTitle(userId, ticketId, request.showBackTitle());
+
+        return ApiResponse.success();
+    }
+
     // 완독 티켓 상세 조회
     @GetMapping("/{ticketId}")
     public ApiResponse<TicketResponse> getTicketDetail(@AuthenticationPrincipal Long userId,

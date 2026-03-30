@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import useAuthStore from "@/store/useAuthStore";
 import { deleteReview, updateReview } from "@/api/bookDetail";
 import type { Review } from "@/types/book";
+import ProfileAvatar from "./ProfileAvatar";
+import ReviewTierBadge from "./ReviewTierBadge";
 
 interface ReviewListProps {
   reviews: Review[];
@@ -49,18 +51,20 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
   /* ── 리뷰 수정 Mutation ── */
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: number; body: { content: string; rating: number; spoiler: boolean } }) =>
-      updateReview(id, body),
+      updateReview(slug, id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
+      queryClient.invalidateQueries({ queryKey: ["book-detail", slug] });
       closeEditModal();
     },
   });
 
   /* ── 리뷰 삭제 Mutation ── */
   const deleteMutation = useMutation({
-    mutationFn: (reviewId: number) => deleteReview(reviewId),
+    mutationFn: (reviewId: number) => deleteReview(slug, reviewId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
+      queryClient.invalidateQueries({ queryKey: ["book-detail", slug] });
       setDeletingId(null);
     },
   });
@@ -136,14 +140,24 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
               </div>
 
               {/* 텍스트 입력 */}
-              <textarea
-                value={editComment}
-                onChange={(e) => setEditComment(e.target.value)}
-                rows={4}
-                disabled={updateMutation.isPending}
-                placeholder="리뷰 내용을 입력해주세요."
-                className="w-full text-base font-medium outline-none resize-none border-b border-gray-100 focus:border-[#4D41FF] transition-all py-2 mb-6 disabled:opacity-50"
-              />
+              <div className="relative">
+                <textarea
+                  value={editComment}
+                  maxLength={500}
+                  onChange={(e) => setEditComment(e.target.value)}
+                  rows={4}
+                  disabled={updateMutation.isPending}
+                  placeholder="리뷰 내용을 입력해주세요."
+                  className="w-full text-base font-medium outline-none resize-none border-b border-gray-100 focus:border-[#4D41FF] transition-all py-2 mb-2 disabled:opacity-50"
+                />
+                
+                {/* 500자 제한 경고 문구 */}
+                {editComment.length >= 500 && (
+                  <p className="mb-4 text-[11px] font-bold text-red-600 animate-in fade-in slide-in-from-top-1 duration-300">
+                    리뷰는 최대 500자까지 입력할 수 있습니다.
+                  </p>
+                )}
+              </div>
 
               {/* 스포일러 토글 */}
               <button
@@ -232,13 +246,9 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
 
       {/* ── 리뷰 목록 ── */}
       <div className="space-y-12">
-        {reviews.map((review, i) => {
+        {reviews.map((review) => {
           const isRevealed = revealedIds.has(review.id);
           const isOwner = isLoggedIn && user?.id === review.userId;
-
-          const profileSrc = review.profileImageUrl
-            ? review.profileImageUrl
-            : `https://picsum.photos/seed/user${review.userId ?? i}/200/200`;
 
           const formattedDate = new Date(review.createdAt).toLocaleDateString(
             "ko-KR",
@@ -247,21 +257,23 @@ export default function ReviewList({ reviews, slug }: ReviewListProps) {
 
           return (
             <div key={review.id} className="flex gap-6 relative">
-              {/* 프로필 아바타 */}
-              <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden shrink-0 border border-black/5">
-                <img
-                  src={profileSrc}
-                  alt={review.nickname}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+              {/* 프로필 아바타 — 이미지 없으면 회색 기본 실루엣 */}
+              <ProfileAvatar
+                imageUrl={review.profileImageUrl}
+                alt={review.nickname}
+                size="sm"
+              />
 
               <div className="flex-1">
-                {/* 닉네임 · 날짜 */}
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="font-black text-sm">{review.nickname}</span>
-                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+                {/* 닉네임 · 티어 · 날짜 */}
+                <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mb-2">
+                  <span className="font-black text-sm text-black shrink-0">
+                    {review.nickname}
+                  </span>
+                  {review.tierName ? (
+                    <ReviewTierBadge tierName={review.tierName} />
+                  ) : null}
+                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest ml-2 md:ml-3">
                     {formattedDate}
                   </span>
                 </div>

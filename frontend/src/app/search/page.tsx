@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import BookSearchResult from "@/components/search/BookSearchResult";
 
 type PageProps = {
-  searchParams: Promise<{ q?: string; focus?: string }>;
+  searchParams: Promise<{ q?: string }>;
 };
 
 export async function generateMetadata({
@@ -22,6 +22,6 @@ export async function generateMetadata({
  * Server Component — URL 파라미터를 읽어 Client Component에 전달
  */
 export default async function SearchPage({ searchParams }: PageProps) {
-  const { q = "", focus } = await searchParams;
-  return <BookSearchResult initialQuery={q} initialAutoFocus={focus === "true"} />;
+  const { q = "" } = await searchParams;
+  return <BookSearchResult initialQuery={q} />;
 }

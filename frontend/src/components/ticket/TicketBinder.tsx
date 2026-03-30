@@ -7,12 +7,16 @@ import { cn } from "@/lib/utils";
 import { PhotoCard } from "./PhotoCard";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTopLevelGenres } from "@/api/genres";
+import { sortBinderTickets } from "@/lib/sortBinderTickets";
 
 interface TicketBinderProps {
   onOpenBook?: (ticket: GalleryTicket) => void;
   onAddTicket?: () => void;
   tickets?: GalleryTicket[];
   isLoadingExternal?: boolean;
+  /** 설정 시 장르 ALL로 맞춘 뒤 해당 티켓이 있는 페이지로 이동 */
+  focusTicketId?: number | null;
+  onFocusTicketApplied?: () => void;
 }
 
 const fetchDummyBinderTickets = async (): Promise<GalleryTicket[]> => {
@@ -75,7 +79,9 @@ export const TicketBinder = ({
   onOpenBook = () => {},
   onAddTicket = () => {},
   tickets,
-  isLoadingExternal = false
+  isLoadingExternal = false,
+  focusTicketId = null,
+  onFocusTicketApplied,
 }: TicketBinderProps) => {
   const [books, setBooks] = useState<GalleryTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,16 +103,33 @@ export const TicketBinder = ({
     });
   }, [tickets, isLoadingExternal]);
 
+  useEffect(() => {
+    if (focusTicketId == null) return;
+    setSelectedGenre(null);
+    setPendingGenre(null);
+    setFlipState("idle");
+
+    const source = tickets ?? books;
+    if (isLoading || source.length === 0) return;
+
+    const sortedAll = sortBinderTickets(source);
+    const idx = sortedAll.findIndex((t) => t.id === focusTicketId);
+    if (idx === -1) return;
+
+    setPageIndex(Math.floor(idx / 4));
+    onFocusTicketApplied?.();
+  }, [focusTicketId, tickets, books, isLoading, onFocusTicketApplied]);
+
   const currentBinderBooks = useMemo(() => {
     let filtered = [...books];
-    if (selectedGenre) filtered = filtered.filter(b => b.genre === selectedGenre);
-    return filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+    if (selectedGenre) filtered = filtered.filter((b) => b.genre === selectedGenre);
+    return sortBinderTickets(filtered);
   }, [books, selectedGenre]);
 
   const pendingBinderBooks = useMemo(() => {
     let filtered = [...books];
-    if (pendingGenre) filtered = filtered.filter(b => b.genre === pendingGenre);
-    return filtered.sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+    if (pendingGenre) filtered = filtered.filter((b) => b.genre === pendingGenre);
+    return sortBinderTickets(filtered);
   }, [books, pendingGenre]);
 
   const { data: topGenres = [] } = useQuery({
@@ -114,7 +137,15 @@ export const TicketBinder = ({
     queryFn: fetchTopLevelGenres,
     staleTime: Infinity,
   });
-  const genres = topGenres.map((g) => g.genreName);
+  const genres = useMemo(() => {
+    return topGenres
+      .map((g) => g.genreName)
+      .sort((a, b) => {
+        if (a === "소설/시/희곡") return -1;
+        if (b === "소설/시/희곡") return 1;
+        return a.localeCompare(b, "ko");
+      });
+  }, [topGenres]);
 
   const handleGenreChange = (genre: string | null) => {
     if (selectedGenre === genre || flipState !== 'idle') return;

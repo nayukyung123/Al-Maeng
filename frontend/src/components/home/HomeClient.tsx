@@ -16,7 +16,7 @@ import RankingBoard from "./RankingBoard";
  *  - curationSectionRef: TodayCuration 위치 추적
  */
 export default function HomeClient() {
-  const [curationIndex, setCurationIndex] = useState(0);
+  const [selectedContentId, setSelectedContentId] = useState<number | null>(null);
   const [isSearchFixed, setIsSearchFixed] = useState(false);
   const curationSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -32,13 +32,25 @@ export default function HomeClient() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const handleBannerClick = (slideIndex: number) => {
-    setCurationIndex(slideIndex);
+  // /?openSearch=1 로 진입 시 URL 정리 후 홈과 동일한 풀스크린 검색 오버레이 오픈
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openSearch") !== "1") return;
+    const path = window.location.pathname || "/";
+    window.history.replaceState(null, "", path);
+    queueMicrotask(() => {
+      window.dispatchEvent(new CustomEvent("openSearchOverlay"));
+    });
+  }, []);
+
+  const handleBannerClick = (contentId: number) => {
+    setSelectedContentId(contentId);
     document.getElementById("section3")?.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
-    <div className="flex flex-col gap-16 pb-24 pt-20 md:pt-12 px-6 md:px-12 animate-in fade-in duration-500">
+    <div className="flex flex-col gap-16 px-10 pb-24 pt-20 animate-in fade-in duration-500 md:px-20 md:pt-12">
       {/* 히어로 배너 슬라이더 */}
       <HeroSlider onBannerClick={handleBannerClick} />
 
@@ -49,10 +61,7 @@ export default function HomeClient() {
       <TodayCuration sectionRef={curationSectionRef} />
 
       {/* 영화 기반 크로스 추천 */}
-      <ContentCuration
-        curationIndex={curationIndex}
-        onCurationChange={setCurationIndex}
-      />
+      <ContentCuration selectedContentId={selectedContentId} />
 
       {/* 인기 도서 랭킹 */}
       <RankingBoard />

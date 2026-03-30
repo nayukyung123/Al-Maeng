@@ -1,6 +1,7 @@
 export interface CompletedBook {
   completedBookId: number;
   bookId: number;
+  slug: string;
   title: string;
   author: string;
   coverImageUrl: string;
@@ -12,5 +13,5 @@ export interface CompletedBook {
 
 export interface AddCompletedBookRequest {
   bookId: number;
-  readDate: string;
+  source: string;
 }

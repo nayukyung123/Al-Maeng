@@ -9,6 +9,7 @@ import com.almaeng.domain.ticket.dto.TicketCreateRequest;
 import com.almaeng.domain.ticket.dto.TicketResponse;
 import com.almaeng.domain.ticket.entity.Ticket;
 import com.almaeng.domain.ticket.repository.TicketRepository;
+import com.almaeng.domain.ticket.vo.StyleData;
 import com.almaeng.global.error.ApiException;
 import com.almaeng.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -32,12 +33,15 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TicketService {
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
+
     private final TicketRepository ticketRepository;
     private final CompletedBookRepository completedBookRepository;
     private final GenreRepository genreRepository;
@@ -69,6 +73,26 @@ public class TicketService {
                 .build();
 
         return ticketRepository.save(ticket).getId();
+    }
+
+    @Transactional
+    public void updateShowBackTitle(Long userId, Long ticketId, boolean showBackTitle) {
+        Ticket ticket = ticketRepository.findByIdWithUser(ticketId)
+                .orElseThrow(() -> new ApiException(ErrorCode.TICKET_NOT_FOUND));
+
+        if (!ticket.getCompletedBook().getUser().getId().equals(userId)) {
+            throw new ApiException(ErrorCode.TICKET_ACCESS_DENIED);
+        }
+
+        StyleData old = ticket.getStyleData();
+        StyleData updated = new StyleData(
+                old.getOrientation(),
+                old.getCoverShape(),
+                old.getTypography(),
+                old.getTicketColor(),
+                showBackTitle
+        );
+        ticket.updateStyleData(updated);
     }
 
     // 완독 티켓 삭제
@@ -150,9 +174,13 @@ public class TicketService {
     }
 
     // 완독 티켓 바인더 조회 - 장르 필터, 4개씩 페이징
+    // 완독일 오름차순(오래된 것 앞) + id로 동률 시 순서 고정(페이지 경계 중복/누락 방지)
     @Transactional(readOnly = true)
     public Page<TicketResponse> getBinderTickets(Long userId, String genreName, int page) {
-        Pageable pageable = PageRequest.of(page, 4, Sort.by(Sort.Direction.DESC, "completedBook.completedAt"));
+        Sort binderSort = Sort.by(
+                Sort.Order.asc("completedBook.completedAt"),
+                Sort.Order.asc("id"));
+        Pageable pageable = PageRequest.of(page, 4, binderSort);
 
         if (genreName == null || genreName.trim().isEmpty()) {
             return ticketRepository.findBinderTicketsAll(userId, pageable)
@@ -174,6 +202,9 @@ public class TicketService {
     // S3 이미지 저장용 url 발급
     public PresignedUrlResponse getPresignedUrl(Long userId, String fileExtension) {
         String ext = fileExtension.toLowerCase().replaceAll("^\\.", "");
+        if (!ALLOWED_IMAGE_EXTENSIONS.contains(ext)) {
+            throw new ApiException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         String fileName = "users/" + userId + "/tickets/" + UUID.randomUUID() + "." + ext;
         String mimeType = "image/" + (ext.equals("jpg") ? "jpeg" : ext);
 
@@ -191,6 +222,6 @@ public class TicketService {
 
         String imageUrl = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
 
-        return new PresignedUrlResponse(presignedUrl, imageUrl);
+        return new PresignedUrlResponse(presignedUrl, imageUrl, mimeType);
     }
 }

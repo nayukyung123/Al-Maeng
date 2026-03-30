@@ -9,6 +9,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { signup, getPresignedUrl, uploadImageToS3, loginWithProvider, checkNickname, LoginResponse, fetchGenres, GenreResponse } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
 import { useRouter } from "next/navigation";
+import {
+  getFileExtensionForPresigned,
+  prepareUploadImage,
+  readFileAsDataUrl,
+} from "@/lib/imageCompression";
 
 interface SignupFlowProps {
   onComplete?: (data: any) => void;
@@ -32,6 +37,7 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
   const { user, login } = useAuthStore();
   
   const [step, setStep] = useState(1);
+  const [tempToken, setTempToken] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     nickname: "",
     birthYear: "",
@@ -47,39 +53,53 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     staleTime: 1000 * 60 * 60 * 24, // 24시간: 오버페칭 방지
   });
 
-  const mainGenres = React.useMemo(() => genres.filter((g) => g.parentId === null), [genres]);
+  const mainGenres = React.useMemo(() => {
+    return genres
+      .filter((g) => g.parentId === null)
+      .sort((a, b) => {
+        if (a.genreName === "소설/시/희곡") return -1;
+        if (b.genreName === "소설/시/희곡") return 1;
+        return a.genreName.localeCompare(b.genreName, "ko");
+      });
+  }, [genres]);
   const novelSubGenres = React.useMemo(() => genres.filter((g) => g.parentId === 27594), [genres]);
 
   const authMutation = useMutation({
     mutationFn: async () => {
-      // 1. 프로필 이미지 설정 (더미 또는 S3 업로드)
-      let finalImageUrl = "https://example.com/dummy.jpg";
+      let profileImageUrl: string | undefined;
 
-      if (formData.profileImageFile && user?.id) {
-        // 백엔드 API 호출로 presignedUrl 받아오기
-        const ext = formData.profileImageFile.name.split('.').pop() || "jpeg";
-        const uploadInfo = await getPresignedUrl(user.id, `.${ext}`);
-        
-        if (uploadInfo && uploadInfo.presignedUrl) {
-          await uploadImageToS3(uploadInfo.presignedUrl, formData.profileImageFile);
-          finalImageUrl = uploadInfo.imageUrl;
+      // [REFAC] localStorage 대신 메모리에 보관된 임시 토큰을 사용합니다.
+      const currentToken = tempToken;
+      if (!currentToken) throw new Error("Authentication token is missing");
+      const currentUserId = parseUserIdFromToken(currentToken);
+
+      if (formData.profileImageFile && currentUserId) {
+        const ext = getFileExtensionForPresigned(formData.profileImageFile);
+        const uploadInfo = await getPresignedUrl(currentUserId, `.${ext}`, currentToken);
+
+        if (uploadInfo?.presignedUrl) {
+          await uploadImageToS3(
+            uploadInfo.presignedUrl,
+            formData.profileImageFile,
+            uploadInfo.contentType
+          );
+          profileImageUrl = uploadInfo.imageUrl;
         }
       }
 
-      // 2. SignupRequest 매핑
       const genreIds = formData.selectedGenreIds;
 
       const requestData = {
-        profileImageUrl: finalImageUrl,
         nickname: formData.nickname,
         birthYear: parseInt(formData.birthYear, 10),
         gender: formData.gender === "남성" ? "MALE" : "FEMALE" as "MALE" | "FEMALE",
         genreIds: genreIds.length > 0 ? genreIds : [1], // 최소 1개 필수
+        ...(profileImageUrl ? { profileImageUrl } : {}),
       };
 
       // 3. 회원가입 API 호출 
-      // 현재 apiClient 인터셉터에 의해 localStorage의 임시 토큰이 Authorization으로 함께 넘어갑니다.
-      const res = await signup(requestData);
+      // 임시 토큰을 직접 전송하여 Authorization 헤더를 명시적으로 설정합니다.
+      const res = await signup(requestData, currentToken);
       return res;
     },
     onSuccess: (res) => {
@@ -105,18 +125,23 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
     }
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({
-          ...prev,
-          profileImagePreview: reader.result as string,
-          profileImageFile: file,
-        }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    try {
+      const prepared = await prepareUploadImage(file, "profile");
+      const previewDataUrl = await readFileAsDataUrl(prepared.file);
+      setFormData((prev) => ({
+        ...prev,
+        profileImagePreview: previewDataUrl,
+        profileImageFile: prepared.file,
+      }));
+      if (prepared.usedOriginalFallback) {
+        alert("이미지 압축에 실패해 원본 파일로 업로드합니다.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "이미지를 처리하지 못했습니다.";
+      alert(message);
     }
   };
 
@@ -128,11 +153,9 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
       login({ id: userId, email: "", nickname: "" }, data.accessToken, data.refreshToken);
       router.push("/");
     } else {
-      // 신규 회원: 온보딩 단계로 이동 (최종 가입 시 userId 재설정)
-      localStorage.setItem("accessToken", data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem("refreshToken", data.refreshToken);
-      }
+      // 신규 회원: 온보딩 단계로 이동
+      // [REFAC] localStorage를 오염시키지 않고 컴포넌트 내부 상태(useState)에만 보관합니다.
+      setTempToken(data.accessToken);
       setStep(2);
     }
   };
@@ -331,13 +354,21 @@ export default function SignupFlow({ onClose, onComplete }: SignupFlowProps) {
                   <input
                     type="text"
                     value={formData.nickname}
-                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                    maxLength={10}
+                    onChange={(e) => {
+                      // 한글, 영문, 숫자만 허용 (특수문자 및 공백 제거)
+                      const filtered = e.target.value.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣]/g, "");
+                      setFormData({ ...formData, nickname: filtered });
+                    }}
                     placeholder="사용하실 닉네임을 입력하세요"
                     className="w-full border-b-2 border-black py-3 text-lg focus:outline-none focus:border-[#0033FF] transition-colors"
                   />
+                  <p className="text-[10px] text-gray-400 font-medium mt-2">
+                    한글, 영문, 숫자만 10자 이내로 입력해 주세요.
+                  </p>
                 </div>
 
-                <div>
+                <div className="pt-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
                     Birth Year
                   </label>

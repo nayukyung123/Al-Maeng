@@ -1,30 +1,151 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery } from "@tanstack/react-query";
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
-import { ChevronLeft, ChevronRight, User, ArrowLeft, Camera, X } from 'lucide-react';
-import { Book, UserData } from '@/types/mypage';
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { setSearchOverlayReturnTo } from "@/lib/searchOverlayReturn";
+import {
+  Radar,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+} from 'recharts';
+import { ChevronLeft, ChevronRight, Info, Pencil, User } from 'lucide-react';
+import { Book, type Gender, type UserData } from '@/types/mypage';
 import { fetchCompletedBooks } from "@/api/completedBooks";
+import { deleteMyAccount, fetchMyProfile, fetchMyTasteReport, updateMyProfile } from "@/api/mypage";
+import { fetchGenres } from "@/api/genres";
+import { getPresignedUrl, uploadImageToS3 } from "@/api/auth";
 import useAuthStore from "@/store/useAuthStore";
-import { WISHLIST_BOOKS, MAIN_CHART_DATA, FICTION_SUB_CHART_DATA } from '@/data/mypage';
+import MyPageTierSection from "@/components/mypage/MyPageTierSection";
+import MyPageEditModal from "@/components/mypage/MyPageEditModal";
+import TierRoadmapModal from "@/components/mypage/TierRoadmapModal";
+import { useMyWishlists } from '@/hooks/useWishlist';
+import { useAuthStoreHydrated } from "@/hooks/useAuthStoreHydrated";
+import { formatBookContent } from '@/utils/decode';
+import useToastStore from "@/store/useToastStore";
+import {
+  userCompletedBooksQueryKey,
+  userProfileQueryKey,
+  userTasteReportQueryKey,
+} from "@/lib/userQueryKeys";
+import { displayProfileImageUrl } from "@/lib/profileImageUrl";
+
+/** Recharts ResponsiveContainer는 부모 높이 0일 때 콘솔 경고(-1)를 내므로, 고정 높이 + 측정 너비로 직접 전달 */
+const TASTE_CHART_HEIGHT_PX = 280;
+
+function TasteChartSlot({
+  className,
+  children,
+}: {
+  className?: string;
+  children: (size: { width: number; height: number }) => React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = Math.floor(el.getBoundingClientRect().width);
+      if (w > 0) setWidth(w);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{ width: "100%", height: TASTE_CHART_HEIGHT_PX }}
+    >
+      {width > 0 ? children({ width, height: TASTE_CHART_HEIGHT_PX }) : null}
+    </div>
+  );
+}
+
 export default function MyPageClient() {
-  const { isLoggedIn } = useAuthStore();
-  const [isMounted, setIsMounted] = useState(false);
+  const { isLoggedIn, user, logout, updateUser } = useAuthStore();
+  const addToast = useToastStore((s) => s.addToast);
+  const authHydrated = useAuthStoreHydrated();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const [wishlistPage, setWishlistPage] = useState(1);
   const [finishedPage, setFinishedPage] = useState(1);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [tierRoadmapOpen, setTierRoadmapOpen] = useState(false);
+
+  // 찜 목록 조회 (실제 API)
+  const { data: wishlistData, isFetched: isWishlistFetched } = useMyWishlists(
+    wishlistPage - 1,
+    10,
+    isLoggedIn
+  );
+  const wishlistItems = wishlistData?.content ?? [];
 
   const { data: completedBooks = [] } = useQuery({
-    queryKey: ["completed-books"],
+    queryKey: userCompletedBooksQueryKey(),
     queryFn: fetchCompletedBooks,
     enabled: isLoggedIn,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
+  });
+
+  const {
+    data: myProfile,
+  } = useQuery({
+    queryKey: userProfileQueryKey(),
+    queryFn: fetchMyProfile,
+    enabled: isLoggedIn,
+    // 완독 권수/티어는 자주 바뀔 수 있어 캐시로 고정되면 UX가 나빠짐
+    // (특히 백엔드 수정 직후엔 기존 캐시가 남아있을 수 있음)
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
+  });
+
+  const {
+    data: genres = [],
+    isLoading: isGenresLoading,
+    isError: isGenresError,
+  } = useQuery({
+    queryKey: ["genres"],
+    queryFn: fetchGenres,
+    enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 60 * 24,
+    refetchOnWindowFocus: false,
+  });
+
+  const mainGenres = React.useMemo(() => genres.filter((g) => g.parentId === null), [genres]);
+  const novelSubGenres = React.useMemo(
+    () => genres.filter((g) => g.parentId === 27594),
+    [genres]
+  );
+
+  const {
+    data: tasteReport,
+    isLoading: isTasteReportLoading,
+  } = useQuery({
+    queryKey: userTasteReportQueryKey(),
+    queryFn: fetchMyTasteReport,
+    enabled: isLoggedIn,
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const [editFormData, setEditFormData] = useState<UserData>({
@@ -35,89 +156,268 @@ export default function MyPageClient() {
     profileImage: ''
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
+  const hasHandledEditQueryRef = useRef(false);
 
   useEffect(() => {
-    setIsMounted(true); // Hydration 에러 방지를 위해 클라이언트 마운트 여부 체크
+    if (!myProfile) return;
 
-    const savedData = localStorage.getItem('userData');
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      setUserData(parsed);
-      setEditFormData({
-        nickname: parsed.nickname || '',
-        gender: parsed.gender || '',
-        preferences: parsed.preferences || [],
-        birthday: parsed.birthday || '',
-        profileImage: parsed.profileImage || ''
-      });
+    const mapped: UserData = {
+      nickname: myProfile.nickname ?? '',
+      gender: (myProfile.gender ?? '') as Gender,
+      preferences: myProfile.tasteData ?? [],
+      birthday: myProfile.birthYear ? String(myProfile.birthYear) : '',
+      profileImage: displayProfileImageUrl(myProfile.profileImageUrl) ?? '',
+    };
+
+    setUserData(mapped);
+    // 프로필 수정 모달이 열린 동안 myProfile이 다시 fetch되면(캐시 무효화 등) 여기서 폼/파일을
+    // 덮어쓰면 선택한 파일이 지워지고 미리보기만 data URL이거나 서버 더미 URL만 저장되는 현상이 난다.
+    if (!isEditModalOpen) {
+      setEditFormData(mapped);
+      setProfileImageFile(null);
     }
+  }, [myProfile, isEditModalOpen]);
 
-  }, []);
-
-  // SSR 단계이거나 하이드레이션 이전이면 스켈레톤만 렌더링
-  if (!isMounted) {
-    return <div className="pt-24 pb-32 px-6 min-h-screen animate-pulse bg-gray-50" />;
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditFormData(prev => ({ ...prev, profileImage: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+  // URL 기반으로 수정 모달 오픈 제어: /mypage?edit=true
+  useEffect(() => {
+    const shouldOpen = searchParams.get("edit") === "true";
+    if (!shouldOpen) {
+      hasHandledEditQueryRef.current = false;
+      return;
     }
-  };
+    if (hasHandledEditQueryRef.current) return;
+    if (!userData) return; // 프로필 로딩 전에는 오픈하지 않음
+    hasHandledEditQueryRef.current = true;
+    setIsEditModalOpen(true);
+  }, [searchParams, userData]);
 
-  const togglePreference = (genre: string) => {
-    setEditFormData(prev => ({
+  const togglePreference = (genreId: number) => {
+    setEditFormData((prev) => ({
       ...prev,
-      preferences: prev.preferences.includes(genre)
-        ? prev.preferences.filter(g => g !== genre)
-        : [...prev.preferences, genre]
+      preferences: prev.preferences.includes(genreId)
+        ? prev.preferences.filter((id) => id !== genreId)
+        : [...prev.preferences, genreId],
     }));
   };
 
+  function parseUserIdFromToken(token: string): number {
+    try {
+      const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const payload: { sub?: string } = JSON.parse(atob(base64));
+      return payload.sub ? parseInt(payload.sub, 10) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function getCurrentUserId(): number {
+    if (user?.id) return user.id;
+    if (typeof window === "undefined") return 0;
+    const token = localStorage.getItem("accessToken");
+    if (!token) return 0;
+    return parseUserIdFromToken(token);
+  }
+
+  const saveProfileMutation = useMutation({
+    mutationFn: async (): Promise<{ nickname: string; profileImageUrl: string }> => {
+      const uniqueTasteData = Array.from(new Set(editFormData.preferences));
+      const birthYearNum = Number(editFormData.birthday);
+
+      if (!Number.isFinite(birthYearNum)) throw new Error("Invalid birthYear");
+      if (!editFormData.nickname.trim()) throw new Error("Invalid nickname");
+      if (!editFormData.gender) throw new Error("Gender is required");
+
+      const finalNickname = editFormData.nickname.trim();
+      let finalProfileImageUrl = editFormData.profileImage;
+
+      if (profileImageFile) {
+        const ext = profileImageFile.name.split(".").pop() || "jpeg";
+        const uploadInfo = await getPresignedUrl(getCurrentUserId(), `.${ext}`);
+        await uploadImageToS3(uploadInfo.presignedUrl, profileImageFile, uploadInfo.contentType);
+        finalProfileImageUrl = uploadInfo.imageUrl;
+      }
+
+      await updateMyProfile({
+        nickname: finalNickname,
+        profileImageUrl: finalProfileImageUrl,
+        birthYear: birthYearNum,
+        gender: editFormData.gender as Gender,
+        tasteData: uniqueTasteData,
+      });
+
+      return { nickname: finalNickname, profileImageUrl: finalProfileImageUrl };
+    },
+    onSuccess: ({ nickname, profileImageUrl }) => {
+      // 헤더 즉시 반영 (zustand store 갱신)
+      updateUser({
+        nickname,
+        profileImageUrl: displayProfileImageUrl(profileImageUrl) ?? undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: userProfileQueryKey() });
+      setProfileImageFile(null);
+      setIsEditModalOpen(false);
+      addToast("프로필이 성공적으로 저장되었습니다.", "success");
+      // edit=true로 다시 열리는 현상 방지
+      router.replace("/mypage", { scroll: false });
+    },
+    onError: (err) => {
+      console.error(err);
+      addToast("프로필 저장에 실패했습니다. 다시 시도해주세요.", "error");
+    },
+  });
+
+  const deleteAccountMutation = useMutation<void, Error, void>({
+    mutationFn: deleteMyAccount,
+    onSuccess: () => {
+      logout();
+      router.push("/login");
+    },
+    onError: (err) => {
+      console.error(err);
+      addToast("회원 탈퇴 처리 중 오류가 발생했습니다.", "error");
+    },
+  });
+
   const saveProfile = () => {
-    const updatedData = { ...userData, ...editFormData } as UserData;
-    setUserData(updatedData);
-    localStorage.setItem('userData', JSON.stringify(updatedData));
-    setIsEditModalOpen(false);
+    if (!editFormData.nickname || editFormData.nickname.length < 2) {
+      addToast("닉네임은 2자 이상 입력해주세요.", "error");
+      return;
+    }
+    if (!editFormData.birthday || !editFormData.gender) {
+      addToast("출생년도와 성별을 선택해주세요.", "error");
+      return;
+    }
+    saveProfileMutation.mutate();
   };
 
-  const genres = ['문학(소설)', '에세이', '인문/철학', 'SF', '과학', '예술', '경제/경영', '자기계발'];
-  const itemsPerPage = 10; // 요구사항: 한 번에 최대 10권 (2줄)
+  const handleCancelEdit = () => {
+    hasHandledEditQueryRef.current = true;
+    setIsEditModalOpen(false);
+    setProfileImageFile(null);
+    if (userData) setEditFormData(userData);
+    // URL에서 edit 파라미터 제거 (뒤로가기/딥링크 상태 정리)
+    router.replace("/mypage", { scroll: false });
+  };
 
-  const wishlistTotalPages = Math.ceil(WISHLIST_BOOKS.length / itemsPerPage);
-  const currentWishlistBooks = WISHLIST_BOOKS.slice(
-    (wishlistPage - 1) * itemsPerPage,
-    wishlistPage * itemsPerPage
-  );
+  const handleDeleteAccount = async () => {
+    if (deleteAccountMutation.isPending) return;
+    const ok = confirm("정말 회원 탈퇴하시겠습니까?");
+    if (!ok) return;
+    try {
+      await deleteAccountMutation.mutateAsync();
+    } catch {
+      // onError에서 alert 처리
+    }
+  };
+
+  const itemsPerPage = 10; // 요구사항: 한 번에 최대 10권 (2줄)
+  const wishlistTotalElements = wishlistData?.totalElements ?? 0;
+  const wishlistTotalPages = Math.max(1, Math.ceil(wishlistTotalElements / itemsPerPage));
 
   const finishedBooks: Book[] = completedBooks.map((book) => ({
     bookId: book.bookId,
+    slug: book.slug,
     title: book.title,
     author: book.author,
     coverImageUrl: book.coverImageUrl,
     dateRead: book.completedAt,
   }));
+  const finishedTotalPages = Math.max(1, Math.ceil(finishedBooks.length / itemsPerPage));
 
-  const finishedTotalPages = Math.ceil(finishedBooks.length / itemsPerPage);
   const currentFinishedBooks = finishedBooks.slice(
     (finishedPage - 1) * itemsPerPage,
     finishedPage * itemsPerPage
   );
 
+  useEffect(() => {
+    setWishlistPage((prev) => Math.min(prev, wishlistTotalPages));
+  }, [wishlistTotalPages]);
+
+  useEffect(() => {
+    setFinishedPage((prev) => Math.min(prev, finishedTotalPages));
+  }, [finishedTotalPages]);
+
+  const hasTopLevelTasteData = (tasteReport?.topLevelGenres?.length ?? 0) > 0;
+  const hasSubTasteData = (tasteReport?.subGenres?.length ?? 0) > 0;
+
+  const MOCK_TOP_LEVEL_DATA = [
+    { genreName: "소설", count: 5 },
+    { genreName: "에세이", count: 3 },
+    { genreName: "과학", count: 2 },
+    { genreName: "경제", count: 2 },
+  ];
+  const TOP_LEVEL_COLORS = [
+    "#0033FF", // Brand Blue
+    "#111111", // Black
+    "#4D41FF", // Indigo
+    "#444444", // Dark Gray
+    "#0066FF", // Bright Blue
+    "#777777", // Medium Gray
+    "#3399FF", // Sky Blue
+    "#AAAAAA", // Light Gray
+    "#99CCFF", // Light Sky Blue
+    "#E5E7EB", // Very Light Gray
+  ];
+
+  const NOVEL_PERSONA_AXES = [
+    { dbName: "판타지/환상문학", label: "판타지" },
+    { dbName: "로맨스소설", label: "로맨스" },
+    { dbName: "호러.공포소설", label: "호러" },
+    { dbName: "액션/스릴러소설", label: "스릴러" },
+    { dbName: "과학소설(SF)", label: "SF" },
+    { dbName: "역사소설", label: "역사" },
+    { dbName: "추리/미스터리소설", label: "추리" },
+    { dbName: "무협소설", label: "무협" },
+  ];
+
+  /** 레이더: 실제 권수와 별도로, 얇게만 보이는 축을 방지(툴팁은 count 그대로) */
+  const RADAR_VISUAL_FLOOR = 0.2;
+
+  const topLevelWithColor = React.useMemo(
+    () =>
+      (tasteReport?.topLevelGenres ?? []).map((genre, index) => ({
+        ...genre,
+        color: TOP_LEVEL_COLORS[index % TOP_LEVEL_COLORS.length],
+      })),
+    [tasteReport?.topLevelGenres]
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    // 완독 목록이 갱신되면 티어/경험치도 같이 갱신되도록 프로필을 한 번 더 리프레시
+    queryClient.invalidateQueries({ queryKey: userProfileQueryKey() });
+    // 완독 목록 변경 시 취향 리포트도 즉시 최신화
+    queryClient.invalidateQueries({ queryKey: userTasteReportQueryKey() });
+  }, [isLoggedIn, finishedBooks.length, queryClient]);
+
+  useEffect(() => {
+    if (!authHydrated) return;
+    if (!isLoggedIn) router.replace("/");
+  }, [authHydrated, isLoggedIn, router]);
+
+  if (!authHydrated) {
+    return (
+      <div
+        className="min-h-[50vh] flex items-center justify-center px-6"
+        aria-busy="true"
+        aria-label="로딩 중"
+      />
+    );
+  }
+
+  if (!isLoggedIn) {
+    return null;
+  }
+
   return (
     <div className="pt-8 pb-32 px-6 md:px-12 max-w-7xl mx-auto animate-in fade-in duration-500">
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-16 items-start mb-24">
-        {/* Left Column: Profile & Stats */}
-        <div className="space-y-12">
-          {/* Profile Section */}
-          <section className="flex flex-col md:flex-row items-center md:items-start gap-8">
-            <div className="relative group cursor-pointer" onClick={() => setIsEditModalOpen(true)}>
+        {/* Profile Section (full width on lg) */}
+        <section className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:col-span-2">
+            <div
+              className="relative"
+            >
               <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-2 border-black shrink-0 bg-gray-50 flex items-center justify-center">
                 {userData?.profileImage ? (
                   <img src={userData.profileImage} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -125,284 +425,487 @@ export default function MyPageClient() {
                   <User size={48} className="text-gray-300" />
                 )}
               </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Camera size={24} className="text-white" />
-              </div>
             </div>
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row items-center gap-4 mb-3 justify-center md:justify-start">
+            <div className="flex-1 text-center md:text-left md:flex md:flex-col md:justify-center md:pt-4">
+              <div className="flex flex-col md:flex-row items-center gap-4 mb-2 justify-center md:justify-start">
                 <h2 className="text-2xl md:text-3xl font-black tracking-tight">{userData?.nickname || '텍스트힙스터'}</h2>
-                <span className="bg-black text-white px-3 py-1 text-[10px] md:text-xs font-bold uppercase tracking-widest shrink-0">LV.1 새싹독서가</span>
-              </div>
-              <div className="w-full max-w-sm bg-gray-100 h-2 rounded-full overflow-hidden mb-2 mx-auto md:mx-0">
-                <div className="bg-[#0033FF] h-full" style={{ width: '10%' }} />
-              </div>
-              <p className="text-[10px] md:text-xs text-gray-400 font-medium">다음 티어까지 5권 남았습니다.</p>
-            </div>
-          </section>
-
-          {/* Dashboard Stats */}
-          <section className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => {
-                document.getElementById('wishlist-section')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-black text-white p-6 md:p-8 aspect-[4/3] flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl"
-            >
-              <p className="text-gray-500 font-mono text-[10px] uppercase tracking-widest">찜한 권수</p>
-              <p className="text-3xl md:text-5xl font-black">
-                {WISHLIST_BOOKS.length}<span className="text-lg font-medium ml-1">권</span>
-              </p>
-            </button>
-            <button
-              onClick={() => {
-                document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="bg-[#4D41FF] text-white p-6 md:p-8 aspect-[4/3] flex flex-col justify-between text-left hover:bg-[#3d34e0] transition-colors rounded-xl"
-            >
-              <p className="text-white/60 font-mono text-[10px] uppercase tracking-widest">완독 권수</p>
-              <p className="text-3xl md:text-5xl font-black">
-                {finishedBooks.length}<span className="text-lg font-medium ml-1">권</span>
-              </p>
-            </button>
-          </section>
-        </div>
-
-        {/* Right Column: Taste Report */}
-        <section>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-black uppercase tracking-tight">TASTE REPORT</h3>
-            {selectedCategory && (
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="flex items-center gap-1 text-xs font-bold text-[#4D41FF] hover:underline"
-              >
-                <ArrowLeft size={14} />
-                대분류 보기
-              </button>
-            )}
-          </div>
-          <div className="bg-white border rounded-xl border-gray-100 p-4 aspect-square flex flex-col items-center justify-center shadow-sm">
-            <div className="w-full h-full">
-              <ResponsiveContainer width="100%" height="100%">
-                {selectedCategory === '문학(소설)' ? (
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={FICTION_SUB_CHART_DATA}>
-                    <PolarGrid stroke="#f0f0f0" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }} />
-                    <Radar name="Taste" dataKey="A" stroke="#4D41FF" strokeWidth={2} fill="#4D41FF" fillOpacity={0.15} />
-                  </RadarChart>
-                ) : (
-                  <BarChart
-                    data={MAIN_CHART_DATA}
-                    layout="vertical"
-                    margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
+                <div className="flex items-center gap-2 md:gap-4">
+                  <MyPageTierSection part="badge" tier={myProfile?.tier} />
+                  <button
+                    type="button"
+                    onClick={() => setTierRoadmapOpen(true)}
+                    aria-label="Rank Progression 안내"
+                    className="text-gray-300 hover:text-gray-600 transition-colors p-1 rounded-full"
                   >
-                    <XAxis type="number" hide />
-                    <YAxis
-                      dataKey="subject"
-                      type="category"
-                      tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
-                      width={80}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Bar
-                      dataKey="A"
-                      radius={[0, 4, 4, 0]}
-                      onClick={(data: any) => {
-                        if (data.subject === '문학(소설)') {
-                          setSelectedCategory('문학(소설)');
-                        }
-                      }}
-                    >
-                      {MAIN_CHART_DATA.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={entry.subject === '문학(소설)' ? '#4D41FF' : '#E5E7EB'}
-                          className={entry.subject === '문학(소설)' ? 'cursor-pointer hover:opacity-80' : ''}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
+                    <Info size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    aria-label="프로필 수정 열기"
+                    className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-500 hover:text-black hover:border-black transition-colors cursor-pointer"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
+              </div>
+              <MyPageTierSection part="progress" tier={myProfile?.tier} />
+              <MyPageTierSection part="message" tier={myProfile?.tier} />
             </div>
-            {selectedCategory === '문학(소설)' && (
-              <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                문학(소설) 소분류 취향 분석
-              </p>
-            )}
-            {!selectedCategory && (
-              <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                카테고리를 클릭하여 상세 분석을 확인하세요
-              </p>
-            )}
+          </section>
+
+        {/* Taste Reports (left column) */}
+        <section className="h-full min-h-0 min-w-0 flex flex-col">
+          <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+            <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
+              TASTE REPORTS
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-w-0 min-h-0">
+            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm min-w-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm md:text-base font-extrabold tracking-tight">나의 독서 스펙트럼</h3>
+              </div>
+
+              <div className="w-full min-w-0 max-w-full">
+                {isTasteReportLoading ? (
+                  <div
+                    className="w-full rounded-lg bg-gray-50 animate-pulse"
+                    style={{ height: TASTE_CHART_HEIGHT_PX }}
+                  />
+                ) : !hasTopLevelTasteData ? (
+                  <div
+                    className="relative w-full rounded-lg overflow-hidden border border-gray-100"
+                    style={{ minHeight: TASTE_CHART_HEIGHT_PX }}
+                  >
+                    <div className="opacity-35 blur-[1.5px] pointer-events-none">
+                      <TasteChartSlot>
+                        {({ width, height }) => (
+                          <PieChart width={width} height={height}>
+                            <Pie
+                              data={MOCK_TOP_LEVEL_DATA}
+                              dataKey="count"
+                              nameKey="genreName"
+                              innerRadius="38%"
+                              outerRadius="88%"
+                              startAngle={90}
+                              endAngle={-270}
+                              paddingAngle={2}
+                              isAnimationActive={false}
+                            >
+                              {MOCK_TOP_LEVEL_DATA.map((g, idx) => (
+                                <Cell
+                                  key={`${g.genreName}-${idx}`}
+                                  fill={TOP_LEVEL_COLORS[idx % TOP_LEVEL_COLORS.length]}
+                                />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        )}
+                      </TasteChartSlot>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-center px-6">
+                      <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
+                        아직 완독한 책이 없어 리포트를 준비 중이에요
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <TasteChartSlot className="rounded-lg">
+                    {({ width, height }) => (
+                      <PieChart width={width} height={height}>
+                        <Pie
+                          data={topLevelWithColor}
+                          dataKey="count"
+                          nameKey="genreName"
+                          innerRadius="30%"
+                          outerRadius="85%"
+                          startAngle={90}
+                          endAngle={-270}
+                          paddingAngle={2}
+                          isAnimationActive={false}
+                        >
+                          {topLevelWithColor.map((g) => {
+                            return (
+                              <Cell
+                                key={g.genreId}
+                                fill={g.color}
+                              />
+                            );
+                          })}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: any, name: any, props: any) => {
+                            const count = typeof value === "number" ? value : Number(value);
+                            const percent = props?.payload?.percentage;
+                            const percentText =
+                              typeof percent === "number" ? ` (${percent.toFixed(1)}%)` : "";
+                            return [`${count}권${percentText}`, name];
+                          }}
+                        />
+                      </PieChart>
+                    )}
+                  </TasteChartSlot>
+                )}
+              </div>
+              {!isTasteReportLoading && hasTopLevelTasteData && (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                  {topLevelWithColor.map((genre) => (
+                    <div key={`legend-${genre.genreId}`} className="flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: genre.color }}
+                        />
+                        <span className="font-semibold text-gray-700 truncate">{genre.genreName}</span>
+                      </div>
+                      <span className="text-gray-500 font-semibold shrink-0 ml-2">
+                        {genre.count}권 ({genre.percentage.toFixed(0)}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border rounded-xl border-gray-100 p-4 shadow-sm min-w-0">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm md:text-base font-extrabold tracking-tight">문학적 페르소나</h3>
+              </div>
+
+              <div className="w-full min-w-0 max-w-full">
+                {isTasteReportLoading ? (
+                  <div
+                    className="w-full rounded-lg bg-gray-50 animate-pulse"
+                    style={{ height: TASTE_CHART_HEIGHT_PX }}
+                  />
+                ) : !hasTopLevelTasteData ? (
+                  <div
+                    className="relative w-full rounded-lg overflow-hidden border border-gray-100"
+                    style={{ minHeight: TASTE_CHART_HEIGHT_PX }}
+                  >
+                    <div className="opacity-35 blur-[1.5px] pointer-events-none">
+                      <TasteChartSlot>
+                        {({ width, height }) => {
+                          const mockCounts = [5, 3, 4, 2, 5, 3, 2, 4];
+                          const mockRadarData = NOVEL_PERSONA_AXES.map((axis, index) => ({
+                            subject: axis.label,
+                            count: mockCounts[index % mockCounts.length],
+                            fullMark: 5,
+                          }));
+                          return (
+                            <RadarChart
+                              width={width}
+                              height={height}
+                              cx="50%"
+                              cy="50%"
+                              outerRadius="70%"
+                              data={mockRadarData}
+                            >
+                              <PolarGrid stroke="#f0f0f0" />
+                              <PolarAngleAxis
+                                dataKey="subject"
+                                tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                              />
+                              <Radar
+                                name="완독 수"
+                                dataKey="count"
+                                stroke="#0033FF"
+                                strokeWidth={2}
+                                fill="#0033FF"
+                                fillOpacity={0.15}
+                                isAnimationActive={false}
+                              />
+                            </RadarChart>
+                          );
+                        }}
+                      </TasteChartSlot>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center text-center px-6">
+                      <p className="text-xs font-bold text-gray-500 break-keep bg-white/80 px-3 py-2 rounded-lg">
+                        데이터가 쌓이면 문학적 페르소나를 보여드릴게요
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <TasteChartSlot className="rounded-lg">
+                    {({ width, height }) => (
+                      <RadarChart
+                        width={width}
+                        height={height}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius="70%"
+                        data={(() => {
+                          const statMap = new Map(
+                            (tasteReport?.subGenres ?? []).map((s) => [s.genreName, s])
+                          );
+                          const axisData = NOVEL_PERSONA_AXES.map((axis) => {
+                            const stat = statMap.get(axis.dbName);
+                            return {
+                              subject: axis.label,
+                              count: stat?.count ?? 0,
+                            };
+                          });
+
+                          const maxCount = Math.max(...axisData.map((d) => d.count), 0);
+                          const fullMark = Math.max(maxCount + RADAR_VISUAL_FLOOR, 5);
+
+                          return axisData.map((d) => ({
+                            ...d,
+                            displayCount: d.count + RADAR_VISUAL_FLOOR,
+                            fullMark,
+                          }));
+                        })()}
+                      >
+                        <PolarGrid stroke="#f0f0f0" />
+                        <PolarAngleAxis
+                          dataKey="subject"
+                          tick={{ fill: '#111', fontSize: 10, fontWeight: 'bold' }}
+                        />
+                        <Radar
+                          name="완독 수"
+                          dataKey="displayCount"
+                          stroke="#0033FF"
+                          strokeWidth={2}
+                          fill="#0033FF"
+                          fillOpacity={0.15}
+                          isAnimationActive={false}
+                        />
+                        <Tooltip
+                          formatter={(value: any, _name: any, item: any) => {
+                            const real = item?.payload?.count;
+                            const count =
+                              typeof real === "number" ? real : typeof value === "number" ? value : Number(value);
+                            return [`${Number.isFinite(count) ? Math.round(count) : 0}권`, "완독 수"];
+                          }}
+                        />
+                      </RadarChart>
+                    )}
+                  </TasteChartSlot>
+                )}
+              </div>
+
+              {!isTasteReportLoading && hasTopLevelTasteData && !hasSubTasteData && (
+                <p className="mt-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  소설 완독 데이터가 아직 없어요
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Right Column: Small Stats */}
+        <section className="h-full flex flex-col space-y-4">
+          <div className="flex justify-between items-end mb-6 border-b-2 border-black pb-4">
+            <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">
+              STATS
+            </h3>
+          </div>
+
+          <div className="flex-1 w-full">
+            <div className="h-full flex flex-col gap-4">
+              <button
+                onClick={() => {
+                  document.getElementById('wishlist-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="flex-1 bg-black text-white p-5 flex flex-col justify-between text-left hover:bg-gray-900 transition-colors rounded-xl cursor-pointer"
+              >
+                <p className="text-white/80 text-sm md:text-base font-extrabold tracking-tight">찜한 권수</p>
+                <p className="text-right text-4xl md:text-5xl font-black leading-none">
+                  {wishlistData?.totalElements ?? 0}<span className="text-base md:text-lg font-bold ml-1">권</span>
+                </p>
+              </button>
+
+              <button
+                onClick={() => {
+                  document.getElementById('completed-section')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="flex-1 bg-[#0033FF] text-white p-5 flex flex-col justify-between text-left hover:bg-[#0028CC] transition-colors rounded-xl cursor-pointer"
+              >
+                <p className="text-white/85 text-sm md:text-base font-extrabold tracking-tight">완독 권수</p>
+                <p className="text-right text-4xl md:text-5xl font-black leading-none">
+                  {myProfile?.completedCount ?? 0}
+                  <span className="text-base md:text-lg font-bold ml-1">권</span>
+                </p>
+              </button>
+            </div>
           </div>
         </section>
       </div>
 
       {/* Wishlist Section */}
       <section id="wishlist-section" className="mt-24 scroll-mt-24">
-        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4 gap-3">
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">Wishlist</h3>
+          {wishlistTotalElements > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setWishlistPage((prev) => Math.max(1, prev - 1))}
+                disabled={wishlistPage <= 1}
+                aria-label="찜 목록 이전 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold tracking-widest text-gray-500 min-w-[68px] text-center">
+                {wishlistPage} / {wishlistTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setWishlistPage((prev) => Math.min(wishlistTotalPages, prev + 1))}
+                disabled={wishlistPage >= wishlistTotalPages}
+                aria-label="찜 목록 다음 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {currentWishlistBooks.map((book) => (
-            <div key={book.bookId} className="group cursor-pointer">
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
-                <img
-                  src={book.coverImageUrl}
-                  alt={book.title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{book.title}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {isWishlistFetched && (wishlistData?.totalElements ?? 0) === 0 ? (
+          <div className="py-16 px-4 bg-white border border-gray-100 rounded-xl text-center">
+            <p className="text-sm font-black tracking-tight">아직 찜한 도서가 없어요.</p>
+            <p className="mt-2 text-xs text-gray-400 font-medium break-keep">
+              읽고 싶은 책을 검색해 찜해두면 나중에 쉽게 다시 찾을 수 있어요.
+            </p>
+            <Link
+              href="/?openSearch=1"
+              onClick={() => {
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+              }}
+              className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
+            >
+              도서 검색하고 찜하기
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {wishlistItems.map((item: any) => (
+              <Link key={item.bookId} href={`/books/${item.slug}`} className="group block">
+                <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
+                  <img
+                    src={item.coverImageUrl}
+                    alt={item.title}
+                    className="w-full h-full object-cover transition-all duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{formatBookContent(item.title)}</h4>
+                  <p className="text-[10px] font-medium text-gray-400">{item.author}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* COMPLETED Books Section */}
       <section id="completed-section" className="mt-24 scroll-mt-24">
-        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-end mb-8 border-b-2 border-black pb-4 gap-3">
           <h3 className="text-3xl md:text-4xl font-black tracking-tight uppercase">COMPLETED Books</h3>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
-          {currentFinishedBooks.map((book) => (
-            <Link
-              key={book.bookId}
-              href={`/books/${book.bookId}`}
-              className="group block"
-            >
-              <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
-                <img
-                  src={book.coverImageUrl}
-                  alt={book.title}
-                  className="w-full h-full object-cover transition-all duration-500"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">{book.title}</h4>
-                <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* Edit Profile Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
-          <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-black uppercase tracking-tight">Edit Profile</h3>
-              <button onClick={() => setIsEditModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                <X size={20} />
+          {finishedBooks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFinishedPage((prev) => Math.max(1, prev - 1))}
+                disabled={finishedPage <= 1}
+                aria-label="완독 목록 이전 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-bold tracking-widest text-gray-500 min-w-[68px] text-center">
+                {finishedPage} / {finishedTotalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFinishedPage((prev) => Math.min(finishedTotalPages, prev + 1))}
+                disabled={finishedPage >= finishedTotalPages}
+                aria-label="완독 목록 다음 페이지"
+                className="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
               </button>
             </div>
+          )}
+        </div>
 
-            <div className="p-8 overflow-y-auto space-y-8">
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative group">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-black bg-gray-50 flex items-center justify-center">
-                    {editFormData.profileImage ? (
-                      <img src={editFormData.profileImage} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <User size={40} className="text-gray-300" />
-                    )}
-                  </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 p-2 bg-black text-white rounded-full shadow-lg hover:bg-[#4D41FF] transition-colors"
-                  >
-                    <Camera size={14} />
-                  </button>
-                  <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">닉네임</label>
-                  <input
-                    type="text"
-                    value={editFormData.nickname}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, nickname: e.target.value }))}
-                    className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all"
-                    placeholder="닉네임을 입력하세요"
+        {finishedBooks.length === 0 ? (
+          <div className="py-16 px-4 bg-white border border-gray-100 rounded-xl text-center">
+            <p className="text-sm font-black tracking-tight">아직 완독한 도서가 없어요.</p>
+            <p className="mt-2 text-xs text-gray-400 font-medium break-keep">
+              완독 도서를 추가하고 나만의 티어를 올려보세요.
+            </p>
+            <Link
+              href="/?openSearch=1"
+              onClick={() => {
+                const q = searchParams.toString();
+                setSearchOverlayReturnTo(q ? `${pathname}?${q}` : pathname);
+              }}
+              className="inline-flex mt-6 items-center justify-center px-6 py-3 bg-black text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-[#0033FF] transition-colors"
+            >
+              완독 도서 추가하러 가기
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-10">
+            {currentFinishedBooks.map((book) => (
+              <Link
+                key={book.bookId}
+                href={`/books/${book.slug}`}
+                className="group block"
+              >
+                <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden rounded-lg shadow-sm group-hover:shadow-md transition-all group-hover:-translate-y-1">
+                  <img
+                    src={book.coverImageUrl}
+                    alt={book.title}
+                    className="w-full h-full object-cover transition-all duration-500"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">성별</label>
-                    <select
-                      value={editFormData.gender}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, gender: e.target.value }))}
-                      className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all appearance-none"
-                    >
-                      <option value="">선택 안함</option>
-                      <option value="male">남성</option>
-                      <option value="female">여성</option>
-                      <option value="other">기타</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">생일</label>
-                    <input
-                      type="date"
-                      value={editFormData.birthday}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, birthday: e.target.value }))}
-                      className="w-full p-4 bg-gray-50 border-none rounded-xl font-bold focus:ring-2 focus:ring-black transition-all"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-sm leading-tight line-clamp-2 group-hover:text-[#4D41FF] transition-colors">
+                    {formatBookContent(book.title)}
+                  </h4>
+                  <p className="text-[10px] font-medium text-gray-400">{book.author}</p>
                 </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">선호 장르 (다중 선택)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {genres.map((genre) => (
-                      <button
-                        key={genre}
-                        onClick={() => togglePreference(genre)}
-                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${editFormData.preferences.includes(genre)
-                            ? 'bg-black text-white'
-                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                          }`}
-                      >
-                        {genre}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                className="flex-1 py-4 bg-gray-100 text-gray-500 font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                취소
-              </button>
-              <button
-                onClick={saveProfile}
-                className="flex-1 py-4 bg-black text-white font-black uppercase tracking-widest rounded-xl hover:bg-[#4D41FF] transition-colors"
-              >
-                저장하기
-              </button>
-            </div>
+              </Link>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </section>
+
+      <TierRoadmapModal
+        open={tierRoadmapOpen}
+        onClose={() => setTierRoadmapOpen(false)}
+        completedCount={myProfile?.completedCount ?? 0}
+        currentTierName={myProfile?.tier?.tierName ?? null}
+      />
+
+      {/* Edit Profile Modal */}
+      <MyPageEditModal
+        isOpen={isEditModalOpen}
+        onClose={handleCancelEdit}
+        onSave={saveProfile}
+        onDeleteAccount={handleDeleteAccount}
+        isSavePending={saveProfileMutation.isPending}
+        isDeletePending={deleteAccountMutation.isPending}
+        editFormData={editFormData}
+        setEditFormData={setEditFormData}
+        profileImageFile={profileImageFile}
+        setProfileImageFile={setProfileImageFile}
+        togglePreference={togglePreference}
+        isGenresLoading={isGenresLoading}
+        isGenresError={isGenresError}
+        mainGenres={mainGenres}
+        novelSubGenres={novelSubGenres}
+      />
     </div>
   );
 }

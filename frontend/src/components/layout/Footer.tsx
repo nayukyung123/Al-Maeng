@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { Mail } from "lucide-react";
+import { Instagram } from "lucide-react";
 
-/** 저작권/법적 링크 목록 */
-const LEGAL_LINKS = [
-  { label: "Privacy", href: "/privacy", external: false },
-  { label: "Terms", href: "/terms", external: false },
-  { label: "Instagram", href: "https://www.instagram.com", external: true },
-] as const;
+const INSTAGRAM_URL =
+  "https://www.instagram.com/al._.maeng?igsh=a3BwejJscXNnaDN0";
+
+const TMDB_URL = "https://www.themoviedb.org/?language=ko";
 
 export default function Footer() {
   return (
@@ -28,12 +26,14 @@ export default function Footer() {
             </Link>
             <span className="w-px h-4 bg-black/10" aria-hidden="true" />
             <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
-              알맹이 팀
+              TEAM. 알맹이
             </span>
           </div>
-          <p className="text-[11px] font-medium text-gray-400 leading-relaxed max-w-md">
+          <p className="max-w-md text-[11px] font-medium leading-relaxed text-gray-400">
             우리는 당신의 독서 취향을 발견하고, 소중한 독서의 순간을 기록하는
-            공간을 만듭니다. 모든 책의 알맹이를 찾아 떠나는 여정에 함께하세요.
+            공간을 만듭니다.
+            <br />
+            모든 책의 알맹이를 찾아 떠나는 여정에 함께하세요.
           </p>
         </section>
 
@@ -43,72 +43,60 @@ export default function Footer() {
           aria-label="데이터 출처 및 연락처"
         >
           {/* 데이터 출처 */}
-          <section aria-label="도서 데이터 출처">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">
+          <section aria-label="데이터 출처">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300">
               Data Source
             </p>
-            <p className="text-xs font-medium text-gray-500">
-              도서 DB 제공 :{" "}
+            <div className="flex flex-col items-end gap-1.5 text-xs font-medium text-gray-500">
               <Link
                 href="https://www.aladin.co.kr"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="알라딘 인터넷서점 새 탭으로 열기"
-                className="hover:text-[#0033FF] underline underline-offset-4 decoration-black/10 hover:decoration-[#0033FF] transition-all"
+                className="underline decoration-black/10 underline-offset-4 transition-all hover:text-[#0033FF] hover:decoration-[#0033FF]"
               >
                 알라딘 인터넷서점(www.aladin.co.kr)
               </Link>
-            </p>
+              <Link
+                href={TMDB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="The Movie Database 새 탭으로 열기"
+                className="underline decoration-black/10 underline-offset-4 transition-all hover:text-[#0033FF] hover:decoration-[#0033FF]"
+              >
+                TMDB: The Movie Database
+              </Link>
+            </div>
           </section>
 
-          {/* 연락처 */}
-          <section aria-label="연락처">
+          {/* SNS */}
+          <section aria-label="인스타그램">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-300 mb-1">
-              Contact & Support
+              Contact
             </p>
             <Link
-              href="mailto:contact@al-maeng.com"
-              aria-label="이메일로 문의하기"
-              className="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-[#0033FF] transition-colors group"
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram @al._.maeng 새 탭으로 열기"
+              className="group flex items-center gap-2 text-xs font-medium text-gray-500 transition-colors hover:text-[#0033FF]"
             >
-              <Mail
+              <Instagram
                 size={14}
                 aria-hidden="true"
                 className="text-gray-300 group-hover:text-[#0033FF]"
               />
-              <span>contact@al-maeng.com</span>
+              <span>@al._.maeng</span>
             </Link>
           </section>
         </aside>
       </div>
 
-      {/* ── 하단 바: 저작권 & 법적 링크 ── */}
-      <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-black/5 flex justify-between items-center">
+      {/* ── 하단 바: 저작권 ── */}
+      <div className="mx-auto mt-12 max-w-7xl border-t border-black/5 pt-8">
         <small className="text-[10px] font-bold uppercase tracking-widest text-gray-300">
           © 2026 AL-MAENG TEAM. ALL RIGHTS RESERVED.
         </small>
-
-        <nav aria-label="법적 링크">
-          <ul className="flex gap-6 list-none">
-            {LEGAL_LINKS.map((item) => (
-              <li key={item.label}>
-                <Link
-                  href={item.href}
-                  target={item.external ? "_blank" : undefined}
-                  rel={item.external ? "noopener noreferrer" : undefined}
-                  aria-label={
-                    item.external
-                      ? `${item.label} 새 탭으로 열기`
-                      : item.label
-                  }
-                  className="text-[10px] font-bold uppercase tracking-widest text-gray-300 hover:text-black transition-colors"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
       </div>
     </footer>
   );

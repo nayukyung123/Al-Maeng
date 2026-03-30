@@ -27,7 +27,7 @@ services:
     restart: always
     command: redis-server --save 60 1 --loglevel warning
     volumes:
-      - ./prod-redis-data:/data
+      - redis_data:/data
     networks:
       - almaeng-network
 
@@ -71,6 +71,7 @@ services:
         - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
         - NEXT_PUBLIC_KAKAO_CLIENT_ID=${NEXT_PUBLIC_KAKAO_CLIENT_ID}
         - NEXT_PUBLIC_NAVER_CLIENT_ID=${NEXT_PUBLIC_NAVER_CLIENT_ID}
+        - NEXT_PUBLIC_GTM_ID=${NEXT_PUBLIC_GTM_ID}
     container_name: almaeng-frontend-prod
     restart: always
     environment:
@@ -103,3 +104,6 @@ services:
 networks:
   almaeng-network:
     driver: bridge
+
+volumes:
+  redis_data:

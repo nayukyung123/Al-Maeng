@@ -2,11 +2,21 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ArrowRight, X } from "lucide-react";
+import { Search, ArrowLeft, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "motion/react";
 import { fetchBookSuggestions, fetchKeywordRankings } from "@/api/books";
 import type { BookSuggestion } from "@/types/home";
+import BookSearchSuggestions from "@/components/search/BookSearchSuggestions";
+import {
+  clearSearchOverlayReturnTo,
+  consumeSearchOverlayReturnTo,
+} from "@/lib/searchOverlayReturn";
+import {
+  MAX_SEARCH_KEYWORD_LENGTH,
+  SEARCH_KEYWORD_LENGTH_HINT,
+  clampSearchKeyword,
+} from "@/lib/searchKeyword";
 
 interface SearchSectionProps {
   /** 스크롤 감지 후 부모에서 주입 — true일 때 하단 플로팅 버튼 표시 */
@@ -40,14 +50,22 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Header 로고 클릭 시 발행되는 이벤트 수신 → 오버레이 닫기
+  // Header 로고 클릭 시 발행되는 이벤트 수신 → 오버레이 닫기 (복귀 경로는 버림)
   useEffect(() => {
     const handleClose = () => {
       setIsSearchOpen(false);
       setSearchQuery("");
+      clearSearchOverlayReturnTo();
     };
     window.addEventListener("closeSearchOverlay", handleClose);
     return () => window.removeEventListener("closeSearchOverlay", handleClose);
+  }, []);
+
+  // 마이페이지·티켓 등에서 홈 검색 오버레이와 동일한 UI로 열기
+  useEffect(() => {
+    const handleOpen = () => setIsSearchOpen(true);
+    window.addEventListener("openSearchOverlay", handleOpen);
+    return () => window.removeEventListener("openSearchOverlay", handleOpen);
   }, []);
 
   // 🟢 자동완성 — GET /api/books/suggestions
@@ -67,15 +85,20 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
   });
 
   const handleSearchSubmit = (query: string) => {
-    if (!query.trim()) return;
+    const q = clampSearchKeyword(query.trim());
+    if (!q) return;
     setIsSearchOpen(false);
     setSearchQuery("");
-    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    clearSearchOverlayReturnTo();
+    router.push(`/search?q=${encodeURIComponent(q)}`);
   };
 
+  /** 닫기(X): 다른 페이지에서 열었으면 그 페이지로 복귀 */
   const handleClose = () => {
     setIsSearchOpen(false);
     setSearchQuery("");
+    const back = consumeSearchOverlayReturnTo();
+    if (back) router.push(back);
   };
 
   const showSuggestions = debouncedQuery.trim().length > 0 && suggestions.length > 0;
@@ -89,10 +112,10 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
             type="text"
             readOnly
             placeholder="어떤 텍스트를 찾고 있나요?"
-            className="w-full border-b-2 border-black py-4 pl-2 pr-12 text-xl md:text-2xl font-medium focus:outline-none cursor-pointer placeholder:text-gray-300"
+            className="w-full cursor-pointer border-b-2 border-black py-3 pl-2 pr-11 text-lg font-medium placeholder:text-gray-300 focus:outline-none md:py-3.5 md:text-xl md:pr-12"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 text-black">
-            <Search size={28} aria-hidden="true" />
+            <Search size={24} aria-hidden="true" />
           </div>
         </div>
       </div>
@@ -126,20 +149,20 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-white z-[35] pt-24 md:pt-32 px-6 md:px-12"
+            className="fixed inset-0 z-[35] bg-white px-6 pt-20 md:px-12 md:pt-24"
           >
-            <div className="max-w-7xl mx-auto relative h-full">
-              {/* 닫기 버튼 */}
+            <div className="relative mx-auto h-full max-w-7xl">
+              {/* 뒤로가기 — 오버레이 닫기 (입력 지우기 X와 구분) */}
               <button
                 type="button"
                 onClick={handleClose}
                 aria-label="검색 닫기"
-                className="absolute right-0 top-4 p-2 hover:bg-gray-100 rounded-full transition-colors z-50"
+                className="absolute left-0 top-2 z-50 rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-black"
               >
-                <X size={32} strokeWidth={1.5} aria-hidden="true" />
+                <ArrowLeft size={26} strokeWidth={2} aria-hidden="true" />
               </button>
 
-              <div className="mt-20 md:mt-32 max-w-5xl mx-auto">
+              <div className="mx-auto mt-10 max-w-3xl pl-10 md:mt-16 md:pl-11">
                 {/* 검색 입력 */}
                 <div className="relative group">
                   <input
@@ -147,77 +170,68 @@ export default function SearchSection({ isSearchFixed }: SearchSectionProps) {
                     type="text"
                     autoFocus
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearchSubmit(searchQuery)}
+                    maxLength={MAX_SEARCH_KEYWORD_LENGTH}
+                    onChange={(e) =>
+                      setSearchQuery(clampSearchKeyword(e.target.value))
+                    }
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleSearchSubmit(searchQuery)
+                    }
                     placeholder="Type a keyword, author, or text"
                     aria-label="도서 검색어 입력"
-                    className="w-full bg-transparent border-b border-[#0033FF]/30 py-6 pr-16 text-4xl md:text-7xl font-serif italic font-light focus:outline-none focus:border-[#0033FF] transition-colors placeholder:text-gray-200"
+                    aria-describedby={
+                      searchQuery.length >= MAX_SEARCH_KEYWORD_LENGTH
+                        ? "home-search-keyword-length-hint"
+                        : undefined
+                    }
+                    className="w-full border-b border-[#0033FF]/30 bg-transparent py-3 pr-12 font-serif text-xl font-light italic transition-colors placeholder:text-gray-200 focus:border-[#0033FF] focus:outline-none md:py-4 md:text-2xl md:pr-14"
                   />
                   {searchQuery && (
                     <button
                       type="button"
                       onClick={() => setSearchQuery("")}
                       aria-label="검색어 지우기"
-                      className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-gray-300 hover:text-black transition-colors"
+                      className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-gray-300 transition-colors hover:text-black"
                     >
-                      <X size={32} aria-hidden="true" />
+                      <X size={22} aria-hidden="true" />
                     </button>
                   )}
 
-                  {/* 자동완성 드롭다운 */}
-                  <AnimatePresence>
-                    {showSuggestions && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        role="listbox"
-                        aria-label="검색 자동완성"
-                        className="absolute top-full left-0 right-0 bg-white border border-gray-100 shadow-2xl mt-4 rounded-sm overflow-hidden z-[60]"
-                      >
-                        {suggestions.map((book) => (
-                          <div
-                            key={book.bookId}
-                            role="option"
-                            aria-selected="false"
-                            onClick={() => handleSearchSubmit(book.title)}
-                            className="px-8 py-6 hover:bg-gray-50 cursor-pointer flex items-center justify-between group border-b border-gray-50 last:border-0"
-                          >
-                            <div className="flex flex-col">
-                              <span className="text-2xl font-bold group-hover:text-[#0033FF] transition-colors">
-                                {book.title}
-                              </span>
-                              <span className="text-lg text-gray-400">{book.author}</span>
-                            </div>
-                            <ArrowRight
-                              size={24}
-                              aria-hidden="true"
-                              className="text-gray-300 group-hover:text-[#0033FF] transition-colors"
-                            />
-                          </div>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  <BookSearchSuggestions
+                    variant="overlay"
+                    show={showSuggestions}
+                    suggestions={suggestions}
+                    onPickTitle={handleSearchSubmit}
+                  />
                 </div>
 
+                {searchQuery.length >= MAX_SEARCH_KEYWORD_LENGTH && (
+                  <p
+                    id="home-search-keyword-length-hint"
+                    className="mt-3 text-sm font-medium text-red-600"
+                    role="status"
+                  >
+                    {SEARCH_KEYWORD_LENGTH_HINT}
+                  </p>
+                )}
+
                 {/* 실시간 검색어 */}
-                <div className="mt-16">
-                  <h4 className="text-sm font-black text-[#0033FF] uppercase tracking-[0.3em] mb-8">
+                <div className="mt-10 md:mt-12">
+                  <h4 className="mb-5 text-xs font-black uppercase tracking-[0.3em] text-[#0033FF] md:mb-6">
                     실시간 검색어
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                  <div className="grid grid-cols-1 gap-y-1 gap-x-8 md:grid-cols-2 md:gap-y-2">
                     {trendingKeywords.map((keyword, idx) => (
                       <button
                         key={keyword}
                         type="button"
                         onClick={() => handleSearchSubmit(keyword)}
-                        className="flex items-center gap-6 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors group text-left"
+                        className="group flex items-center gap-4 border-b border-gray-50 py-2.5 text-left transition-colors hover:bg-gray-50 md:gap-5 md:py-3"
                       >
-                        <span className="text-2xl font-serif italic text-gray-300 group-hover:text-[#0033FF] transition-colors w-8">
+                        <span className="w-6 font-serif text-lg italic text-gray-300 transition-colors group-hover:text-[#0033FF] md:text-xl">
                           {idx + 1}
                         </span>
-                        <span className="text-xl font-bold text-gray-600 group-hover:text-black transition-colors">
+                        <span className="text-base font-bold text-gray-600 transition-colors group-hover:text-black md:text-lg">
                           {keyword}
                         </span>
                       </button>

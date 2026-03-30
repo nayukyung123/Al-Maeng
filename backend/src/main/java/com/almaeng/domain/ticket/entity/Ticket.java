@@ -49,4 +49,8 @@ public class Ticket {
         this.ticketImageUrl = ticketImageUrl;
         this.styleData = styleData;
     }
+
+    public void updateStyleData(StyleData styleData) {
+        this.styleData = styleData;
+    }
 }

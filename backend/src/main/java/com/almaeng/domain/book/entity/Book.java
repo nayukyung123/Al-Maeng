@@ -61,4 +61,9 @@ public class Book {
     @Builder.Default
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookGenre> bookGenres = new ArrayList<>();
+
+    // 평점 업데이트 메서드 (JPA 더티체킹용)
+    public void updateAverageRating(Double newAverageRating) {
+        this.averageRating = newAverageRating != null ? newAverageRating : 0.0;
+    }
 }

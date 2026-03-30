@@ -18,6 +18,10 @@ import CurationResultStep, {
  * - step 3 : CurationResultStep (추천 결과 렌더링)
  *
  * 단계 간 공유 상태는 모두 useDiscoverStore(Zustand)에서 관리
+ *
+ * 언마운트 시 reset 하지 않는다. 도서 상세 등으로 이동했다가 브라우저 뒤로가기로
+ * /discover 돌아올 때 step·큐레이션 결과가 유지되도록 유지한다.
+ * 초기화는 화면의「다시 찾기」「처음부터 다시 찾기」에서만 수행한다.
  */
 export default function TasteDiscoveryFlow() {
   const step = useDiscoverStore((s) => s.step);
