@@ -20,6 +20,10 @@ public class MattermostSender {
         if (!mmProperties.isEnabled()) {
             return;
         }
+        String webhookUrl = mmProperties.getWebhookUrl();
+        if (webhookUrl == null || webhookUrl.isBlank()) {
+            return;
+        }
 
         try {
             MattermostMessageDto.Attachment attachment = MattermostMessageDto.Attachment.builder()
@@ -43,7 +47,7 @@ public class MattermostSender {
 
             HttpEntity<MattermostMessageDto.Attachments> entity = new HttpEntity<>(payload, headers);
 
-            restTemplate.postForEntity(mmProperties.getWebhookUrl(), entity, String.class);
+            restTemplate.postForEntity(webhookUrl, entity, String.class);
             log.info("Mattermost error notification sent successfully.");
 
         } catch (Exception e) {
